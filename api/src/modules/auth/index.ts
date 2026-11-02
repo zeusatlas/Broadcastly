@@ -11,10 +11,14 @@ export {
 } from './auth_middleware';
 export { createExecutiveSchema } from './auth_schemas';
 export {
+  EXECUTIVE_STATUSES,
   PERMISSIONS,
   USER_ROLES,
   type AccessContext,
+  type ActionActor,
   type CreateExecutiveRequest,
+  type ExecutiveStatus,
+  type ManageableExecutiveStatus,
   type Permission,
   type UserRole,
 } from './auth_types';

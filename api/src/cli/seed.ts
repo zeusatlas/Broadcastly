@@ -3,30 +3,52 @@ import 'reflect-metadata';
 import { dataSource } from '../config/database';
 import { isProduction } from '../config/env';
 import { initializeDatabase } from '../database/initialize_database';
-import { authService, createExecutiveSchema } from '../modules/auth';
+import { newExecutiveSchema, platformService } from '../modules/platform';
 
-// `npm run seed` — development data: one constituency chairman with an active appointment.
-// Safe to re-run: each record is looked up first and only created when missing.
+// `npm run seed` — development data, created through the same services the API uses:
+// a platform admin (web) and a constituency with its chairman (mobile). Safe to re-run.
 
-const CHAIRMAN = createExecutiveSchema.parse({
-  role: 'constituency_chairman',
+// Parsed like an API request, so phones are stored in E.164 and emails lowercased.
+const ADMIN = newExecutiveSchema.parse({
+  firstName: 'Ama',
+  lastName: 'Owusu',
+  email: 'admin.test@example.com',
+  phone: '0201234567',
+  dateOfBirth: '1985-06-10',
+});
+const CONSTITUENCY = 'Central Constituency';
+const CHAIRMAN = newExecutiveSchema.parse({
   firstName: 'Kwame',
   lastName: 'Mensah',
   email: 'chairman.test@example.com',
   phone: '0241234567',
   dateOfBirth: '1980-01-15',
 });
-const UNIT = { type: 'constituency', name: 'Central Constituency' };
-const POSITION = { title: 'Constituency Chairman', unitType: 'constituency' };
 
+const SEEDER = { executiveId: null };
 const print = (line = '') => process.stdout.write(`${line}\n`);
 
-// Entities are looked up by name: the CLI may only import modules through their index.ts.
-async function findOrCreate(entity: string, where: Record<string, unknown>, label: string) {
-  const repository = dataSource.getRepository(entity);
-  const existing = await repository.findOneBy(where);
-  print(`  ${label}: ${existing ? 'exists' : 'created'}`);
-  return (existing ?? (await repository.save(repository.create(where)))) as { id: string };
+async function seedAdmin() {
+  const { items } = await platformService.listPlatformAdmins({ page: 1, pageSize: 100 });
+  const exists = items.some((admin) => admin.email === ADMIN.email);
+  if (!exists) await platformService.createPlatformAdmin(ADMIN, SEEDER);
+  print(`  Platform admin: ${exists ? 'exists' : 'created'}`);
+}
+
+async function seedConstituency() {
+  const { items } = await platformService.listConstituencies({
+    search: CONSTITUENCY,
+    page: 1,
+    pageSize: 100,
+  });
+  const found = items.find((unit) => unit.name.toLowerCase() === CONSTITUENCY.toLowerCase());
+  print(`  Constituency: ${found ? 'exists' : 'created'}`);
+  const constituency =
+    found ?? (await platformService.createConstituency({ name: CONSTITUENCY }, SEEDER));
+
+  if (!constituency.chairman)
+    await platformService.appointChairman(constituency.id, CHAIRMAN, SEEDER);
+  print(`  Chairman: ${constituency.chairman ? 'exists' : 'appointed'}`);
 }
 
 async function main() {
@@ -34,28 +56,12 @@ async function main() {
   await initializeDatabase();
   print('Seeding development data\n');
 
-  const executives = dataSource.getRepository('Executive');
-  let executive = (await executives.findOneBy({ email: CHAIRMAN.email })) as {
-    id: string;
-    memberId: string;
-  } | null;
-  print(`  Chairman account: ${executive ? 'exists' : 'created'}`);
-  if (!executive) {
-    const { executiveId, memberId } = await authService.createExecutive(CHAIRMAN);
-    executive = { id: executiveId, memberId };
-  }
+  await seedAdmin();
+  await seedConstituency();
 
-  const unit = await findOrCreate('OrganisationalUnit', UNIT, 'Unit');
-  const position = await findOrCreate('Position', POSITION, 'Position');
-
-  const appointments = dataSource.getRepository('Appointment');
-  const appointment = { memberId: executive.memberId, positionId: position.id, unitId: unit.id };
-  const active = await appointments.existsBy({ ...appointment, status: 'active' });
-  print(`  Appointment: ${active ? 'exists' : 'created'}`);
-  if (!active)
-    await appointments.save(appointments.create({ ...appointment, effectiveFrom: new Date() }));
-
-  print(`\nSign in with ${CHAIRMAN.email} / 0241234567`);
+  print('\nSign in (the code is printed in the API log):');
+  print(`  Web, platform admin:  ${ADMIN.email} / 0201234567`);
+  print(`  Mobile, chairman:     ${CHAIRMAN.email} / 0241234567`);
 }
 
 main()

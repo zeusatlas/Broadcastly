@@ -100,6 +100,11 @@ export const TAG_DESCRIPTIONS = [
       'Sign in, keep the session alive with refresh tokens, sign out, and read the signed-in user.',
   },
   {
+    name: 'Platform',
+    description:
+      'Platform admins only: dashboard totals, constituencies and their chairmen, platform admins, suspending accounts.',
+  },
+  {
     name: 'Health',
     description: 'Whether the API is running and can reach its database and Redis.',
   },

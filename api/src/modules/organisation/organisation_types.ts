@@ -28,3 +28,22 @@ export interface AccessIncludes {
   scope?: boolean;
   appointments?: boolean;
 }
+
+// Top-level unit type. Each constituency is the root of its own tree (FR-ORG-01).
+export const CONSTITUENCY_UNIT_TYPE = 'constituency';
+
+// Created by migration PlatformAdministration, so code refers to the office by id, never by title.
+export const CONSTITUENCY_CHAIRMAN_POSITION_ID = '5b0c7c1e-2a4d-4f8e-9c3b-0c0a1e5d7f21';
+
+export interface UnitSummary {
+  id: string;
+  type: string;
+  status: UnitStatus;
+}
+
+export interface CreateAppointmentInput {
+  memberId: string;
+  positionId: string;
+  unitId: string;
+  appointedByExecutiveId: string | null;
+}

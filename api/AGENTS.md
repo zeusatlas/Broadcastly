@@ -150,7 +150,8 @@ src/
 │   ├── errors/             AppError and its subclasses.
 │   └── middleware/         validate, error_handler, rate_limit, request_id, not_found, idempotency.
 ├── database/               BaseEntity, initialize_database (auto-create + auto-migrate), migrations/.
-├── cli/                    Terminal commands: create_executive.ts (`executive:create`), seed.ts (`seed`, dev data).
+├── cli/                    Terminal commands: create_executive.ts (`executive:create`), seed.ts (`seed`, dev data
+│                           through the real services: a platform admin and a constituency with its chairman).
 ├── jobs/queues.ts          Queue names, default retry policy, getQueue().
 ├── integrations/           External provider boundaries: sms/, payments/, email/ (SRS 6.4–6.6).
 ├── modules/
@@ -164,7 +165,7 @@ src/
 │   ├── reports/            History, delivery reports, exports (§4.8)
 │   ├── notifications/      In-app and email (§4.9)
 │   ├── audit/              Append-only audit log (NFR-SEC-05). Done; a DB trigger blocks UPDATE/DELETE.
-│   └── platform/           Platform administration (§4.10)
+│   └── platform/           Platform admin: constituencies, chairmen, platform admins (§7a). Done.
 └── types/express.d.ts      req.auth.
 ```
 
@@ -276,6 +277,9 @@ sent: code HMAC, expiry, tries; a resend supersedes the previous code). Access c
 - Scope = units of active appointments + all descendants (recursive CTE in
   `organisation_repository.ts`). Platform admins have no member-data scope.
 - `authorize(rule)` takes `{ permission, anyOf, allOf, roles }`, same as the app. Prefer permissions.
+- Platform admins have no appointment and no permissions; their routes use `roles: ['platform_admin']`.
+  A router used only by one role applies the guard once with `router.use(authenticate, authorize(…))`
+  (see `platform_routes.ts`), so no route on it can be added unprotected.
 - Scope is enforced in services and repositories with `req.auth.scopeUnitIds`, never in middleware.
 
 ```ts
@@ -299,12 +303,47 @@ membersRouter.post(
   `sessionExpiresAt`, so the app can end a dead session on launch without a network call.
 - The lockout counter is one atomic SQL UPDATE; auth routes also share the per-IP
   `authRateLimit` (10 per 15 min).
-- Every code sent, sign-in, failure, lockout, sign-out, token reuse and account creation is
-  written to `audit_events`. Never put the phone number or code in audit metadata.
+- Every code sent, sign-in, failure, lockout, sign-out, token reuse, account creation, suspension,
+  reactivation, constituency creation and appointment is written to `audit_events`. Never put the phone number or code in audit metadata.
 
 **Not built yet (needs a decision or another module first):** a real SMS gateway driver (SRS 6.4),
-invitations, account administration endpoints (create, suspend, activate — will sit with
-appointments, UC-02). Executives are created with `npm run executive:create` (email, phone, date of birth).
+invitations, and chairmen managing their own executives (create, suspend — with appointments, UC-02).
+Chairmen and platform admins are managed through §7a; `npm run executive:create` remains for
+bootstrapping the first platform admin on a new server.
+
+## 7a. Platform administration (owner's decisions, 2026-11-02)
+
+Platform admins run the platform from the **web app**; chairmen and their executives use the
+**mobile app**. The admin creates a constituency, then appoints its chairman, who manages their own
+people from there. All routes are under `/api/v1/platform` and require `platform_admin`.
+
+| Method | Path                                         | Does                                               |
+| ------ | -------------------------------------------- | -------------------------------------------------- |
+| GET    | `/overview`                                  | Dashboard totals                                   |
+| GET    | `/constituencies?search=&page=&pageSize=`    | List, each with its current chairman or `null`     |
+| POST   | `/constituencies`                            | Create (`{ name }`)                                |
+| GET    | `/constituencies/:constituencyId`            | One constituency                                   |
+| POST   | `/constituencies/:constituencyId/chairman`   | Create the chairman's account + appointment        |
+| GET    | `/admins`                                    | List platform admins                               |
+| POST   | `/admins`                                    | Add a platform admin (owner chose: admins add admins) |
+| POST   | `/executives/:executiveId/suspend`           | Suspend a chairman or admin; ends their sessions   |
+| POST   | `/executives/:executiveId/reactivate`        | Let them sign in again                             |
+
+- **Chairman office.** One `positions` row, created by migration at the fixed id
+  `CONSTITUENCY_CHAIRMAN_POSITION_ID`. Code refers to it by id, never by title.
+- **Guarantees in the database, not only in code:** constituency names are unique ignoring case
+  (`uq_organisational_units_constituency_name`, an expression index declared with
+  `synchronize: false`); at most one active chairman per constituency (`uq_appointments_active_chairman`).
+  The service checks first for a friendly message and locks the unit row; the index catches races.
+- **Appointing is atomic:** member + executive + appointment + audit rows commit together
+  (`authService.createExecutive(input, actor, manager)` joins the caller's transaction).
+- **Status changes** (`authService.setExecutiveStatus`) apply only to roles the caller manages
+  (others are 404), never to your own account (403), and are a no-op if already in that status.
+  Suspension revokes every session at once; `deactivated` is final and cannot be changed here.
+- Platform admins are `members` rows too (sign-in needs a phone). They have no appointments or
+  memberships, so they never appear inside a constituency's scoped data.
+- Not built yet: replacing or ending a chairman's appointment, renaming or deactivating a
+  constituency, sub-units (electoral areas, branches, polling stations).
 
 ## 8. Database — TypeORM 1.x
 
@@ -428,8 +467,9 @@ Register every route with `openApiRegistry.registerPath` in its
 - **Do not guess.** Check a library's real API in `node_modules` (types or source) before using
   it, and the SRS before inventing behaviour. State assumptions plainly in the summary.
 - **Be efficient.** Read what you need, verify by running, don't narrate.
-- **Comments:** only where the *why* is not obvious. At most two lines each, written so a
-  colleague new to the code understands it. No comments that restate the code.
+- **Comments (owner's rule):** at most **5 per file**, each at most two lines, `//` only (never
+  `/* */` or JSDoc). Only where the *why* is not obvious, written so a colleague new to the code
+  understands it. No section dividers, no comments that restate the code.
 
   ```ts
   // Single atomic UPDATE, so parallel wrong guesses cannot race past the lockout threshold.

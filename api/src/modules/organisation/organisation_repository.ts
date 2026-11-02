@@ -1,9 +1,17 @@
+import type { EntityManager } from 'typeorm';
+
 import { dataSource } from '../../config/database';
 
-import type {
-  ActiveAccess,
-  AccessIncludes,
-  AppointmentSummaryResponse,
+import { Appointment } from './entities/appointment_entity';
+import { OrganisationalUnit } from './entities/organisational_unit_entity';
+import {
+  CONSTITUENCY_CHAIRMAN_POSITION_ID,
+  CONSTITUENCY_UNIT_TYPE,
+  type ActiveAccess,
+  type AccessIncludes,
+  type AppointmentSummaryResponse,
+  type CreateAppointmentInput,
+  type UnitSummary,
 } from './organisation_types';
 
 interface AccessRow {
@@ -60,5 +68,42 @@ export const organisationRepository = {
       scopeUnitIds: row?.scopeUnitIds ?? [],
       appointments: row?.appointments ?? [],
     };
+  },
+
+  async constituencyNameExists(name: string, manager: EntityManager): Promise<boolean> {
+    const rows = (await manager.query(
+      `SELECT 1 FROM organisational_units WHERE type = $1 AND lower(name) = lower($2) LIMIT 1`,
+      [CONSTITUENCY_UNIT_TYPE, name],
+    )) as unknown[];
+    return rows.length > 0;
+  },
+
+  insertConstituency(name: string, manager: EntityManager) {
+    const units = manager.getRepository(OrganisationalUnit);
+    return units.save(units.create({ type: CONSTITUENCY_UNIT_TYPE, name, parentId: null }));
+  },
+
+  // Row lock: concurrent appointments to the same unit wait for each other.
+  lockUnit(unitId: string, manager: EntityManager): Promise<UnitSummary | null> {
+    return manager.getRepository(OrganisationalUnit).findOne({
+      select: { id: true, type: true, status: true },
+      where: { id: unitId },
+      lock: { mode: 'pessimistic_write' },
+    });
+  },
+
+  hasActiveChairman(unitId: string, manager: EntityManager): Promise<boolean> {
+    return manager.getRepository(Appointment).existsBy({
+      unitId,
+      positionId: CONSTITUENCY_CHAIRMAN_POSITION_ID,
+      status: 'active',
+    });
+  },
+
+  insertAppointment(input: CreateAppointmentInput, manager: EntityManager) {
+    const appointments = manager.getRepository(Appointment);
+    return appointments.save(
+      appointments.create({ ...input, status: 'active', effectiveFrom: new Date() }),
+    );
   },
 };

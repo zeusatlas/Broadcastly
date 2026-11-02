@@ -12,6 +12,10 @@ export const AUDIT_ACTIONS = {
   signOutAll: 'auth.sign_out_all',
   refreshTokenReused: 'auth.refresh_token_reused',
   executiveCreated: 'executive.created',
+  executiveSuspended: 'executive.suspended',
+  executiveReactivated: 'executive.reactivated',
+  constituencyCreated: 'organisation.constituency_created',
+  appointmentCreated: 'organisation.appointment_created',
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 

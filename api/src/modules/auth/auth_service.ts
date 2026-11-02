@@ -10,7 +10,7 @@ import {
   UnauthorizedError,
   ValidationError,
 } from '../../common/errors/app_error';
-import type { RequestContext } from '../../common/http/request_context';
+import { toAuditContext, type RequestContext } from '../../common/http/request_context';
 import { dataSource } from '../../config/database';
 import { env } from '../../config/env';
 import { logger } from '../../config/logger';
@@ -23,8 +23,10 @@ import { toUserResponse } from './auth_mapper';
 import { authRepository } from './auth_repository';
 import type {
   AccessContext,
+  ActionActor,
   AuthTokensResponse,
   CreateExecutiveRequest,
+  ManageableExecutiveStatus,
   OtpChallengeResponse,
   RefreshTokenRequest,
   ResendOtpRequest,
@@ -32,6 +34,7 @@ import type {
   SignInResponse,
   SignOutRequest,
   UserResponse,
+  UserRole,
   VerifyOtpRequest,
 } from './auth_types';
 import { Executive } from './entities/executive_entity';
@@ -62,15 +65,14 @@ const HOUR_MS = 60 * 60 * 1000;
 const SESSION_ENDED = 'Your session has ended. Please sign in again.';
 const INVALID_CREDENTIALS = 'Invalid email or phone number.';
 const ACCOUNT_LOCKED = `Too many failed attempts. Try again in ${LOCK_MINUTES} minutes.`;
-const ACCOUNT_INACTIVE = 'This account is not active. Contact your chairman.';
-// 404, not 401: the app must tell "start again" apart from "wrong code".
+const ACCOUNT_INACTIVE = 'This account is not active. Contact your administrator.';
 const SIGN_IN_EXPIRED = 'Your sign-in has expired. Please sign in again.';
 const CODE_INCORRECT = 'Incorrect code.';
 const CODE_EXPIRED = 'This code has expired. Request a new one.';
 const CODE_ATTEMPTS_USED = 'Too many incorrect attempts. Request a new code.';
+const EMAIL_TAKEN = 'An account with this email already exists.';
 const TOO_MANY_CODES = `Too many codes requested. Try again in ${OTP_SEND_WINDOW_MINUTES} minutes.`;
 
-// sessionExpiresAt lets the app end a dead session on launch without a network call.
 function buildTokens(
   executiveId: string,
   sessionId: string,
@@ -87,7 +89,6 @@ function buildTokens(
   };
 }
 
-// The session id is generated here so it can be embedded in the refresh token before insert.
 async function openSession(
   executiveId: string,
   context: RequestContext,
@@ -95,7 +96,6 @@ async function openSession(
 ): Promise<AuthTokensResponse> {
   const sessionId = randomUUID();
   const refresh = createRefreshToken(sessionId);
-  // Fixed from sign-in: refreshing never extends it, so every session ends SESSION_TTL_HOURS later.
   const expiresAt = new Date(Date.now() + env.SESSION_TTL_HOURS * HOUR_MS);
 
   await authRepository.insertSession(
@@ -112,11 +112,6 @@ async function openSession(
 
   return buildTokens(executiveId, sessionId, refresh.token, expiresAt);
 }
-
-const auditContext = (context: RequestContext) => ({
-  requestId: context.requestId,
-  ipAddress: context.ipAddress,
-});
 
 const challengeResponse = (challengeId: string, maskedPhone: string): OtpChallengeResponse => ({
   challengeId,
@@ -138,7 +133,6 @@ const challengeExpired = (challenge: OtpChallenge) =>
   !!challenge.consumedAt ||
   Date.now() - challenge.createdAt.getTime() > OTP_CHALLENGE_TTL_MINUTES * 60_000;
 
-// Supersedes any earlier code, stores the new one's hash and returns the plain code to send.
 async function issueCode(executive: Executive, challengeId: string, manager: EntityManager) {
   const sent = await authRepository.countRecentCodes(
     executive.id,
@@ -171,7 +165,6 @@ function deliverCode(phone: string, code: string) {
   });
 }
 
-// Wrong details count towards the lockout of the executive the email belongs to.
 async function recordFailure(executiveId: string, reason: string, context: RequestContext) {
   const lockedUntil = await authRepository.recordFailedSignIn(
     executiveId,
@@ -185,7 +178,7 @@ async function recordFailure(executiveId: string, reason: string, context: Reque
     outcome: 'failure',
     actorExecutiveId: executiveId,
     metadata: { reason },
-    ...auditContext(context),
+    ...toAuditContext(context),
   });
 
   return justLocked;
@@ -207,7 +200,7 @@ export const authService = {
           action: AUDIT_ACTIONS.signInFailed,
           outcome: 'failure',
           metadata: { reason: 'unknown_email' },
-          ...auditContext(context),
+          ...toAuditContext(context),
         });
       }
       throw new UnauthorizedError(INVALID_CREDENTIALS);
@@ -236,7 +229,7 @@ export const authService = {
           actorExecutiveId: executive.id,
           targetType: 'otp_challenge',
           targetId: challengeId,
-          ...auditContext(context),
+          ...toAuditContext(context),
         },
         manager,
       );
@@ -247,7 +240,6 @@ export const authService = {
     return challengeResponse(challengeId, maskedPhone);
   },
 
-  // A new code for the same sign-in, whether or not the last one expired. The old code stops working.
   async resendCode({ challengeId }: ResendOtpRequest, context: RequestContext) {
     const result = await dataSource.transaction(async (manager) => {
       const challenge = await authRepository.lockChallenge(challengeId, manager);
@@ -274,7 +266,7 @@ export const authService = {
           targetType: 'otp_challenge',
           targetId: challenge.id,
           metadata: { resend: true },
-          ...auditContext(context),
+          ...toAuditContext(context),
         },
         manager,
       );
@@ -286,7 +278,6 @@ export const authService = {
     return challengeResponse(challengeId, result.maskedPhone);
   },
 
-  // Step 2. Only the newest code counts. Wrong codes count per code and towards the executive lockout.
   async verifyCode(
     { challengeId, code }: VerifyOtpRequest,
     context: RequestContext,
@@ -326,11 +317,14 @@ export const authService = {
       await authRepository.recordSuccessfulSignIn(executive.id, manager);
       const tokens = await openSession(executive.id, context, manager);
       await auditService.record(
-        { action: AUDIT_ACTIONS.signIn, actorExecutiveId: executive.id, ...auditContext(context) },
+        {
+          action: AUDIT_ACTIONS.signIn,
+          actorExecutiveId: executive.id,
+          ...toAuditContext(context),
+        },
         manager,
       );
 
-      // Returned so the response needs no second lookup; it was just updated above.
       executive.lastSignInAt = new Date();
       return { executive, tokens };
     });
@@ -370,7 +364,7 @@ export const authService = {
             actorExecutiveId: session.executiveId,
             targetType: 'session',
             targetId: session.id,
-            ...auditContext(context),
+            ...toAuditContext(context),
           },
           manager,
         );
@@ -407,7 +401,7 @@ export const authService = {
         {
           action: allDevices ? AUDIT_ACTIONS.signOutAll : AUDIT_ACTIONS.signOut,
           actorExecutiveId: auth.executiveId,
-          ...auditContext(context),
+          ...toAuditContext(context),
         },
         manager,
       );
@@ -421,68 +415,114 @@ export const authService = {
     return toUserResponse(executive, await loadProfileAccess(executive.memberId, executive.role));
   },
 
-  // Reuses the existing member when their party ID is already on file (FR-ORG-05, BR-04).
-  // Used by the create-executive CLI today and by the executive administration endpoints later.
-  async createExecutive(input: CreateExecutiveRequest, actorExecutiveId: string | null = null) {
-    return dataSource.transaction(async (manager) => {
-      if (await manager.getRepository(Executive).existsBy({ email: input.email })) {
-        throw new ConflictError('An account with this email already exists.');
-      }
+  async createExecutive(
+    input: CreateExecutiveRequest,
+    actor: ActionActor = { executiveId: null },
+    manager?: EntityManager,
+  ): Promise<{ executiveId: string; memberId: string }> {
+    if (!manager) {
+      return dataSource.transaction((m) => authService.createExecutive(input, actor, m));
+    }
 
-      const members = manager.getRepository(Member);
-      let member = input.partyId ? await members.findOneBy({ partyId: input.partyId }) : null;
+    if (await manager.getRepository(Executive).existsBy({ email: input.email })) {
+      throw new ConflictError(EMAIL_TAKEN, { errors: { email: [EMAIL_TAKEN] } });
+    }
 
-      if (member && (await manager.getRepository(Executive).existsBy({ memberId: member.id }))) {
-        throw new ConflictError('This member already has an account.');
-      }
+    const members = manager.getRepository(Member);
+    let member = input.partyId ? await members.findOneBy({ partyId: input.partyId }) : null;
 
-      // The phone signs this member in, so an existing member record must already agree with it.
-      if (member?.phone && member.phone !== input.phone) {
-        throw new ValidationError({
-          phone: ['This member is on file with a different phone number.'],
-        });
-      }
+    if (member && (await manager.getRepository(Executive).existsBy({ memberId: member.id }))) {
+      throw new ConflictError('This member already has an account.');
+    }
 
-      if (member) {
-        member = await members.save({
-          ...member,
+    if (member?.phone && member.phone !== input.phone) {
+      throw new ValidationError({
+        phone: ['This member is on file with a different phone number.'],
+      });
+    }
+
+    if (member) {
+      member = await members.save({
+        ...member,
+        phone: input.phone,
+        dateOfBirth: input.dateOfBirth,
+      });
+    } else {
+      member = await members.save(
+        members.create({
+          firstName: input.firstName,
+          middleName: input.middleName ?? null,
+          lastName: input.lastName,
+          partyId: input.partyId ?? null,
           phone: input.phone,
           dateOfBirth: input.dateOfBirth,
-        });
-      } else {
-        member = await members.save(
-          members.create({
-            firstName: input.firstName,
-            middleName: input.middleName ?? null,
-            lastName: input.lastName,
-            partyId: input.partyId ?? null,
-            phone: input.phone,
-            dateOfBirth: input.dateOfBirth,
-          }),
-        );
-      }
-
-      const executive = await manager.getRepository(Executive).save(
-        manager.getRepository(Executive).create({
-          memberId: member.id,
-          email: input.email,
-          role: input.role,
-          status: 'active',
         }),
       );
+    }
+
+    const executive = await manager.getRepository(Executive).save(
+      manager.getRepository(Executive).create({
+        memberId: member.id,
+        email: input.email,
+        role: input.role,
+        status: 'active',
+      }),
+    );
+
+    await auditService.record(
+      {
+        action: AUDIT_ACTIONS.executiveCreated,
+        actorExecutiveId: actor.executiveId,
+        targetType: 'executive',
+        targetId: executive.id,
+        metadata: { role: input.role },
+        ...(actor.context && toAuditContext(actor.context)),
+      },
+      manager,
+    );
+
+    return { executiveId: executive.id, memberId: member.id };
+  },
+
+  async setExecutiveStatus(
+    executiveId: string,
+    status: ManageableExecutiveStatus,
+    actor: ActionActor,
+    manageableRoles: readonly UserRole[],
+  ): Promise<void> {
+    if (executiveId === actor.executiveId) {
+      throw new ForbiddenError('You cannot change the status of your own account.');
+    }
+
+    await dataSource.transaction(async (manager) => {
+      const executive = await authRepository.lockExecutive(executiveId, manager);
+      if (!executive || !manageableRoles.includes(executive.role)) {
+        throw new NotFoundError('Account not found.');
+      }
+      if (executive.status === status) return;
+      if (executive.status === 'deactivated') {
+        throw new ConflictError('This account has been deactivated and cannot be changed.');
+      }
+
+      await manager.getRepository(Executive).update({ id: executiveId }, { status });
+      if (status === 'suspended') {
+        await authRepository.revokeExecutiveSessions(executiveId, 'account_inactive', manager);
+      }
 
       await auditService.record(
         {
-          action: AUDIT_ACTIONS.executiveCreated,
-          actorExecutiveId,
+          action:
+            status === 'suspended'
+              ? AUDIT_ACTIONS.executiveSuspended
+              : AUDIT_ACTIONS.executiveReactivated,
+          actorExecutiveId: actor.executiveId,
           targetType: 'executive',
-          targetId: executive.id,
-          metadata: { role: input.role },
+          targetId: executiveId,
+          metadata: { role: executive.role, previousStatus: executive.status },
+          ...(actor.context && toAuditContext(actor.context)),
         },
         manager,
       );
-
-      return { executiveId: executive.id, memberId: member.id };
     });
   },
 };

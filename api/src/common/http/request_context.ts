@@ -14,3 +14,8 @@ export function getRequestContext(req: Request): RequestContext {
     userAgent: req.get('user-agent')?.slice(0, 255),
   };
 }
+
+// The request fields every audit event stores.
+export function toAuditContext(context: RequestContext) {
+  return { requestId: context.requestId, ipAddress: context.ipAddress };
+}

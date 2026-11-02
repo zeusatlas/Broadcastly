@@ -2,7 +2,11 @@ import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 import { BaseEntity } from '../../../database/base_entity';
 import { Member } from '../../members';
-import { APPOINTMENT_STATUSES, type AppointmentStatus } from '../organisation_types';
+import {
+  APPOINTMENT_STATUSES,
+  CONSTITUENCY_CHAIRMAN_POSITION_ID,
+  type AppointmentStatus,
+} from '../organisation_types';
 
 import { OrganisationalUnit } from './organisational_unit_entity';
 import { Position } from './position_entity';
@@ -11,6 +15,11 @@ import { Position } from './position_entity';
 // ending one changes `status`, so history survives (FR-ORG-07, BR-05).
 @Entity({ name: 'appointments' })
 @Index('idx_appointments_member_status', ['memberId', 'status'])
+// At most one active chairman per constituency, even if two admins appoint at the same moment.
+@Index('uq_appointments_active_chairman', ['unitId'], {
+  unique: true,
+  where: `"status" = 'active' AND "position_id" = '${CONSTITUENCY_CHAIRMAN_POSITION_ID}'`,
+})
 export class Appointment extends BaseEntity {
   @Column({ type: 'uuid', name: 'member_id' })
   memberId: string;

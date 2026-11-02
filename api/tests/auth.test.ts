@@ -19,7 +19,7 @@ import {
 } from '../src/modules/auth/token_service';
 
 // Pure auth logic only; nothing here opens a database. Endpoint flows were verified against
-// PostgreSQL by hand (see server/AGENTS.md §7) until an integration test database exists.
+// PostgreSQL by hand (see api/AGENTS.md §7) until an integration test database exists.
 
 const SESSION_ID = '0b8a7c56-2f3e-4d1a-9c6b-1e2f3a4b5c6d';
 

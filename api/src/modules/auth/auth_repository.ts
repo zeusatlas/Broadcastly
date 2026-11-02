@@ -78,7 +78,14 @@ export const authRepository = {
     return row ?? null;
   },
 
-  // Status only, for checks that never return the executive (e.g. refresh).
+  lockExecutive(executiveId: string, manager: EntityManager) {
+    return manager.getRepository(Executive).findOne({
+      select: { id: true, role: true, status: true },
+      where: { id: executiveId },
+      lock: { mode: 'pessimistic_write' },
+    });
+  },
+
   findExecutiveStatus(executiveId: string, manager: EntityManager) {
     return manager
       .getRepository(Executive)
@@ -112,7 +119,6 @@ export const authRepository = {
       );
   },
 
-  // Optionally keeps one session alive, e.g. the device making the request.
   revokeExecutiveSessions(
     executiveId: string,
     reason: SessionRevokeReason,
@@ -135,7 +141,6 @@ export const authRepository = {
     return manager.getRepository(OtpChallenge).insert(challenge);
   },
 
-  // Row lock: concurrent verify/resend calls on one challenge run one at a time.
   lockChallenge(challengeId: string, manager: EntityManager) {
     return manager
       .getRepository(OtpChallenge)
@@ -155,7 +160,6 @@ export const authRepository = {
     return manager.getRepository(OtpCode).insert(code);
   },
 
-  // The newest code is the only one that can still be used; older ones are superseded on resend.
   findLatestCode(challengeId: string, manager: EntityManager) {
     return manager
       .getRepository(OtpCode)

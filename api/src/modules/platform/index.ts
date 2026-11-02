@@ -1,3 +1,5 @@
-// Public API of the platform module — Platform administration: organisation onboarding, provider settings, failed jobs (FR-ADM-01..04).
-// Other modules import from here only.
-export {};
+// Public API of the platform module — platform administration: constituencies, their chairmen and
+// platform admins (FR-ADM). Every route requires the platform_admin role. Other modules import only this.
+export { platformRouter } from './platform_routes';
+export { platformService } from './platform_service';
+export { newExecutiveSchema } from './platform_schemas';

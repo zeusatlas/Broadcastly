@@ -1,3 +1,4 @@
+import type { RequestContext } from '../../common/http/request_context';
 import type { AppointmentSummaryResponse } from '../organisation';
 
 // Same strings as the app's Permission union (mobile-ui/src/types/models/user.ts).
@@ -59,11 +60,8 @@ export interface AccessContext {
   sessionId: string;
   role: UserRole;
   permissions: ReadonlySet<Permission>;
-  // Units the caller may access, including subordinate units (FR-IAM-03).
   scopeUnitIds: readonly string[];
 }
-
-// ── Requests ────────────────────────────────────────────────────────────────
 
 // Step 1 of sign-in. The phone number takes the place of a password; the SMS code proves it.
 export interface SignInRequest {
@@ -95,18 +93,22 @@ export interface CreateExecutiveRequest {
   partyId?: string;
   email: string;
   phone: string;
-  // 'YYYY-MM-DD'
   dateOfBirth: string;
   role: UserRole;
 }
 
-// ── Responses (the `data` of the envelope) ──────────────────────────────────
+export interface ActionActor {
+  executiveId: string | null;
+  context?: RequestContext;
+}
+
+export const MANAGEABLE_EXECUTIVE_STATUSES = ['active', 'suspended'] as const;
+export type ManageableExecutiveStatus = (typeof MANAGEABLE_EXECUTIVE_STATUSES)[number];
 
 export interface AuthTokensResponse {
   accessToken: string;
   refreshToken: string;
   tokenType: 'Bearer';
-  // Seconds until the access token expires.
   expiresIn: number;
   // When the whole session ends (SESSION_TTL_HOURS after sign-in); refreshing does not move it.
   sessionExpiresAt: Date;
@@ -132,11 +134,9 @@ export interface UserResponse {
   updatedAt: Date;
 }
 
-// Returned when a code is sent (sign-in and resend).
 export interface OtpChallengeResponse {
   challengeId: string;
   maskedPhone: string;
-  // Seconds until the code expires, and until another code may be requested.
   expiresIn: number;
   resendIn: number;
 }

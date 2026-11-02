@@ -27,7 +27,6 @@ const envSchema = z
           .filter(Boolean),
       ),
 
-    // The same five values you enter in a pgAdmin connection. PostgreSQL 17.
     DB_HOST: z.string().min(1).default('localhost'),
     DB_PORT: z.coerce.number().int().positive().default(5432),
     DB_USERNAME: z.string().min(1),
@@ -38,7 +37,6 @@ const envSchema = z
       .regex(/^[a-z_][a-z0-9_]{0,62}$/, 'DB_NAME must be lowercase letters, digits or _')
       .default('broadcastly'),
     DB_SSL: booleanString,
-    // Development conveniences: create the database if missing, apply pending migrations on boot.
     DB_AUTO_CREATE: booleanString,
     DB_AUTO_MIGRATE: booleanString,
 
@@ -75,7 +73,7 @@ function loadEnv(): Env {
     );
     process.stderr.write(
       `\nCannot start: the environment configuration is invalid.\n${problems.join('\n')}\n` +
-        'Fix these in server/.env (compare with .env.example), then start again.\n\n',
+        'Fix these in api/.env (compare with .env.example), then start again.\n\n',
     );
     process.exit(1);
   }

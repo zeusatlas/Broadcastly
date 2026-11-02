@@ -85,7 +85,7 @@ Send email and phone number. If they match an executive, a 6-digit code is sent 
       [
         403,
         'The account is suspended or deactivated.',
-        'This account is not active. Contact your chairman.',
+        'This account is not active. Contact your administrator.',
       ],
       [422, 'The email or phone number is not in a valid format.'],
       [
@@ -125,7 +125,7 @@ Send the \`challengeId\` and the code from the SMS. Returns the user and tokens.
       [
         403,
         'The account is suspended or deactivated.',
-        'This account is not active. Contact your chairman.',
+        'This account is not active. Contact your administrator.',
       ],
       [422, 'The code is not 6 digits, or `challengeId` is not valid.'],
       [

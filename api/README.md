@@ -86,16 +86,20 @@ npm run dev:worker        # background jobs — second terminal, once jobs exist
 ### 5. Create the first account
 
 ```bash
-npm run seed              # dev chairman with a unit, position and active appointment
+npm run seed              # dev platform admin + a constituency with its chairman
 ```
 
-Sign in with `chairman.test@xmaple.com` and `0241234567`; the OTP is printed in the API log.
-Safe to re-run; it refuses to run in production.
+| Who            | App    | Email                       | Phone        |
+| -------------- | ------ | --------------------------- | ------------ |
+| Platform admin | web    | `admin.test@example.com`    | `0201234567` |
+| Chairman       | mobile | `chairman.test@example.com` | `0241234567` |
 
-For any other account, `npm run executive:create` prompts for role, names, party ID, email,
-phone and date of birth. A chairman's permissions apply only while they hold an active
-appointment (BR-01). Until the organisation endpoints exist, add a unit, position and
-appointment for them in pgAdmin.
+The sign-in code is printed in the API log (`SMS_DRIVER=log`). Safe to re-run; refuses to run in
+production. From there the platform admin creates constituencies and chairmen through
+`/api/v1/platform` (see `AGENTS.md` §7a).
+
+On a new server with no admin yet, create the first one with `npm run executive:create` and pick
+`platform_admin`.
 
 ### 6. Check it works
 
@@ -141,7 +145,7 @@ FATAL: API failed to start: PostgreSQL rejected the login for user "postgres". C
 | Command                                       | Purpose                                         |
 | --------------------------------------------- | ----------------------------------------------- |
 | `npm run setup`                               | First run: create `.env` with a fresh secret    |
-| `npm run seed`                                | Dev data: a chairman with an active appointment |
+| `npm run seed`                                | Dev data: platform admin, constituency, chairman |
 | `npm run executive:create`                    | Create an executive account from the terminal   |
 | `npm run dev` / `dev:worker`                  | API / worker with reload (tsx)                  |
 | `npm run services:up`                         | Redis + PostgreSQL 17 in Docker                 |

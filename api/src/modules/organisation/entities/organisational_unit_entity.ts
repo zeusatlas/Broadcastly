@@ -6,6 +6,8 @@ import { UNIT_STATUSES, type UnitStatus } from '../organisation_types';
 // Constituency → electoral area / branch → polling station. Each polling station is its own unit (BR-02).
 // `type` is a plain string because the party configures its own structure (BR-03).
 @Entity({ name: 'organisational_units' })
+// Case-insensitive unique constituency names: an expression index, so it lives in the migration only.
+@Index('uq_organisational_units_constituency_name', { synchronize: false })
 export class OrganisationalUnit extends BaseEntity {
   @Column({ type: 'varchar', length: 40 })
   type: string;
