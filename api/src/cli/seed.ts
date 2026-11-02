@@ -3,21 +3,21 @@ import 'reflect-metadata';
 import { dataSource } from '../config/database';
 import { isProduction } from '../config/env';
 import { initializeDatabase } from '../database/initialize_database';
-import { newExecutiveSchema, platformService } from '../modules/platform';
+import { createPlatformAdminSchema } from '../modules/auth';
+import { appointChairmanSchema, platformService } from '../modules/platform';
 
-// `npm run seed` — development data, created through the same services the API uses:
-// a platform admin (web) and a constituency with its chairman (mobile). Safe to re-run.
+// `npm run seed` — development data through the same services the API uses: a platform admin
+// (web and mobile) and an organisation with its chairman (mobile). Safe to re-run.
 
-// Parsed like an API request, so phones are stored in E.164 and emails lowercased.
-const ADMIN = newExecutiveSchema.parse({
+// Parsed like API requests, so phones are stored in E.164 and emails lowercased.
+const ADMIN = createPlatformAdminSchema.parse({
   firstName: 'Ama',
   lastName: 'Owusu',
   email: 'admin.test@example.com',
   phone: '0201234567',
-  dateOfBirth: '1985-06-10',
 });
-const CONSTITUENCY = 'Central Constituency';
-const CHAIRMAN = newExecutiveSchema.parse({
+const ORGANISATION = 'Central Constituency';
+const CHAIRMAN = appointChairmanSchema.parse({
   firstName: 'Kwame',
   lastName: 'Mensah',
   email: 'chairman.test@example.com',
@@ -25,7 +25,7 @@ const CHAIRMAN = newExecutiveSchema.parse({
   dateOfBirth: '1980-01-15',
 });
 
-const SEEDER = { executiveId: null };
+const SEEDER = {};
 const print = (line = '') => process.stdout.write(`${line}\n`);
 
 async function seedAdmin() {
@@ -35,20 +35,25 @@ async function seedAdmin() {
   print(`  Platform admin: ${exists ? 'exists' : 'created'}`);
 }
 
-async function seedConstituency() {
-  const { items } = await platformService.listConstituencies({
-    search: CONSTITUENCY,
+async function seedOrganisation() {
+  const { items } = await platformService.listOrganisations({
+    search: ORGANISATION,
     page: 1,
     pageSize: 100,
   });
-  const found = items.find((unit) => unit.name.toLowerCase() === CONSTITUENCY.toLowerCase());
-  print(`  Constituency: ${found ? 'exists' : 'created'}`);
-  const constituency =
-    found ?? (await platformService.createConstituency({ name: CONSTITUENCY }, SEEDER));
+  const found = items.find((org) => org.name.toLowerCase() === ORGANISATION.toLowerCase());
+  print(`  Organisation: ${found ? 'exists' : 'created'}`);
+  const organisation =
+    found ??
+    (await platformService.createOrganisation(
+      { name: ORGANISATION, type: 'constituency' },
+      SEEDER,
+    ));
 
-  if (!constituency.chairman)
-    await platformService.appointChairman(constituency.id, CHAIRMAN, SEEDER);
-  print(`  Chairman: ${constituency.chairman ? 'exists' : 'appointed'}`);
+  if (!organisation.chairman) {
+    await platformService.appointChairman(organisation.id, CHAIRMAN, SEEDER);
+  }
+  print(`  Chairman: ${organisation.chairman ? 'exists' : 'appointed'}`);
 }
 
 async function main() {
@@ -57,11 +62,11 @@ async function main() {
   print('Seeding development data\n');
 
   await seedAdmin();
-  await seedConstituency();
+  await seedOrganisation();
 
   print('\nSign in (the code is printed in the API log):');
-  print(`  Web, platform admin:  ${ADMIN.email} / 0201234567`);
-  print(`  Mobile, chairman:     ${CHAIRMAN.email} / 0241234567`);
+  print(`  Platform admin (web or mobile): ${ADMIN.email} / 0201234567`);
+  print(`  Chairman (mobile):              ${CHAIRMAN.email} / 0241234567`);
 }
 
 main()
