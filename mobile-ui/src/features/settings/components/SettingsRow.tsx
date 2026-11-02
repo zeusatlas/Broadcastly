@@ -10,7 +10,7 @@ import { cn } from '@/utils/helpers';
 interface SettingsRowProps {
   icon: LucideIcon;
   label: string;
-  /** Current setting, shown muted before the chevron ("System", "On"). */
+  // Current setting, shown muted before the chevron ("System", "On").
   value?: string;
   hasChevron?: boolean;
   onPress?: () => void;

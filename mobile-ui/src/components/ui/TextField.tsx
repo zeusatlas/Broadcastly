@@ -9,7 +9,7 @@ import { cn } from '@/utils/helpers';
 export interface TextFieldProps extends TextInputProps {
   label: string;
   error?: string;
-  /** Adds a show/hide toggle and hides the value by default. */
+  // Adds a show/hide toggle and hides the value by default.
   isPassword?: boolean;
   className?: string;
 }

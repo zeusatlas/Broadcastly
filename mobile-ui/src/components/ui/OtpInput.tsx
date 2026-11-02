@@ -19,7 +19,7 @@ export interface OtpInputProps {
   length?: number;
   hasError?: boolean;
   isDisabled?: boolean;
-  /** Pulses the boxes while the code is being checked. */
+  // Pulses the boxes while the code is being checked.
   isLoading?: boolean;
   autoFocus?: boolean;
 }

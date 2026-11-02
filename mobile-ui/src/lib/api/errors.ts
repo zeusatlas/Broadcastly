@@ -76,9 +76,7 @@ function kindFromStatus(status: number): ApiErrorKind {
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
-  // HTTP status code. The backend's own body, if it sent one, is in `response`.
   readonly status?: number;
-  // The typed ErrorResponse body — what an RTK transformErrorResponse would return.
   readonly response?: ErrorResponse;
   readonly fieldErrors?: FieldErrors;
   readonly cause?: unknown;

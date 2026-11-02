@@ -1,4 +1,4 @@
-// Mirrors the backend's UserResponse (server/src/modules/auth/auth_types.ts). Change both together.
+// Mirrors the backend's UserResponse (api/src/modules/auth/auth_types.ts). Change both together.
 
 export type UserRole =
   | 'platform_admin'
@@ -33,7 +33,7 @@ export type Permission =
 
 export interface Appointment {
   id: string;
-  /** Configurable per FR-ORG-08 — never branch on this string. */
+  // Configurable per FR-ORG-08 — never branch on this string.
   positionTitle: string;
   unitId: string;
   unitName: string;
@@ -44,11 +44,9 @@ export interface Appointment {
 
 // The signed-in executive: an appointed member with a login.
 export interface User {
-  /** The executive's id. */
   id: string;
-  /** The member record behind the executive. */
   memberId: string;
-  /** Party membership number, where the party issues one. */
+  // Party membership number, where the party issues one.
   partyId: string | null;
   firstName: string;
   middleName: string | null;
@@ -56,7 +54,7 @@ export interface User {
   fullName: string;
   email: string;
   phone: string | null;
-  /** 'YYYY-MM-DD' */
+  // 'YYYY-MM-DD'
   dateOfBirth: string | null;
   role: UserRole;
   status: ExecutiveStatus;

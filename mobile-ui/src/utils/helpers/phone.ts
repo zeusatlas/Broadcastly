@@ -1,8 +1,8 @@
-// Same rules as server/src/modules/members/phone_number.ts, for instant form feedback only:
+// Same rules as api/src/modules/members/phone_number.ts, for instant form feedback only:
 // the backend normalises again and stays the authority (FR-MEM-05).
 const NATIONAL_NUMBER = /^[235]\d{8}$/;
 
-/** '0559286073', '+233 55 928 6073' or '233559286073' → '+233559286073'; null if invalid. */
+// '0559286073', '+233 55 928 6073' or '233559286073' → '+233559286073'; null if invalid.
 export function normaliseGhanaPhone(raw: string): string | null {
   const digits = raw.replace(/[\s\-().]/g, '');
   let national: string;
@@ -16,7 +16,7 @@ export function normaliseGhanaPhone(raw: string): string | null {
   return NATIONAL_NUMBER.test(national) ? `+233${national}` : null;
 }
 
-/** '+233241234567' → '+233 24 123 4567', for display. Other input comes back unchanged. */
+// '+233241234567' → '+233 24 123 4567', for display. Other input comes back unchanged.
 export function formatGhanaPhone(e164: string): string {
   const match = /^\+233(\d{2})(\d{3})(\d{4})$/.exec(e164);
   return match ? `+233 ${match[1]} ${match[2]} ${match[3]}` : e164;

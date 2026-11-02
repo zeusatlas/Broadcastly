@@ -74,8 +74,10 @@ export function NotificationItem({ notification, isLast = false }: NotificationI
           {body}
         </Text>
       </View>
-      {/* Unread shows as a dot plus a bolder title, never by colour alone. */}
-      <View className="w-2.5 pt-2">
+      <View
+        // Unread shows as a dot plus a bolder title, never by colour alone.
+        className="w-2.5 pt-2"
+      >
         {isUnread ? <View className="h-2.5 w-2.5 rounded-full bg-accent" /> : null}
       </View>
     </Pressable>

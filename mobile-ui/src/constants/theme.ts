@@ -3,7 +3,7 @@
 
 import { Platform } from 'react-native';
 
-/** Approved brand palette. Identical in both themes. */
+// Approved brand palette. Identical in both themes.
 export const Brand = {
   atlasNavy: '#0B2545',
   steelBlue: '#2E4C6D',
@@ -80,7 +80,6 @@ export const Colors = {
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 export type ThemeName = keyof typeof Colors;
 
-/** Points. Mirrors Tailwind's 4pt rhythm. */
 export const Spacing = {
   xxs: 2,
   xs: 4,
@@ -92,7 +91,6 @@ export const Spacing = {
   xxxl: 48,
 } as const;
 
-/** Points. Mirrors --radius (0.625rem). */
 export const Radius = {
   sm: 6,
   md: 8,
@@ -101,7 +99,7 @@ export const Radius = {
   full: 9999,
 } as const;
 
-/** Registered Manrope faces. React Native cannot derive a weight, so each is its own family. */
+// Registered Manrope faces. React Native cannot derive a weight, so each is its own family.
 export const Fonts = {
   regular: 'Manrope_400Regular',
   medium: 'Manrope_500Medium',

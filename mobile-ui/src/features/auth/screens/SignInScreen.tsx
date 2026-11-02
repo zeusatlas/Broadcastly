@@ -40,7 +40,6 @@ export function SignInScreen({ onBack }: SignInScreenProps) {
 
   return (
     <SafeAreaView edges={['bottom', 'left', 'right']} className="flex-1 bg-card">
-      {/* Scrolls the focused field (plus bottomOffset) clear of the keyboard on both platforms. */}
       <KeyboardAwareScrollView
         bottomOffset={32}
         bounces={false}
@@ -65,19 +64,6 @@ export function SignInScreen({ onBack }: SignInScreenProps) {
 
           <SignInForm />
 
-          {/* Social sign-in is not in the SRS and the backend has no provider flow yet.
-              Restore this block (and add the icons) only once both exist.
-          <View className="my-5 flex-row items-center gap-3">
-            <View className="h-px flex-1 bg-border" />
-            <Text variant="caption">OR</Text>
-            <View className="h-px flex-1 bg-border" />
-          </View>
-          <View className="flex-row justify-center gap-6">
-            <IconButton icon={GoogleIcon} label="Continue with Google" variant="outline" />
-            <IconButton icon={AppleIcon} label="Continue with Apple" variant="outline" />
-          </View>
-          */}
-
           <Text
             variant="bodyMuted"
             numberOfLines={1}
@@ -89,7 +75,6 @@ export function SignInScreen({ onBack }: SignInScreenProps) {
         </View>
       </KeyboardAwareScrollView>
 
-      {/* Outside the scroll view so it stays pinned while the form scrolls beneath it. */}
       {onBack ? (
         // Plain style, not className: NativeWind can drop classes when Pressable gets a style function.
         <View

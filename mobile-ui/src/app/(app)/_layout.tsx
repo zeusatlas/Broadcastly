@@ -16,8 +16,8 @@ export default function AppLayout() {
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      {/* Slides up from the bottom like a sheet, but full screen with its own back button. */}
       <Stack.Screen
+        // Slides up like a sheet, but full screen with its own back button.
         name="profile"
         options={{
           headerShown: false,
@@ -25,7 +25,6 @@ export default function AppLayout() {
           gestureDirection: 'vertical',
         }}
       />
-      {/* PageScreen draws its own header and back button. */}
       <Stack.Screen name="settings/index" options={{ headerShown: false }} />
       <Stack.Screen name="settings/support" options={{ headerShown: false }} />
       <Stack.Screen

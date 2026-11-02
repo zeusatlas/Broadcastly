@@ -9,7 +9,7 @@ import { cn } from '@/utils/helpers';
 export type GlassTone = 'light' | 'dark';
 
 interface GlassSurfaceProps extends PropsWithChildren {
-  /** 'dark' suits white content (icons on a brand header); 'light' suits dark content. */
+  // 'dark' suits white content (icons on a brand header); 'light' suits dark content.
   tone?: GlassTone;
   className?: string;
   style?: StyleProp<ViewStyle>;

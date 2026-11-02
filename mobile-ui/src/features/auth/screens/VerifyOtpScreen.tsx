@@ -35,7 +35,6 @@ export function VerifyOtpScreen() {
   const resendIn = useCountdown(challenge?.resendAvailableAt ?? 0);
   const expiresIn = useCountdown(challenge?.codeExpiresAt ?? 0);
 
-  // The success of step 1 is announced here: entering the right details only sends a code.
   const challengeId = challenge?.challengeId;
   const maskedPhone = challenge?.maskedPhone;
   useEffect(() => {
@@ -179,7 +178,6 @@ export function VerifyOtpScreen() {
         </View>
       </View>
 
-      {/* Rides on top of the keyboard, so Verify is always reachable while typing. */}
       <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
         <View className="w-full self-center px-6 pb-4" style={{ maxWidth: MaxContentWidth }}>
           <Button

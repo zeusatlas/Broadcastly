@@ -71,7 +71,6 @@ export type ButtonProps = Omit<PressableProps, 'children'> & {
   size?: ButtonSize;
   icon?: LucideIcon;
   isLoading?: boolean;
-  /** Shown beside the spinner while loading, e.g. 'Sending code…'. */
   loadingLabel?: string;
   fullWidth?: boolean;
   className?: string;

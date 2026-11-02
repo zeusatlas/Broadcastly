@@ -160,12 +160,15 @@ implement it.
 Write code that does not need explaining. Then explain only what the code
 cannot say itself.
 
+- **At most 5 comments per file** (owner's rule), each one or two lines.
+- **`//` only.** No `/* */`, no JSDoc. In JSX, put the `//` comment between the element's props,
+  never as a `{/* */}` child. `global.css` is the one exception (CSS has no `//`), still at most 5.
 - **One line.** If a comment needs a paragraph, the code is wrong.
 - Comment **why**, never **what**. `// increment counter` is noise.
 - A non-obvious constraint, a requirement ID, a deliberate trade-off or a
   workaround earns a comment. Nothing else does.
-- No file-header banners, no section-divider art, no JSDoc on obvious props,
-  no restating the type signature in prose.
+- No file-header banners, no section-divider art, no restating the type signature in prose.
+- No commented-out code. Delete it; git keeps the history.
 - `TODO` must say who or what unblocks it.
 
 ```ts
