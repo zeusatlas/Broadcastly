@@ -1,21 +1,32 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { Check, Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 import { BaseEntity } from '../../../database/base_entity';
 import { SESSION_REVOKE_REASONS, type SessionRevokeReason } from '../auth_types';
 
-import { Executive } from './executive_entity';
+import { OrganisationExecutive } from './organisation_executive_entity';
+import { PlatformAdmin } from './platform_admin_entity';
 
 // One signed-in device. Holds the hash of the current refresh token only; each refresh rotates it,
 // and presenting an older token revokes the whole session (token theft detection).
 @Entity({ name: 'sessions' })
+// Belongs to exactly one account: an executive (mobile) or a platform admin (web).
+@Check('chk_sessions_one_account', 'num_nonnulls("executive_id", "platform_admin_id") = 1')
 export class Session extends BaseEntity {
   @Index('idx_sessions_executive_id')
-  @Column({ type: 'uuid', name: 'executive_id' })
-  executiveId: string;
+  @Column({ type: 'uuid', name: 'executive_id', nullable: true })
+  executiveId: string | null;
 
-  @ManyToOne(() => Executive, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => OrganisationExecutive, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'executive_id' })
-  executive?: Executive;
+  executive?: OrganisationExecutive;
+
+  @Index('idx_sessions_platform_admin_id')
+  @Column({ type: 'uuid', name: 'platform_admin_id', nullable: true })
+  platformAdminId: string | null;
+
+  @ManyToOne(() => PlatformAdmin, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'platform_admin_id' })
+  platformAdmin?: PlatformAdmin;
 
   @Column({ type: 'char', length: 64, name: 'refresh_token_hash', select: false })
   refreshTokenHash: string;

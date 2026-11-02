@@ -12,6 +12,10 @@ export class AuditEvent extends BaseEntity {
   @Column({ type: 'uuid', name: 'actor_executive_id', nullable: true })
   actorExecutiveId: string | null;
 
+  @Index('idx_audit_events_actor_platform_admin_id')
+  @Column({ type: 'uuid', name: 'actor_platform_admin_id', nullable: true })
+  actorPlatformAdminId: string | null;
+
   @Index('idx_audit_events_action')
   @Column({ type: 'varchar', length: 80 })
   action: string;
