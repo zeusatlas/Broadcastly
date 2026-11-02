@@ -100,6 +100,11 @@ export const TAG_DESCRIPTIONS = [
       'Sign in, keep the session alive with refresh tokens, sign out, and read the signed-in user.',
   },
   {
+    name: 'Organisation',
+    description:
+      "An organisation head's tools: positions, units, and appointing and suspending the organisation's executives.",
+  },
+  {
     name: 'Platform',
     description:
       'Platform admins only: dashboard totals, constituencies and their chairmen, platform admins, suspending accounts.',

@@ -87,9 +87,11 @@ imports — `xlsx` on npm and `exceljs` are unmaintained; choose deliberately).
 | `Member`      | Any party member on record (`members`). Most only receive SMS.        | person, user, people |
 | `partyId`     | The party membership number (`party_id`), the key to look members up. | memberId, member number |
 | `memberId`    | A member's own uuid, and every FK to `members` (`member_id`).         | personId           |
-| `Executive`   | An appointed member's login (`executives`): email, role, status.      | account, user      |
+| `OrganisationExecutive` | A member promoted to executive in their organisation (`organisation_executives`): login email, status. | account, user |
+| `Position`    | An office in an organisation, e.g. Constituency Organiser; the chairman creates them. | role, title |
 | `Appointment` | A member holding a position in a unit for a period.                   | role assignment    |
-| Units         | constituency → electoral area / branch → polling station.             | region, ward       |
+| `Organisation`| A tenant: one constituency (or other organisation). Owns members, units, appointments. | tenant, party |
+| Units         | Levels inside an organisation: electoral area / branch → polling station. | region, ward       |
 
 "Account" is fine in user-facing text ("This account is not active"); in code it is `Executive`.
 Coming next on `members`' side: `memberships` (member ↔ polling station, source, consent, FR-MEM-09).
@@ -150,14 +152,15 @@ src/
 │   ├── errors/             AppError and its subclasses.
 │   └── middleware/         validate, error_handler, rate_limit, request_id, not_found, idempotency.
 ├── database/               BaseEntity, initialize_database (auto-create + auto-migrate), migrations/.
-├── cli/                    Terminal commands: create_executive.ts (`executive:create`), seed.ts (`seed`, dev data
-│                           through the real services: a platform admin and a constituency with its chairman).
+├── cli/                    Terminal commands: seed.ts (`seed`, dev data through the real services: a
+│                           platform admin and an organisation with its chairman), create_platform_admin.ts
+│                           (`admin:create`, the first admin on a new server).
 ├── jobs/queues.ts          Queue names, default retry policy, getQueue().
 ├── integrations/           External provider boundaries: sms/, payments/, email/ (SRS 6.4–6.6).
 ├── modules/
 │   ├── health/             Fully implemented — the reference module.
 │   ├── auth/               Sign-in, sessions, access control. Complete — the reference module.
-│   ├── organisation/       Units, positions, appointments, grants (§4.2–4.3). Tables + access query done.
+│   ├── organisation/       Data layer only (no routes): organisations, units, positions, appointments, grants.
 │   ├── members/            Members (every party member), memberships, suppression, imports (§4.4)
 │   ├── broadcasts/         Drafts, templates, recipients, segments, dispatch (§4.5)
 │   ├── approvals/          Approval rules and decisions (§4.6)
@@ -165,7 +168,8 @@ src/
 │   ├── reports/            History, delivery reports, exports (§4.8)
 │   ├── notifications/      In-app and email (§4.9)
 │   ├── audit/              Append-only audit log (NFR-SEC-05). Done; a DB trigger blocks UPDATE/DELETE.
-│   └── platform/           Platform admin: constituencies, chairmen, platform admins (§7a). Done.
+│   ├── chairman/           An organisation head's tools at /organisation: positions, units, executives (§7b).
+│   └── platform/           Platform admin: organisations, chairmen, executives, admins (§7a). Done.
 └── types/express.d.ts      req.auth.
 ```
 
@@ -239,18 +243,36 @@ Defined in `common/http/api_response.ts`, mirrored in
 
 | Method | Path               | Auth   | Body                               | `data`                  |
 | ------ | ------------------ | ------ | ---------------------------------- | ----------------------- |
-| POST   | `/login`           | public | `{ email, phone }`                 | `OtpChallengeResponse`  |
+| POST   | `/login`           | public | `{ email, phone, client? }`        | `OtpChallengeResponse`  |
 | POST   | `/verify-otp`      | public | `{ challengeId, code }`            | `{ user, tokens }`      |
 | POST   | `/resend-otp`      | public | `{ challengeId }`                  | `OtpChallengeResponse`  |
 | POST   | `/refresh`         | public | `{ refreshToken }`                 | `tokens`                |
 | POST   | `/logout`          | bearer | `{ allDevices? }` (body optional)  | —                       |
 | GET    | `/me`              | bearer | —                                  | `user` (`UserResponse`) |
 
-**Model.** `members` (one per party member: names, `party_id`, `phone` in E.164, `date_of_birth`) ←
-`executives` (an appointed member's login: email, `role`, `status`; **no password**) ← `sessions`.
-Sign-in uses `otp_challenges` (one per sign-in: account, masked phone) ← `otp_codes` (one per SMS
-sent: code HMAC, expiry, tries; a resend supersedes the previous code). Access comes from
-`appointments` (member + position + unit + dates) and `permission_grants` (per appointment).
+**One login for everyone (owner's decision).** Executives and platform admins use the same
+`/api/v1/auth` endpoints. `user.role` tells each app where to go: `platform_admin` → admin tools,
+anything else → the executive dashboard. The **mobile app is for everyone**; the **web app is for
+platform admins only**: it sends `client: "web"` and the server refuses everyone else with `403`
+before any SMS is sent. Admin routes are admin-only regardless (`authorize({ roles: ['platform_admin'] })`).
+
+**Model (owner's decision; table and column names are deliberate).**
+- `organisations` — the tenants (a constituency or other organisation; `type`, default `constituency`).
+- `members` — party members; `organisation_id` is required. `party_id` is unique **within** an
+  organisation (`uq_members_organisation_party_id`).
+- `organisation_executives` — a **member promoted to executive** in their organisation:
+  `organisation_id`, `member_id`, login email, `status`; **no password**. A composite foreign key
+  (`member_id`, `organisation_id`) → `members` guarantees the member belongs to that organisation.
+- `positions` — offices. Built-in ones (Chairman, `CHAIRMAN_POSITION_ID`) have no organisation; the
+  chairman creates the rest for their own organisation (titles unique per organisation, ignoring case).
+- `platform_admins` — Broadcastly operators, **not party members**: names, email, phone, status.
+  No `members` row, no organisation. An email belongs to one account across both tables
+  (`authRepository.lockEmail`: an advisory lock plus a cross-table check).
+- `organisation_units` — levels inside an organisation (`organisation_id`, `parent_id`).
+- `appointments` — member + position + `organisation_id` + optional `unit_id` (null for
+  organisation-wide offices such as chairman) + dates; `permission_grants` per appointment.
+- `sessions` and `otp_challenges` belong to exactly one account (`executive_id` or
+  `platform_admin_id`, enforced by a `CHECK`); `otp_codes` per SMS sent (code HMAC, expiry, tries).
 
 **Sign-in is email + phone + SMS code (owner's decision; there are no passwords).**
 - Email and phone identify; the 6-digit SMS code proves. Phones are normalised to `+233…` by
@@ -270,16 +292,18 @@ sent: code HMAC, expiry, tries; a resend supersedes the previous code). Access c
   awaited. `SMS_DRIVER=log` prints the code to the console and is refused in production.
 
 **Roles and permissions (BR-01).**
-- `role` (`UserRole`: platform_admin, constituency_chairman, constituency_executive,
-  area_executive, polling_station_executive) is stored on the account.
-- Permissions = `ROLE_DEFAULT_PERMISSIONS[role]` (chairman: all; others: none) **only while the
-  member has an active appointment**, plus grants on their active appointments.
-- Scope = units of active appointments + all descendants (recursive CTE in
-  `organisation_repository.ts`). Platform admins have no member-data scope.
+- `UserRole` is derived, never stored: `platform_admin`, `chairman` (holds an active chairman
+  appointment) or `executive`. An executive's actual offices are their positions (owner's decision).
+- Permissions: an active chairman appointment brings all of them; everyone else gets the grants on
+  their active appointments. Ending an appointment removes the access on the next request.
+- Scope: an organisation-wide appointment covers every unit of that organisation; a unit
+  appointment covers that unit and its descendants (`organisation_repository.ts`). `req.auth`
+  also carries `organisationId`, so member queries filter by organisation.
 - `authorize(rule)` takes `{ permission, anyOf, allOf, roles }`, same as the app. Prefer permissions.
-- Platform admins have no appointment and no permissions; their routes use `roles: ['platform_admin']`.
-  A router used only by one role applies the guard once with `router.use(authenticate, authorize(…))`
-  (see `platform_routes.ts`), so no route on it can be added unprotected.
+- `authenticate` serves both kinds (`req.auth.kind`). Platform admins get `role: 'platform_admin'`,
+  no permissions and no scope. `platform_routes.ts` applies `authenticate` +
+  `authorize({ roles: ['platform_admin'] })` once with `router.use(…)`, so no admin route can be
+  added unprotected.
 - Scope is enforced in services and repositories with `req.auth.scopeUnitIds`, never in middleware.
 
 ```ts
@@ -295,6 +319,8 @@ membersRouter.post(
 **Tokens and sessions.**
 - Access token: JWT HS256, 15 min, claims only `sub` (account id) and `sid` (session id);
   algorithm, issuer and audience pinned on verify.
+- One sign-in engine in `auth_service.ts` for both kinds (`AccountKind`): the kind comes from the
+  email, the challenge or the session row, never from the client.
 - `authenticate` → `resolveAccess()` reloads session, account status, permissions and scope
   from the DB on **every** request, so suspension or a revoked appointment applies at once (BR-05).
 - Refresh token: opaque `<sessionId>.<256-bit secret>`; only its SHA-256 is stored. Rotated on
@@ -304,46 +330,75 @@ membersRouter.post(
 - The lockout counter is one atomic SQL UPDATE; auth routes also share the per-IP
   `authRateLimit` (10 per 15 min).
 - Every code sent, sign-in, failure, lockout, sign-out, token reuse, account creation, suspension,
-  reactivation, constituency creation and appointment is written to `audit_events`. Never put the phone number or code in audit metadata.
+  reactivation, organisation creation and appointment is written to `audit_events`, with the actor
+  in `actor_executive_id` or `actor_platform_admin_id`. Never put the phone number or code in audit metadata.
 
 **Not built yet (needs a decision or another module first):** a real SMS gateway driver (SRS 6.4),
 invitations, and chairmen managing their own executives (create, suspend — with appointments, UC-02).
-Chairmen and platform admins are managed through §7a; `npm run executive:create` remains for
-bootstrapping the first platform admin on a new server.
+Chairmen, executives and platform admins are managed through §7a. On a new server, create the first
+platform admin with `npm run admin:create`.
 
 ## 7a. Platform administration (owner's decisions, 2026-11-02)
 
-Platform admins run the platform from the **web app**; chairmen and their executives use the
-**mobile app**. The admin creates a constituency, then appoints its chairman, who manages their own
-people from there. All routes are under `/api/v1/platform` and require `platform_admin`.
+The platform admin is the **super admin**: not a party member; manages every organisation, every
+executive and the other admins, on the web or the mobile app (admin tools only: no member data).
+They create an organisation and appoint its chairman; the chairman manages their own people and
+messages on mobile. All routes are under `/api/v1/platform` and need a platform admin session.
 
-| Method | Path                                         | Does                                               |
-| ------ | -------------------------------------------- | -------------------------------------------------- |
-| GET    | `/overview`                                  | Dashboard totals                                   |
-| GET    | `/constituencies?search=&page=&pageSize=`    | List, each with its current chairman or `null`     |
-| POST   | `/constituencies`                            | Create (`{ name }`)                                |
-| GET    | `/constituencies/:constituencyId`            | One constituency                                   |
-| POST   | `/constituencies/:constituencyId/chairman`   | Create the chairman's account + appointment        |
-| GET    | `/admins`                                    | List platform admins                               |
-| POST   | `/admins`                                    | Add a platform admin (owner chose: admins add admins) |
-| POST   | `/executives/:executiveId/suspend`           | Suspend a chairman or admin; ends their sessions   |
-| POST   | `/executives/:executiveId/reactivate`        | Let them sign in again                             |
+| Method | Path                                                  | Does                                            |
+| ------ | ----------------------------------------------------- | ----------------------------------------------- |
+| GET    | `/overview`                                           | Dashboard totals                                |
+| GET    | `/organisations?search=`                              | List, each with chairman, member and executive counts |
+| POST   | `/organisations`                                      | Create (`{ name, type? }`)                      |
+| GET    | `/organisations/:organisationId`                      | One organisation                                |
+| POST   | `/organisations/:organisationId/chairman`             | Promote a member to executive and appoint them chairman |
+| GET    | `/organisations/:organisationId/executives?search=&status=` | That organisation's executives and their positions |
+| GET    | `/organisations/:organisationId/executives/:executiveId` | One of them                                  |
+| POST   | `/organisations/:organisationId/executives/:executiveId/suspend` · `/reactivate` | Suspension ends their sessions |
+| GET    | `/admins` · POST `/admins`                            | List · add a platform admin (admins add admins) |
+| POST   | `/admins/:platformAdminId/suspend` · `/reactivate`    | Another admin, never yourself (403)             |
 
-- **Chairman office.** One `positions` row, created by migration at the fixed id
-  `CONSTITUENCY_CHAIRMAN_POSITION_ID`. Code refers to it by id, never by title.
-- **Guarantees in the database, not only in code:** constituency names are unique ignoring case
-  (`uq_organisational_units_constituency_name`, an expression index declared with
-  `synchronize: false`); at most one active chairman per constituency (`uq_appointments_active_chairman`).
-  The service checks first for a friendly message and locks the unit row; the index catches races.
-- **Appointing is atomic:** member + executive + appointment + audit rows commit together
-  (`authService.createExecutive(input, actor, manager)` joins the caller's transaction).
-- **Status changes** (`authService.setExecutiveStatus`) apply only to roles the caller manages
-  (others are 404), never to your own account (403), and are a no-op if already in that status.
-  Suspension revokes every session at once; `deactivated` is final and cannot be changed here.
-- Platform admins are `members` rows too (sign-in needs a phone). They have no appointments or
-  memberships, so they never appear inside a constituency's scoped data.
-- Not built yet: replacing or ending a chairman's appointment, renaming or deactivating a
-  constituency, sub-units (electoral areas, branches, polling stations).
+- **Executives belong to an organisation** (owner's decision): the admin sees them inside it, never
+  as one platform-wide list. An executive id used under another organisation is a 404.
+- **Chairman office.** One built-in `positions` row at the fixed id `CHAIRMAN_POSITION_ID`. Code
+  refers to it by id, never by title.
+- **Guarantees in the database:** organisation names are unique ignoring case (`uq_organisations_name`,
+  expression index with `synchronize: false`); at most one active chairman per organisation
+  (`uq_appointments_active_chairman`). The service checks first for a friendly message and locks the
+  organisation row; the index catches races.
+- **Appointing is atomic:** member + executive + appointment + audit rows commit together. If
+  `partyId` matches a member of that organisation, that member is promoted instead of created.
+- **Status changes** are a no-op if already in that status; suspension revokes every session at
+  once; an executive's `deactivated` status is final and cannot be changed here.
+- Not built yet: replacing a chairman, renaming or deactivating an organisation, units, wiring the mobile admin screens.
+
+## 7b. Chairman tools (owner's decisions, 2026-11-02)
+
+The head of an organisation sets up its structure and people on the mobile app. Module `chairman`,
+mounted at `/api/v1/organisation`. It exists because `auth` depends on `organisation` (access), so
+`organisation` cannot hold routes that depend on `auth`: it stays the data layer.
+
+| Method | Path                                         | Who                  | Does                                     |
+| ------ | -------------------------------------------- | -------------------- | ---------------------------------------- |
+| GET    | `/overview`                                  | `appointment.manage` | Home counts in reach: executives, positions, units by type; `members` only if organisation-wide |
+| GET    | `/positions`                                 | `appointment.manage` | Built-in Chairman + this organisation's positions |
+| POST   | `/positions` · PATCH `/positions/:positionId` | chairman            | Create · rename or retire (`isActive`)   |
+| GET    | `/units?parentId=&search=`                   | `appointment.manage` | Browse one level at a time, within reach |
+| POST   | `/units`                                     | chairman             | Create under an optional parent          |
+| GET    | `/executives?search=&status=` · `/executives/:executiveId` | `appointment.manage` | Executives you manage, with positions and permissions |
+| POST   | `/executives`                                | `appointment.manage` | Promote a member to executive + appoint  |
+| POST   | `/executives/:executiveId/appointments`      | `appointment.manage` | Another position for an executive        |
+| POST   | `/appointments/:appointmentId/end`           | `appointment.manage` | End it; its permissions are revoked      |
+| POST   | `/executives/:executiveId/suspend` · `/reactivate` | `appointment.manage` | Ends / restores their sign-in      |
+
+Rules, all enforced in `chairman_service.ts` (owner's decision: chairman + granted managers):
+- **Reach.** Organisation-wide callers (an appointment with no unit) reach everything; others only
+  their units and descendants (`scopeUnitIds`). Lists filter by reach in SQL.
+- **Position fits place.** `unitType` `organisation` → no unit; otherwise a unit of that exact type.
+- **Grants.** You can only grant permissions you hold. Ending an appointment revokes its grants.
+- **Hands off.** Only a platform admin appoints or changes the chairman; nobody changes themselves.
+- **Database:** unit names unique among siblings (`uq_organisation_units_sibling_name`); one active
+  holding of a position per place (`uq_appointments_active_holding`).
 
 ## 8. Database — TypeORM 1.x
 
