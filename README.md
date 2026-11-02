@@ -10,7 +10,7 @@ Requirements: [`docs/Constituency_Communication_Platform_SRS_v1.0.docx`](./docs/
 | -------------------------- | ------------------------------------- | -------------------------------------------------------------- |
 | [`api/`](./api/)         | REST API (`/api/v1`) + job worker     | Node 24, Express 5, TypeScript, PostgreSQL 17, TypeORM, Redis   |
 | [`mobile-ui/`](./mobile-ui/) | Executive mobile app                  | Expo SDK 58 (Expo Go), React Native, Zustand, axios, NativeWind |
-| [`web-ui/`](./web-ui/)     | Web app (not started)                 | To be decided                                                   |
+| [`web-ui/`](./web-ui/)     | Web app                               | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4   |
 
 Each folder has a `README.md` (how to run it) and an `AGENTS.md` (the binding
 rules — read it before your first commit).
