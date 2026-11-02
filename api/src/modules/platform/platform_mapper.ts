@@ -1,31 +1,36 @@
-import type { ConstituencyRow, ExecutiveRow } from './platform_repository';
+import type { PlatformAdminResponse } from '../auth';
+
+import type { ExecutiveRow, OrganisationRow, PlatformAdminRow } from './platform_repository';
 import type {
   ChairmanResponse,
-  ConstituencyResponse,
-  ExecutiveSummaryResponse,
+  OrganisationExecutiveResponse,
+  OrganisationResponse,
 } from './platform_types';
 
 // Nested rows arrive through to_jsonb, so their timestamps are strings; normalise to Date.
 const toDate = (value: Date | string) => new Date(value);
-const toDateOrNull = (value: Date | string | null) => (value === null ? null : toDate(value));
 
-export function toExecutiveSummary(row: ExecutiveRow): ExecutiveSummaryResponse {
+function executiveBase(row: ExecutiveRow) {
   return {
     id: row.id,
     memberId: row.memberId,
+    partyId: row.partyId,
     fullName: [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' '),
     email: row.email,
     phone: row.phone,
-    role: row.role,
     status: row.status,
-    lastSignInAt: toDateOrNull(row.lastSignInAt),
+    lastSignInAt: row.lastSignInAt === null ? null : toDate(row.lastSignInAt),
     createdAt: toDate(row.createdAt),
   };
 }
 
-export function toConstituencyResponse(row: ConstituencyRow): ConstituencyResponse {
+export function toOrganisationExecutive(row: ExecutiveRow): OrganisationExecutiveResponse {
+  return { ...executiveBase(row), positions: row.positions ?? [] };
+}
+
+export function toOrganisationResponse(row: OrganisationRow): OrganisationResponse {
   const chairman: ChairmanResponse | null = row.chairman && {
-    ...toExecutiveSummary(row.chairman),
+    ...executiveBase(row.chairman),
     appointmentId: row.chairman.appointmentId,
     appointedAt: toDate(row.chairman.appointedAt),
   };
@@ -33,9 +38,16 @@ export function toConstituencyResponse(row: ConstituencyRow): ConstituencyRespon
   return {
     id: row.id,
     name: row.name,
+    type: row.type,
     status: row.status,
     chairman,
+    memberCount: row.memberCount,
+    executiveCount: row.executiveCount,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+export function toPlatformAdminSummary(row: PlatformAdminRow): PlatformAdminResponse {
+  return { ...row, fullName: `${row.firstName} ${row.lastName}` };
 }
