@@ -19,26 +19,28 @@ import { AUDIT_ACTIONS, auditService } from '../audit';
 import { maskPhone, Member } from '../members';
 
 import { loadProfileAccess } from './access_resolver';
-import { toUserResponse } from './auth_mapper';
-import { authRepository } from './auth_repository';
+import { toAdminUserResponse, toPlatformAdminResponse, toUserResponse } from './auth_mapper';
+import { authRepository, ownerFields, ownerOf, type SignInAccount } from './auth_repository';
 import type {
   AccessContext,
+  AccountKind,
   ActionActor,
   AuthTokensResponse,
   CreateExecutiveRequest,
-  ManageableExecutiveStatus,
+  CreatePlatformAdminRequest,
+  ManageableStatus,
   OtpChallengeResponse,
+  PlatformAdminResponse,
   RefreshTokenRequest,
   ResendOtpRequest,
   SignInRequest,
   SignInResponse,
-  SignOutRequest,
   UserResponse,
-  UserRole,
   VerifyOtpRequest,
 } from './auth_types';
-import { Executive } from './entities/executive_entity';
+import { OrganisationExecutive } from './entities/organisation_executive_entity';
 import type { OtpChallenge } from './entities/otp_challenge_entity';
+import { PlatformAdmin } from './entities/platform_admin_entity';
 import {
   generateOtp,
   hashOtp,
@@ -66,20 +68,40 @@ const SESSION_ENDED = 'Your session has ended. Please sign in again.';
 const INVALID_CREDENTIALS = 'Invalid email or phone number.';
 const ACCOUNT_LOCKED = `Too many failed attempts. Try again in ${LOCK_MINUTES} minutes.`;
 const ACCOUNT_INACTIVE = 'This account is not active. Contact your administrator.';
+const WEB_ADMINS_ONLY =
+  'The web app is for platform administrators. Use the Broadcastly mobile app.';
 const SIGN_IN_EXPIRED = 'Your sign-in has expired. Please sign in again.';
 const CODE_INCORRECT = 'Incorrect code.';
 const CODE_EXPIRED = 'This code has expired. Request a new one.';
 const CODE_ATTEMPTS_USED = 'Too many incorrect attempts. Request a new code.';
 const EMAIL_TAKEN = 'An account with this email already exists.';
+const NOT_FOUND = 'Account not found.';
+const NOT_YOURSELF = 'You cannot change the status of your own account.';
 const TOO_MANY_CODES = `Too many codes requested. Try again in ${OTP_SEND_WINDOW_MINUTES} minutes.`;
 
+const asActor = (kind: AccountKind, id: string) =>
+  kind === 'executive' ? { actorExecutiveId: id } : { actorPlatformAdminId: id };
+
+export const auditActor = (actor: ActionActor) => ({
+  actorExecutiveId: actor.executiveId ?? null,
+  actorPlatformAdminId: actor.platformAdminId ?? null,
+  ...(actor.context && toAuditContext(actor.context)),
+});
+
+export const actorFrom = (auth: AccessContext, context?: RequestContext): ActionActor => ({
+  ...(auth.kind === 'executive'
+    ? { executiveId: auth.accountId }
+    : { platformAdminId: auth.accountId }),
+  context,
+});
+
 function buildTokens(
-  executiveId: string,
+  accountId: string,
   sessionId: string,
   refreshToken: string,
   sessionExpiresAt: Date,
 ): AuthTokensResponse {
-  const access = signAccessToken({ sub: executiveId, sid: sessionId });
+  const access = signAccessToken({ sub: accountId, sid: sessionId });
   return {
     accessToken: access.token,
     refreshToken,
@@ -90,7 +112,8 @@ function buildTokens(
 }
 
 async function openSession(
-  executiveId: string,
+  kind: AccountKind,
+  accountId: string,
   context: RequestContext,
   manager: EntityManager,
 ): Promise<AuthTokensResponse> {
@@ -101,7 +124,7 @@ async function openSession(
   await authRepository.insertSession(
     {
       id: sessionId,
-      executiveId,
+      ...ownerFields(kind, accountId),
       refreshTokenHash: refresh.hash,
       expiresAt,
       userAgent: context.userAgent ?? null,
@@ -110,7 +133,7 @@ async function openSession(
     manager,
   );
 
-  return buildTokens(executiveId, sessionId, refresh.token, expiresAt);
+  return buildTokens(accountId, sessionId, refresh.token, expiresAt);
 }
 
 const challengeResponse = (challengeId: string, maskedPhone: string): OtpChallengeResponse => ({
@@ -120,22 +143,30 @@ const challengeResponse = (challengeId: string, maskedPhone: string): OtpChallen
   resendIn: OTP_RESEND_COOLDOWN_SECONDS,
 });
 
-const isLocked = (executive: Executive) =>
-  !!executive.lockedUntil && executive.lockedUntil > new Date();
+const isLocked = (account: SignInAccount) =>
+  !!account.lockedUntil && account.lockedUntil > new Date();
 
 // Checked only once email and phone both match, so status is never shown to someone guessing.
-function assertCanSignIn(executive: Executive) {
-  if (isLocked(executive)) throw new TooManyRequestsError(ACCOUNT_LOCKED);
-  if (executive.status !== 'active') throw new ForbiddenError(ACCOUNT_INACTIVE);
+function assertCanSignIn(account: SignInAccount) {
+  if (isLocked(account)) throw new TooManyRequestsError(ACCOUNT_LOCKED);
+  if (account.status !== 'active') throw new ForbiddenError(ACCOUNT_INACTIVE);
 }
 
-const challengeExpired = (challenge: OtpChallenge) =>
-  !!challenge.consumedAt ||
-  Date.now() - challenge.createdAt.getTime() > OTP_CHALLENGE_TTL_MINUTES * 60_000;
+function openChallengeOwner(challenge: OtpChallenge | null) {
+  if (!challenge || challenge.consumedAt) return null;
+  const age = Date.now() - challenge.createdAt.getTime();
+  return age > OTP_CHALLENGE_TTL_MINUTES * 60_000 ? null : ownerOf(challenge);
+}
 
-async function issueCode(executive: Executive, challengeId: string, manager: EntityManager) {
+async function issueCode(
+  kind: AccountKind,
+  accountId: string,
+  challengeId: string,
+  manager: EntityManager,
+) {
   const sent = await authRepository.countRecentCodes(
-    executive.id,
+    kind,
+    accountId,
     OTP_SEND_WINDOW_MINUTES,
     manager,
   );
@@ -165,9 +196,15 @@ function deliverCode(phone: string, code: string) {
   });
 }
 
-async function recordFailure(executiveId: string, reason: string, context: RequestContext) {
+async function recordFailure(
+  kind: AccountKind,
+  accountId: string,
+  reason: string,
+  context: RequestContext,
+) {
   const lockedUntil = await authRepository.recordFailedSignIn(
-    executiveId,
+    kind,
+    accountId,
     MAX_FAILED_SIGN_INS,
     LOCK_MINUTES,
   );
@@ -176,7 +213,7 @@ async function recordFailure(executiveId: string, reason: string, context: Reque
   await auditService.record({
     action: justLocked ? AUDIT_ACTIONS.accountLocked : AUDIT_ACTIONS.signInFailed,
     outcome: 'failure',
-    actorExecutiveId: executiveId,
+    ...asActor(kind, accountId),
     metadata: { reason },
     ...toAuditContext(context),
   });
@@ -185,14 +222,14 @@ async function recordFailure(executiveId: string, reason: string, context: Reque
 }
 
 export const authService = {
-  // Step 1. Email and phone must match one executive; any mismatch gets the same message, so it never
-  // says which part was wrong or whether the email has an executive.
-  async signIn({ email, phone }: SignInRequest, context: RequestContext) {
-    const executive = await authRepository.findExecutiveByEmail(email);
+  // Step 1, for every kind of account. Any mismatch gets the same message, so it never says
+  // which part was wrong or whether the email has an account.
+  async signIn({ email, phone, client = 'mobile' }: SignInRequest, context: RequestContext) {
+    const found = await authRepository.findAccountByEmail(email);
 
-    if (!executive || executive.member?.phone !== phone) {
-      if (executive) {
-        if (await recordFailure(executive.id, 'phone_mismatch', context)) {
+    if (!found || found.account.phone !== phone) {
+      if (found) {
+        if (await recordFailure(found.kind, found.account.id, 'phone_mismatch', context)) {
           throw new TooManyRequestsError(ACCOUNT_LOCKED);
         }
       } else {
@@ -206,7 +243,18 @@ export const authService = {
       throw new UnauthorizedError(INVALID_CREDENTIALS);
     }
 
-    assertCanSignIn(executive);
+    const { kind, account } = found;
+    assertCanSignIn(account);
+    if (client === 'web' && kind !== 'platform_admin') {
+      await auditService.record({
+        action: AUDIT_ACTIONS.signInFailed,
+        outcome: 'failure',
+        ...asActor(kind, account.id),
+        metadata: { reason: 'web_not_allowed' },
+        ...toAuditContext(context),
+      });
+      throw new ForbiddenError(WEB_ADMINS_ONLY);
+    }
 
     const challengeId = randomUUID();
     const maskedPhone = maskPhone(phone);
@@ -215,18 +263,18 @@ export const authService = {
       await authRepository.insertChallenge(
         {
           id: challengeId,
-          executiveId: executive.id,
+          ...ownerFields(kind, account.id),
           maskedPhone,
           userAgent: context.userAgent ?? null,
           ipAddress: context.ipAddress ?? null,
         },
         manager,
       );
-      const issued = await issueCode(executive, challengeId, manager);
+      const issued = await issueCode(kind, account.id, challengeId, manager);
       await auditService.record(
         {
           action: AUDIT_ACTIONS.otpSent,
-          actorExecutiveId: executive.id,
+          ...asActor(kind, account.id),
           targetType: 'otp_challenge',
           targetId: challengeId,
           ...toAuditContext(context),
@@ -243,11 +291,12 @@ export const authService = {
   async resendCode({ challengeId }: ResendOtpRequest, context: RequestContext) {
     const result = await dataSource.transaction(async (manager) => {
       const challenge = await authRepository.lockChallenge(challengeId, manager);
-      if (!challenge || challengeExpired(challenge)) throw new NotFoundError(SIGN_IN_EXPIRED);
+      const owner = openChallengeOwner(challenge);
+      if (!challenge || !owner) throw new NotFoundError(SIGN_IN_EXPIRED);
 
-      const executive = await authRepository.findExecutiveById(challenge.executiveId, manager);
-      if (!executive?.member?.phone) throw new NotFoundError(SIGN_IN_EXPIRED);
-      assertCanSignIn(executive);
+      const account = await authRepository.findSignInAccount(owner.kind, { id: owner.id }, manager);
+      if (!account?.phone) throw new NotFoundError(SIGN_IN_EXPIRED);
+      assertCanSignIn(account);
 
       const latest = await authRepository.findLatestCode(challenge.id, manager);
       const waited = latest ? (Date.now() - latest.createdAt.getTime()) / 1000 : Infinity;
@@ -258,11 +307,11 @@ export const authService = {
         );
       }
 
-      const code = await issueCode(executive, challenge.id, manager);
+      const code = await issueCode(owner.kind, account.id, challenge.id, manager);
       await auditService.record(
         {
           action: AUDIT_ACTIONS.otpSent,
-          actorExecutiveId: executive.id,
+          ...asActor(owner.kind, account.id),
           targetType: 'otp_challenge',
           targetId: challenge.id,
           metadata: { resend: true },
@@ -271,7 +320,7 @@ export const authService = {
         manager,
       );
 
-      return { phone: executive.member.phone, maskedPhone: challenge.maskedPhone, code };
+      return { phone: account.phone, maskedPhone: challenge.maskedPhone, code };
     });
 
     deliverCode(result.phone, result.code);
@@ -284,14 +333,13 @@ export const authService = {
   ): Promise<SignInResponse> {
     const outcome = await dataSource.transaction(async (manager) => {
       const challenge = await authRepository.lockChallenge(challengeId, manager);
-      if (!challenge || challengeExpired(challenge)) {
-        return { error: new NotFoundError(SIGN_IN_EXPIRED) };
-      }
+      const owner = openChallengeOwner(challenge);
+      if (!challenge || !owner) return { error: new NotFoundError(SIGN_IN_EXPIRED) };
 
-      const executive = await authRepository.findExecutiveById(challenge.executiveId, manager);
-      if (!executive) return { error: new NotFoundError(SIGN_IN_EXPIRED) };
-      if (isLocked(executive)) return { error: new TooManyRequestsError(ACCOUNT_LOCKED) };
-      if (executive.status !== 'active') return { error: new ForbiddenError(ACCOUNT_INACTIVE) };
+      const account = await authRepository.findSignInAccount(owner.kind, { id: owner.id }, manager);
+      if (!account) return { error: new NotFoundError(SIGN_IN_EXPIRED) };
+      if (isLocked(account)) return { error: new TooManyRequestsError(ACCOUNT_LOCKED) };
+      if (account.status !== 'active') return { error: new ForbiddenError(ACCOUNT_INACTIVE) };
 
       const latest = await authRepository.findLatestCode(challenge.id, manager);
       if (!latest || latest.supersededAt || latest.expiresAt <= new Date()) {
@@ -308,43 +356,39 @@ export const authService = {
           error: new UnauthorizedError(
             failedAttempts >= OTP_MAX_ATTEMPTS ? CODE_ATTEMPTS_USED : CODE_INCORRECT,
           ),
-          failedExecutiveId: executive.id,
+          failed: owner,
         };
       }
 
       await authRepository.updateCode(latest.id, { consumedAt: new Date() }, manager);
       await authRepository.consumeChallenge(challenge.id, manager);
-      await authRepository.recordSuccessfulSignIn(executive.id, manager);
-      const tokens = await openSession(executive.id, context, manager);
+      await authRepository.recordSuccessfulSignIn(owner.kind, account.id, manager);
+      const tokens = await openSession(owner.kind, account.id, context, manager);
       await auditService.record(
         {
           action: AUDIT_ACTIONS.signIn,
-          actorExecutiveId: executive.id,
+          ...asActor(owner.kind, account.id),
           ...toAuditContext(context),
         },
         manager,
       );
-
-      executive.lastSignInAt = new Date();
-      return { executive, tokens };
+      return { owner, tokens };
     });
 
     if ('error' in outcome) {
-      // After the transaction commits the code's attempt count, so a failure is never rolled back.
       if (
-        outcome.failedExecutiveId &&
-        (await recordFailure(outcome.failedExecutiveId, 'wrong_code', context))
+        outcome.failed &&
+        (await recordFailure(outcome.failed.kind, outcome.failed.id, 'wrong_code', context))
       ) {
         throw new TooManyRequestsError(ACCOUNT_LOCKED);
       }
       throw outcome.error;
     }
 
-    const { executive, tokens } = outcome;
-    const access = await loadProfileAccess(executive.memberId, executive.role);
-
-    return { user: toUserResponse(executive, access), tokens };
+    const { owner, tokens } = outcome;
+    return { user: await authService.getUser(owner.kind, owner.id), tokens };
   },
+
   // Rotates the refresh token. A token that was already rotated means it was copied:
   // the whole session is revoked and the legitimate device must sign in again.
   async refresh({ refreshToken }: RefreshTokenRequest, context: RequestContext) {
@@ -354,6 +398,7 @@ export const authService = {
     const tokens = await dataSource.transaction(async (manager) => {
       const session = await authRepository.lockSession(parsed.sessionId, manager);
       if (!session || session.revokedAt || session.expiresAt <= new Date()) return null;
+      const owner = ownerOf(session);
 
       if (!refreshSecretMatches(parsed.secret, session.refreshTokenHash)) {
         await authRepository.revokeSession(session.id, 'refresh_token_reused', manager);
@@ -361,7 +406,7 @@ export const authService = {
           {
             action: AUDIT_ACTIONS.refreshTokenReused,
             outcome: 'failure',
-            actorExecutiveId: session.executiveId,
+            ...asActor(owner.kind, owner.id),
             targetType: 'session',
             targetId: session.id,
             ...toAuditContext(context),
@@ -371,36 +416,36 @@ export const authService = {
         return null;
       }
 
-      const status = await authRepository.findExecutiveStatus(session.executiveId, manager);
-      if (status !== 'active') {
+      if ((await authRepository.findAccountStatus(owner.kind, owner.id, manager)) !== 'active') {
         await authRepository.revokeSession(session.id, 'account_inactive', manager);
         return null;
       }
 
       const next = createRefreshToken(session.id);
       await authRepository.rotateSessionToken(session.id, next.hash, manager);
-      return buildTokens(session.executiveId, session.id, next.token, session.expiresAt);
+      return buildTokens(owner.id, session.id, next.token, session.expiresAt);
     });
 
     if (!tokens) throw new UnauthorizedError(SESSION_ENDED);
     return tokens;
   },
 
-  async signOut(
-    auth: AccessContext,
-    { allDevices = false }: SignOutRequest,
-    context: RequestContext,
-  ) {
+  async signOut(auth: AccessContext, allDevices: boolean, context: RequestContext) {
     await dataSource.transaction(async (manager) => {
       if (allDevices) {
-        await authRepository.revokeExecutiveSessions(auth.executiveId, 'sign_out_all', manager);
+        await authRepository.revokeAccountSessions(
+          auth.kind,
+          auth.accountId,
+          'sign_out_all',
+          manager,
+        );
       } else {
         await authRepository.revokeSession(auth.sessionId, 'sign_out', manager);
       }
       await auditService.record(
         {
           action: allDevices ? AUDIT_ACTIONS.signOutAll : AUDIT_ACTIONS.signOut,
-          actorExecutiveId: auth.executiveId,
+          ...asActor(auth.kind, auth.accountId),
           ...toAuditContext(context),
         },
         manager,
@@ -408,63 +453,78 @@ export const authService = {
     });
   },
 
-  async getCurrentUser(auth: AccessContext): Promise<UserResponse> {
-    const executive = await authRepository.findExecutiveById(auth.executiveId);
-    if (!executive) throw new UnauthorizedError(SESSION_ENDED);
+  async getUser(kind: AccountKind, accountId: string): Promise<UserResponse> {
+    if (kind === 'platform_admin') {
+      const admin = await authRepository.findPlatformAdminById(accountId);
+      if (!admin) throw new UnauthorizedError(SESSION_ENDED);
+      return toAdminUserResponse(admin);
+    }
 
-    return toUserResponse(executive, await loadProfileAccess(executive.memberId, executive.role));
+    const executive = await authRepository.findExecutiveById(accountId);
+    if (!executive) throw new UnauthorizedError(SESSION_ENDED);
+    return toUserResponse(executive, await loadProfileAccess(executive.memberId));
   },
 
+  getCurrentUser(auth: AccessContext): Promise<UserResponse> {
+    return authService.getUser(auth.kind, auth.accountId);
+  },
+
+  async getPlatformAdmin(platformAdminId: string): Promise<PlatformAdminResponse> {
+    const admin = await authRepository.findPlatformAdminById(platformAdminId);
+    if (!admin) throw new NotFoundError(NOT_FOUND);
+    return toPlatformAdminResponse(admin);
+  },
+
+  // A member promoted to executive. Pass `manager` to join the caller's transaction.
   async createExecutive(
     input: CreateExecutiveRequest,
-    actor: ActionActor = { executiveId: null },
+    actor: ActionActor = {},
     manager?: EntityManager,
   ): Promise<{ executiveId: string; memberId: string }> {
     if (!manager) {
       return dataSource.transaction((m) => authService.createExecutive(input, actor, m));
     }
 
-    if (await manager.getRepository(Executive).existsBy({ email: input.email })) {
+    if (await authRepository.lockEmail(input.email, manager)) {
       throw new ConflictError(EMAIL_TAKEN, { errors: { email: [EMAIL_TAKEN] } });
     }
 
     const members = manager.getRepository(Member);
-    let member = input.partyId ? await members.findOneBy({ partyId: input.partyId }) : null;
+    let member = input.partyId
+      ? await members.findOneBy({ organisationId: input.organisationId, partyId: input.partyId })
+      : null;
 
-    if (member && (await manager.getRepository(Executive).existsBy({ memberId: member.id }))) {
+    if (
+      member &&
+      (await manager.getRepository(OrganisationExecutive).existsBy({ memberId: member.id }))
+    ) {
       throw new ConflictError('This member already has an account.');
     }
-
     if (member?.phone && member.phone !== input.phone) {
       throw new ValidationError({
         phone: ['This member is on file with a different phone number.'],
       });
     }
 
-    if (member) {
-      member = await members.save({
-        ...member,
-        phone: input.phone,
-        dateOfBirth: input.dateOfBirth,
-      });
-    } else {
-      member = await members.save(
-        members.create({
-          firstName: input.firstName,
-          middleName: input.middleName ?? null,
-          lastName: input.lastName,
-          partyId: input.partyId ?? null,
-          phone: input.phone,
-          dateOfBirth: input.dateOfBirth,
-        }),
-      );
-    }
+    member = member
+      ? await members.save({ ...member, phone: input.phone, dateOfBirth: input.dateOfBirth })
+      : await members.save(
+          members.create({
+            organisationId: input.organisationId,
+            firstName: input.firstName,
+            middleName: input.middleName ?? null,
+            lastName: input.lastName,
+            partyId: input.partyId ?? null,
+            phone: input.phone,
+            dateOfBirth: input.dateOfBirth,
+          }),
+        );
 
-    const executive = await manager.getRepository(Executive).save(
-      manager.getRepository(Executive).create({
+    const executive = await manager.getRepository(OrganisationExecutive).save(
+      manager.getRepository(OrganisationExecutive).create({
+        organisationId: input.organisationId,
         memberId: member.id,
         email: input.email,
-        role: input.role,
         status: 'active',
       }),
     );
@@ -472,11 +532,10 @@ export const authService = {
     await auditService.record(
       {
         action: AUDIT_ACTIONS.executiveCreated,
-        actorExecutiveId: actor.executiveId,
         targetType: 'executive',
         targetId: executive.id,
-        metadata: { role: input.role },
-        ...(actor.context && toAuditContext(actor.context)),
+        metadata: { organisationId: input.organisationId },
+        ...auditActor(actor),
       },
       manager,
     );
@@ -486,27 +545,27 @@ export const authService = {
 
   async setExecutiveStatus(
     executiveId: string,
-    status: ManageableExecutiveStatus,
+    status: ManageableStatus,
     actor: ActionActor,
-    manageableRoles: readonly UserRole[],
   ): Promise<void> {
-    if (executiveId === actor.executiveId) {
-      throw new ForbiddenError('You cannot change the status of your own account.');
-    }
+    if (executiveId === actor.executiveId) throw new ForbiddenError(NOT_YOURSELF);
 
     await dataSource.transaction(async (manager) => {
       const executive = await authRepository.lockExecutive(executiveId, manager);
-      if (!executive || !manageableRoles.includes(executive.role)) {
-        throw new NotFoundError('Account not found.');
-      }
+      if (!executive) throw new NotFoundError(NOT_FOUND);
       if (executive.status === status) return;
       if (executive.status === 'deactivated') {
         throw new ConflictError('This account has been deactivated and cannot be changed.');
       }
 
-      await manager.getRepository(Executive).update({ id: executiveId }, { status });
+      await manager.getRepository(OrganisationExecutive).update({ id: executiveId }, { status });
       if (status === 'suspended') {
-        await authRepository.revokeExecutiveSessions(executiveId, 'account_inactive', manager);
+        await authRepository.revokeAccountSessions(
+          'executive',
+          executiveId,
+          'account_inactive',
+          manager,
+        );
       }
 
       await auditService.record(
@@ -515,11 +574,74 @@ export const authService = {
             status === 'suspended'
               ? AUDIT_ACTIONS.executiveSuspended
               : AUDIT_ACTIONS.executiveReactivated,
-          actorExecutiveId: actor.executiveId,
           targetType: 'executive',
           targetId: executiveId,
-          metadata: { role: executive.role, previousStatus: executive.status },
-          ...(actor.context && toAuditContext(actor.context)),
+          metadata: { previousStatus: executive.status },
+          ...auditActor(actor),
+        },
+        manager,
+      );
+    });
+  },
+
+  async createPlatformAdmin(
+    input: CreatePlatformAdminRequest,
+    actor: ActionActor = {},
+  ): Promise<PlatformAdminResponse> {
+    const admin = await dataSource.transaction(async (manager) => {
+      if (await authRepository.lockEmail(input.email, manager)) {
+        throw new ConflictError(EMAIL_TAKEN, { errors: { email: [EMAIL_TAKEN] } });
+      }
+
+      const admins = manager.getRepository(PlatformAdmin);
+      const created = await admins.save(admins.create({ ...input, status: 'active' }));
+      await auditService.record(
+        {
+          action: AUDIT_ACTIONS.platformAdminCreated,
+          targetType: 'platform_admin',
+          targetId: created.id,
+          ...auditActor(actor),
+        },
+        manager,
+      );
+      return created;
+    });
+
+    return toPlatformAdminResponse(admin);
+  },
+
+  async setPlatformAdminStatus(
+    platformAdminId: string,
+    status: ManageableStatus,
+    actor: ActionActor,
+  ): Promise<void> {
+    if (platformAdminId === actor.platformAdminId) throw new ForbiddenError(NOT_YOURSELF);
+
+    await dataSource.transaction(async (manager) => {
+      const admin = await authRepository.lockPlatformAdmin(platformAdminId, manager);
+      if (!admin) throw new NotFoundError(NOT_FOUND);
+      if (admin.status === status) return;
+
+      await manager.getRepository(PlatformAdmin).update({ id: platformAdminId }, { status });
+      if (status === 'suspended') {
+        await authRepository.revokeAccountSessions(
+          'platform_admin',
+          platformAdminId,
+          'account_inactive',
+          manager,
+        );
+      }
+
+      await auditService.record(
+        {
+          action:
+            status === 'suspended'
+              ? AUDIT_ACTIONS.platformAdminSuspended
+              : AUDIT_ACTIONS.platformAdminReactivated,
+          targetType: 'platform_admin',
+          targetId: platformAdminId,
+          metadata: { previousStatus: admin.status },
+          ...auditActor(actor),
         },
         manager,
       );
