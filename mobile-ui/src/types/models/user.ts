@@ -1,16 +1,18 @@
 // Mirrors the backend's UserResponse (api/src/modules/auth/auth_types.ts). Change both together.
 
-export type UserRole =
-  | 'platform_admin'
-  | 'constituency_chairman'
-  | 'constituency_executive'
-  | 'area_executive'
-  | 'polling_station_executive';
+// Routes the user: admin tools, or the executive app. A chairman holds the chairman office;
+// every executive's actual offices are their appointments' positions.
+export type UserRole = 'platform_admin' | 'chairman' | 'executive';
 
 export type ExecutiveStatus = 'invited' | 'active' | 'suspended' | 'deactivated';
 
-export type OrganisationalUnitType =
-  'constituency' | 'electoral_area' | 'branch' | 'polling_station';
+export type OrganisationalUnitType = 'electoral_area' | 'branch' | 'polling_station';
+
+export interface OrganisationRef {
+  id: string;
+  name: string;
+  type: string;
+}
 
 export interface OrganisationalUnit {
   id: string;
@@ -35,26 +37,28 @@ export interface Appointment {
   id: string;
   // Configurable per FR-ORG-08 — never branch on this string.
   positionTitle: string;
-  unitId: string;
-  unitName: string;
-  unitType: string;
+  organisationId: string;
+  organisationName: string;
+  // Null for organisation-wide offices such as chairman.
+  unitId: string | null;
+  unitName: string | null;
+  unitType: string | null;
   effectiveFrom: string;
   effectiveTo: string | null;
 }
 
-// The signed-in executive: an appointed member with a login.
+// Any signed-in account. Platform admins have no member, organisation or appointments.
 export interface User {
   id: string;
-  memberId: string;
-  // Party membership number, where the party issues one.
+  memberId: string | null;
   partyId: string | null;
+  organisation: OrganisationRef | null;
   firstName: string;
   middleName: string | null;
   lastName: string;
   fullName: string;
   email: string;
   phone: string | null;
-  // 'YYYY-MM-DD'
   dateOfBirth: string | null;
   role: UserRole;
   status: ExecutiveStatus;

@@ -67,7 +67,7 @@ export function ProfileScreen() {
   };
 
   const isActive = user.status === 'active';
-  const unitName = user.appointments[0]?.unitName;
+  const unitName = user.appointments[0]?.unitName ?? user.organisation?.name;
 
   const details = [
     { label: 'Party ID', value: user.partyId ?? 'Not on record' },

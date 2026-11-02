@@ -33,7 +33,7 @@ export function NewBroadcastScreen() {
   const [delivery, setDelivery] = useState<DeliveryMode>('now');
   const estimate = useMemo(() => estimateSegments(message), [message]);
 
-  const scopeName = user?.appointments[0]?.unitName ?? 'Your constituency';
+  const scopeName = user?.organisation?.name ?? 'Your organisation';
   const primaryLabel = canSend
     ? delivery === 'now'
       ? 'Review & send'
