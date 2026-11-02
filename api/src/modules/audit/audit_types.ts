@@ -15,7 +15,15 @@ export const AUDIT_ACTIONS = {
   executiveSuspended: 'executive.suspended',
   executiveReactivated: 'executive.reactivated',
   constituencyCreated: 'organisation.constituency_created',
+  organisationCreated: 'organisation.created',
+  positionCreated: 'organisation.position_created',
+  positionUpdated: 'organisation.position_updated',
+  unitCreated: 'organisation.unit_created',
+  appointmentEnded: 'organisation.appointment_ended',
   appointmentCreated: 'organisation.appointment_created',
+  platformAdminCreated: 'platform_admin.created',
+  platformAdminSuspended: 'platform_admin.suspended',
+  platformAdminReactivated: 'platform_admin.reactivated',
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 
@@ -23,6 +31,7 @@ export interface AuditEventInput {
   action: AuditAction;
   outcome?: AuditOutcome;
   actorExecutiveId?: string | null;
+  actorPlatformAdminId?: string | null;
   targetType?: string;
   targetId?: string;
   requestId?: string;

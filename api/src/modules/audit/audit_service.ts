@@ -12,6 +12,7 @@ export const auditService = {
       action: event.action,
       outcome: event.outcome ?? 'success',
       actorExecutiveId: event.actorExecutiveId ?? null,
+      actorPlatformAdminId: event.actorPlatformAdminId ?? null,
       targetType: event.targetType ?? null,
       targetId: event.targetId ?? null,
       requestId: event.requestId ?? null,
