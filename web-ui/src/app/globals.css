@@ -1,22 +1,13 @@
-/*
- * Broadcastly — colour tokens. The single source of truth (mirrors mobile-ui/src/global.css).
- *
- * Two layers: --brand-* is the approved palette (never consumed directly by a
- * component); the semantic layer below is what components use via Tailwind.
- *
- * Values are bare HSL channels (no hsl() wrapper), same as mobile, so the two
- * files can be compared line by line. @theme wraps them; `bg-primary/10` works.
- *
- * Pair every surface with its -foreground and contrast is guaranteed.
- */
 
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 /* Dark theme is opt-in via a `dark` class on <html>, like mobile. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
-  /* Brand palette — identical in both themes. */
+  /* Brand palette â€” identical in both themes. */
   :root {
     --brand-atlas-navy: 213 73% 16%; /* #0B2545 */
     --brand-steel-blue: 211 41% 30%; /* #2E4C6D */
@@ -43,7 +34,7 @@
     --popover-foreground: var(--brand-ink); /* 15.84:1 */
 
     --muted: 40 20% 89%; /* #E9E5DD */
-    --muted-foreground: 213 12% 40%; /* #5A6572 — 5.26:1 on bg, 4.72:1 on muted */
+    --muted-foreground: 213 12% 40%; /* #5A6572 â€” 5.26:1 on bg, 4.72:1 on muted */
 
     --primary: var(--brand-atlas-navy);
     --primary-foreground: var(--brand-white); /* 15.19:1 */
@@ -51,17 +42,17 @@
     --secondary: var(--brand-steel-blue);
     --secondary-foreground: var(--brand-white); /* 9.00:1 */
 
-    /* Filled surfaces only — 2.66:1 against the page. Standalone gold uses --accent-emphasis. */
+    /* Filled surfaces only â€” 2.66:1 against the page. Standalone gold uses --accent-emphasis. */
     --accent: var(--brand-heritage-gold);
     --accent-foreground: var(--brand-ink); /* 5.50:1 */
-    --accent-emphasis: 38 63% 34%; /* #8D6520 — 4.64:1 on background */
+    --accent-emphasis: 38 63% 34%; /* #8D6520 â€” 4.64:1 on background */
 
     /* Urgent CTAs and critical notices only. Ordinary failures use --destructive. */
     --critical: var(--brand-signal-crimson); /* 6.33:1 */
     --critical-foreground: var(--brand-white);
 
     /* Deepened from brand green so white text clears AA. */
-    --success: 152 65% 31%; /* #1C8252 — 4.81:1 */
+    --success: 152 65% 31%; /* #1C8252 â€” 4.81:1 */
     --success-foreground: var(--brand-white);
 
     --warning: var(--brand-warning-amber);
@@ -81,7 +72,7 @@
 
   /*
    * Dark theme. The canvas is itself in the navy family, so Atlas Navy cannot
-   * serve as a button fill — primary lifts to a brighter steel and gold
+   * serve as a button fill â€” primary lifts to a brighter steel and gold
    * brightens. This is why components must consume --primary, not --brand-*.
    */
   .dark:root {
@@ -95,29 +86,29 @@
     --popover-foreground: var(--brand-white); /* 15.55:1 */
 
     --muted: 220 30% 22%; /* #273249 */
-    --muted-foreground: 213 18% 72%; /* #ABB6C4 — 8.45:1 on bg, 6.24:1 on muted */
+    --muted-foreground: 213 18% 72%; /* #ABB6C4 â€” 8.45:1 on bg, 6.24:1 on muted */
 
-    --primary: 211 48% 42%; /* #38699F — 3.05:1 on bg, 5.69:1 with white */
+    --primary: 211 48% 42%; /* #38699F â€” 3.05:1 on bg, 5.69:1 with white */
     --primary-foreground: var(--brand-white);
 
     --secondary: 220 30% 26%; /* #2E3C56 */
     --secondary-foreground: var(--brand-white); /* 11.07:1 */
 
     /* Gold clears both thresholds here, so accent and accent-emphasis converge. */
-    --accent: 38 65% 58%; /* #DAA64E — 7.89:1 on bg */
+    --accent: 38 65% 58%; /* #DAA64E â€” 7.89:1 on bg */
     --accent-foreground: var(--brand-midnight); /* 7.89:1 */
     --accent-emphasis: 38 65% 58%;
 
-    --critical: 0 55% 60%; /* #D16161 — 4.62:1 */
+    --critical: 0 55% 60%; /* #D16161 â€” 4.62:1 */
     --critical-foreground: var(--brand-midnight);
 
-    --success: 152 50% 50%; /* #40BF84 — 7.44:1 */
+    --success: 152 50% 50%; /* #40BF84 â€” 7.44:1 */
     --success-foreground: var(--brand-midnight);
 
-    --warning: 41 80% 60%; /* #EBB747 — 9.42:1 */
+    --warning: 41 80% 60%; /* #EBB747 â€” 9.42:1 */
     --warning-foreground: var(--brand-midnight);
 
-    --destructive: 6 70% 58%; /* #DF5849 — 4.65:1 */
+    --destructive: 6 70% 58%; /* #DF5849 â€” 4.65:1 */
     --destructive-foreground: var(--brand-midnight);
 
     --border: 220 28% 24%; /* #2C374E */
@@ -130,11 +121,17 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply font-sans bg-background text-foreground;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
-/* Maps tokens to utility names (bg-primary, text-muted-foreground, …). Never add raw colours here. */
+/* Maps tokens to utility names (bg-primary, text-muted-foreground, â€¦). Never add raw colours here. */
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -169,5 +166,52 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sans);
+
+  --font-heading: var(--font-sans);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-sidebar-border: var(--sidebar-border);
+
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+
+  --color-sidebar-accent: var(--sidebar-accent);
+
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+
+  --color-sidebar-primary: var(--sidebar-primary);
+
+  --color-sidebar-foreground: var(--sidebar-foreground);
+
+  --color-sidebar: var(--sidebar);
+
+  --color-chart-5: var(--chart-5);
+
+  --color-chart-4: var(--chart-4);
+
+  --color-chart-3: var(--chart-3);
+
+  --color-chart-2: var(--chart-2);
+
+  --color-chart-1: var(--chart-1);
+
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  --radius-3xl: calc(var(--radius) * 2.2);
+
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5.5rem;
+}
+
+@media (min-width: 1024px) {
+  html {
+    scroll-padding-top: 9rem;
+  }
 }

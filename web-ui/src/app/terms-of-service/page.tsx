@@ -1,0 +1,16 @@
+import { LegalPage, type LegalSection } from "@/components/legal-page";
+
+const sections: LegalSection[] = [
+  { title: "About these terms", paragraphs: ["These draft terms describe the intended use of Broadcastly, a workspace for managing people and teams and coordinating SMS communications. The service operator should complete and approve these terms before making the service available."] },
+  { title: "Accounts and organisations", paragraphs: ["An organisation is responsible for inviting its users, assigning roles and permissions, keeping account details accurate, and promptly removing access when it is no longer needed. Users must protect their sign-in details and notify their organisation if they suspect unauthorised account use."] },
+  { title: "Acceptable use", paragraphs: ["You may use the service only for lawful organisational purposes and in line with your organisation’s rules. You must not misuse the service, attempt to bypass access controls, interfere with its operation, or use it to send unlawful, deceptive, abusive or unauthorised communications."] },
+  { title: "Messages and recipient permissions", paragraphs: ["The organisation sending messages is responsible for the content, recipient selection, required permissions or consent, and compliance with laws and carrier rules that apply to its communications. Review the audience, message and estimated cost before sending. Delivery estimates may differ from final provider reports."] },
+  { title: "SMS providers and availability", paragraphs: ["SMS delivery depends on external networks and providers. Broadcastly cannot guarantee delivery, timing or availability of those external services. The operator should identify any service-specific provider terms and charges before launch. Features may be changed or temporarily unavailable for maintenance, security or operational reasons."] },
+  { title: "Organisation data and service records", paragraphs: ["The organisation retains responsibility for the information and content it submits. It should ensure that it has the rights and permissions needed to use that information in Broadcastly. The service may maintain operational records such as approvals, broadcast history and delivery reports to provide its features and support accountability."] },
+  { title: "Suspension and termination", paragraphs: ["An organisation may remove a user’s access at any time. The service operator may restrict or suspend access when reasonably necessary to protect the service, address misuse, comply with law or respond to a security incident. The operator should define any notice, data export and deletion process before publishing these terms."] },
+  { title: "Disclaimers, changes and contact", paragraphs: ["The operator should specify any service warranties, liability limits, governing law and dispute process that apply to the service. These draft terms do not set those details. The operator may update the terms as the service changes and should publish the effective date of each version. For questions, contact support@broadcastly.com."] },
+];
+
+export default function TermsOfServicePage() {
+  return <LegalPage title="Terms of Service" intro="The terms intended to govern access to and use of the Broadcastly workspace." sections={sections}/>;
+}

@@ -1,0 +1,15 @@
+import { LegalPage, type LegalSection } from "@/components/legal-page";
+
+const sections: LegalSection[] = [
+  { title: "About this policy", paragraphs: ["This page explains the privacy approach intended for Broadcastly, a workspace for organising people and teams and coordinating approved SMS communication. The final policy must be confirmed by the organisation that operates the service."] },
+  { title: "Information the service may handle", paragraphs: ["Depending on how an organisation configures and uses Broadcastly, information may include:"] , items: ["Account details such as name, work email address, phone number, role and authentication activity.", "Member or contact records entered by an organisation, such as names, contact information, team assignments and other fields it chooses to maintain.", "Broadcast content, recipient selections, approval history, delivery reports and SMS credit records.", "Basic technical and diagnostic information needed to operate, protect and troubleshoot the service."] },
+  { title: "How information is used", paragraphs: ["Information may be used to provide account access, maintain people and team records, apply roles and permissions, prepare and deliver messages, record approvals and delivery outcomes, support users, and protect the service. The organisation using Broadcastly is responsible for deciding what information it enters and for ensuring it has an appropriate basis to use that information."] },
+  { title: "Access and service providers", paragraphs: ["Information may be available to authorised users within the organisation according to their assigned roles and scope. The service may rely on hosting, communications, SMS delivery and technical support providers to operate its features. The operator should identify the providers it uses and the information each receives before this policy is published."] },
+  { title: "Retention and security", paragraphs: ["The operator should keep information only for as long as needed for the purposes described, subject to applicable legal and operational requirements, and document the relevant retention periods. Appropriate technical and organisational safeguards should be maintained for the information handled by the service."] },
+  { title: "Your choices and requests", paragraphs: ["Depending on the applicable law, individuals may be able to request access to, correction of, deletion of, or limits on the use of their personal information. Start by contacting the organisation that manages your account or records. You can also contact support@broadcastly.com and we will direct the request to the appropriate service operator."] },
+  { title: "Changes and contact", paragraphs: ["The operator may update this policy as the service or its practices change. The current version and its effective date should be made available here. For privacy questions, contact support@broadcastly.com."] },
+];
+
+export default function PrivacyPolicyPage() {
+  return <LegalPage title="Privacy Policy" intro="How information may be handled when organisations use Broadcastly to manage people, permissions and SMS communications." sections={sections}/>;
+}
