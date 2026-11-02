@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Environment — only .env.example is committed (NFR-SEC-02).
+.env
+.env.*
+!.env.example
+
+# Uploaded spreadsheets must never be committed: they hold member personal data.
+storage/
+uploads/
+
+npm-debug.log*
+.DS_Store

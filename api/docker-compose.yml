@@ -1,0 +1,40 @@
+# Local development services only. Production runs managed PostgreSQL and Redis.
+#
+#   npm run services:up       Redis + PostgreSQL 17 (Docker PostgreSQL listens on 55432)
+#   npm run services:down     Stop them; data is kept in the volumes
+#
+# Host ports 55432/6380, not the defaults, so a local PostgreSQL or Redis install cannot clash.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: broadcastly
+      POSTGRES_PASSWORD: broadcastly
+      POSTGRES_DB: broadcastly
+    ports:
+      - '55432:5432'
+    volumes:
+      - postgres17_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U broadcastly -d broadcastly']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # AOF persistence so queued SMS dispatch jobs survive a Redis restart (NFR-REL-01).
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6380:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres17_data:
+  redis_data:
