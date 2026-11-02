@@ -11,7 +11,6 @@ interface OnboardingState {
 interface OnboardingActions {
   load: () => Promise<void>;
   complete: () => Promise<void>;
-  replay: () => void;
 }
 
 // Not registered with registerStoreReset: onboarding is per device, so sign-out must not repeat it.
@@ -27,9 +26,6 @@ export const useOnboardingStore = create<OnboardingState & OnboardingActions>()(
     set({ status: 'done' });
     await secureStorage.set(STORAGE_KEYS.onboardingSeen, '1').catch(() => {});
   },
-
-  // Re-opens the intro on request; storage stays "seen", so a restart still lands on sign-in.
-  replay: () => set({ status: 'pending' }),
 }));
 
 export const useOnboardingStatus = () => useOnboardingStore((s) => s.status);

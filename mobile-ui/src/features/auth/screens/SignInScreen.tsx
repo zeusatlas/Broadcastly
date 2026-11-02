@@ -1,28 +1,18 @@
 import { router, useFocusEffect } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GlassSurface, Text } from '@/components/ui';
+import { Text } from '@/components/ui';
 import { MaxContentWidth } from '@/constants/theme';
-import { useTheme } from '@/hooks/use_theme';
 
 import { AuthHeader } from '../components/AuthHeader';
 import { SignInForm } from '../components/SignInForm';
 import { usePendingChallenge } from '../hooks/use_session';
 import { useAuthStore } from '../store/auth_store';
 
-const BACK_SIZE = 52;
-
-interface SignInScreenProps {
-  onBack?: () => void;
-}
-
-export function SignInScreen({ onBack }: SignInScreenProps) {
-  const theme = useTheme();
-  const insets = useSafeAreaInsets();
+export function SignInScreen() {
   const challengeId = usePendingChallenge()?.challengeId;
 
   // Back on this screen (back gesture from verify, or a fresh visit) means the pending code is
@@ -74,30 +64,6 @@ export function SignInScreen({ onBack }: SignInScreenProps) {
           </Text>
         </View>
       </KeyboardAwareScrollView>
-
-      {onBack ? (
-        // Plain style, not className: NativeWind can drop classes when Pressable gets a style function.
-        <View
-          pointerEvents="box-none"
-          style={{ position: 'absolute', top: insets.top + 4, left: 16, zIndex: 10 }}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back to introduction"
-            onPress={onBack}
-            hitSlop={8}
-            style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.92 : 1 }] })}
-          >
-            <GlassSurface
-              tone="dark"
-              className="rounded-full"
-              style={{ width: BACK_SIZE, height: BACK_SIZE, borderRadius: BACK_SIZE / 2 }}
-            >
-              <ChevronLeft size={28} color={theme.primaryForeground} />
-            </GlassSurface>
-          </Pressable>
-        </View>
-      ) : null}
     </SafeAreaView>
   );
 }
