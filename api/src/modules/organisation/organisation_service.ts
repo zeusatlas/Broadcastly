@@ -5,7 +5,8 @@ import type {
   AccessIncludes,
   ActiveAccess,
   CreateAppointmentInput,
-  UnitSummary,
+  PositionRecord,
+  UnitRecord,
 } from './organisation_types';
 
 // Write methods take the caller's transaction manager, so a cross-module action
@@ -15,25 +16,45 @@ export const organisationService = {
     return organisationRepository.findActiveAccess(memberId, include);
   },
 
-  constituencyNameExists(name: string, manager: EntityManager) {
-    return organisationRepository.constituencyNameExists(name, manager);
+  organisationNameExists(name: string, manager: EntityManager) {
+    return organisationRepository.organisationNameExists(name, manager);
   },
 
-  async createConstituency(name: string, manager: EntityManager): Promise<{ id: string }> {
-    const unit = await organisationRepository.insertConstituency(name, manager);
-    return { id: unit.id };
+  async createOrganisation(input: { name: string; type: string }, manager: EntityManager) {
+    const organisation = await organisationRepository.insertOrganisation(input, manager);
+    return { id: organisation.id };
   },
 
-  lockUnit(unitId: string, manager: EntityManager): Promise<UnitSummary | null> {
-    return organisationRepository.lockUnit(unitId, manager);
+  lockOrganisation(organisationId: string, manager: EntityManager) {
+    return organisationRepository.lockOrganisation(organisationId, manager);
   },
 
-  hasActiveChairman(unitId: string, manager: EntityManager) {
-    return organisationRepository.hasActiveChairman(unitId, manager);
+  hasActiveChairman(organisationId: string, manager: EntityManager) {
+    return organisationRepository.hasActiveChairman(organisationId, manager);
   },
 
   async createAppointment(input: CreateAppointmentInput, manager: EntityManager) {
     const appointment = await organisationRepository.insertAppointment(input, manager);
     return { id: appointment.id };
+  },
+
+  findPosition: organisationRepository.findPosition,
+  positionTitleExists: organisationRepository.positionTitleExists,
+  findUnit: organisationRepository.findUnit,
+  unitNameExists: organisationRepository.unitNameExists,
+  lockAppointment: organisationRepository.lockAppointment,
+  endAppointment: organisationRepository.endAppointment,
+  grantPermissions: organisationRepository.insertGrants,
+
+  async createPosition(input: Omit<PositionRecord, 'id' | 'isActive'>, manager: EntityManager) {
+    const position = await organisationRepository.insertPosition(input, manager);
+    return { id: position.id };
+  },
+
+  updatePosition: organisationRepository.updatePosition,
+
+  async createUnit(input: Omit<UnitRecord, 'id' | 'status'>, manager: EntityManager) {
+    const unit = await organisationRepository.insertUnit(input, manager);
+    return { id: unit.id };
   },
 };

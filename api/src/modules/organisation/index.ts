@@ -1,12 +1,18 @@
-// Public API of the organisation module — units, positions, appointments and grants (FR-ORG-01..08, FR-IAM-04).
-// Other modules import from here only.
+// Public API of the organisation module — organisations (tenants), their units, positions,
+// appointments and grants (FR-ORG-01..08, FR-IAM-04). Other modules import from here only.
+export { Organisation } from './entities/organisation_entity';
 export { organisationService } from './organisation_service';
 export {
-  CONSTITUENCY_CHAIRMAN_POSITION_ID,
-  CONSTITUENCY_UNIT_TYPE,
+  CHAIRMAN_POSITION_ID,
+  ORGANISATION_STATUSES,
   UNIT_STATUSES,
   type AccessIncludes,
+  type AppointmentRecord,
+  type PositionRecord,
+  type UnitRecord,
+  type UnitStatus,
   type ActiveAccess,
   type AppointmentSummaryResponse,
-  type UnitStatus,
+  type OrganisationRef,
+  type OrganisationStatus,
 } from './organisation_types';
