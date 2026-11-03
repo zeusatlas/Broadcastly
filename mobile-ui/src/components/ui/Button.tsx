@@ -10,6 +10,8 @@ export type ButtonVariant =
 
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
+export type ButtonShape = 'rounded' | 'pill';
+
 // Chunky 3D style: the face sits on a darker lip and sinks onto it while pressed.
 const LIP = 4;
 
@@ -69,6 +71,7 @@ export type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
+  shape?: ButtonShape;
   icon?: LucideIcon;
   isLoading?: boolean;
   loadingLabel?: string;
@@ -94,6 +97,7 @@ export function Button({
   label,
   variant = 'primary',
   size = 'md',
+  shape = 'rounded',
   icon: Icon,
   isLoading = false,
   loadingLabel,
@@ -105,6 +109,7 @@ export function Button({
   const foreground = useForegroundColor(variant, 'primary');
   const isDisabled = disabled || isLoading;
   const lip = VARIANT_LIP[variant];
+  const radius = shape === 'pill' ? 'rounded-full' : 'rounded-2xl';
 
   return (
     <Pressable
@@ -121,14 +126,15 @@ export function Button({
 
         return (
           <View
-            className={cn('rounded-2xl', lip)}
+            className={cn(radius, lip)}
             // Shrinking the lip and shifting down keeps the button's footprint fixed while it sinks.
             style={{ marginTop: isSunk ? LIP : 0, paddingBottom: lip && !isSunk ? LIP : 0 }}
           >
-            {lip ? <View className="absolute inset-0 rounded-2xl bg-backdrop/25" /> : null}
+            {lip ? <View className={cn('absolute inset-0 bg-backdrop/25', radius)} /> : null}
             <View
               className={cn(
-                'flex-row items-center justify-center rounded-2xl',
+                'flex-row items-center justify-center',
+                radius,
                 SIZE_FACE[size],
                 VARIANT_FACE[variant],
               )}

@@ -3,7 +3,15 @@ import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
 import { cn } from '@/utils/helpers';
 
 export type TextVariant =
-  'display' | 'title' | 'heading' | 'body' | 'bodyMuted' | 'caption' | 'label' | 'code';
+  | 'display'
+  | 'title'
+  | 'heading'
+  | 'body'
+  | 'bodyMuted'
+  | 'caption'
+  | 'label'
+  | 'overline'
+  | 'code';
 
 const VARIANT_CLASS: Record<TextVariant, string> = {
   display: 'font-sans-extrabold text-3xl leading-tight text-foreground',
@@ -13,6 +21,7 @@ const VARIANT_CLASS: Record<TextVariant, string> = {
   bodyMuted: 'font-sans text-base text-muted-foreground',
   caption: 'font-sans text-xs text-muted-foreground',
   label: 'font-sans-medium text-sm text-foreground',
+  overline: 'font-sans-bold text-xs uppercase tracking-widest text-accent-emphasis',
   code: 'font-mono text-xs text-muted-foreground',
 };
 
