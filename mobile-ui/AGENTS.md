@@ -3,7 +3,7 @@
 Binding rules for every agent and developer working in this repository.
 Read this fully before the first edit. These rules are not suggestions.
 
-Product requirements: `../docs/Constituency_Communication_Platform_SRS_v1.0.docx`.
+Product requirements: `../srs-docs/Constituency_Communication_Platform_SRS_v1.0.docx`.
 Requirement IDs cited below (FR-\*, NFR-\*) refer to that document.
 
 ---
@@ -308,21 +308,61 @@ Always pair a surface with its matching foreground:
 **Component style is chunky, Duolingo-like** (user's choice): `rounded-2xl`, 2px borders, a thicker
 bottom edge on cards (`border-b-4`) and a darker 4pt lip under filled buttons that the face sinks onto
 when pressed. Bold, large type. Reuse `Button`, `Card` and `TextField`; do not restyle per screen. **Use the chunky `Card` sparingly** (owner's rule): lists are plain rows with
-hairline dividers (`BroadcastRow`, `SettingsRow`); a card is kept for the one or two things on a screen
-that carry weight (a balance, a cost estimate, quick actions). Filters and single choices use `Chip`. Floating controls over content
-(e.g. a pinned back button) sit on `GlassSurface`: Liquid Glass on iOS 26+, blur + tint elsewhere.
+hairline dividers (`BroadcastRow`, `SettingsRow`); a card is kept for **at most one** thing on a screen
+that carries weight (the credit balance, a cost estimate). The owner finds chunky cards too obvious when
+repeated: section content is plain, under a `PageSection` (small gold caps `overline` title), and summary
+counts use `FigureRow` (a hairline-divided strip of numbers), never a row of cards. Filters and single choices use `Chip`. Floating controls over content
+sit on `GlassSurface`: Liquid Glass on iOS 26+, blur + tint elsewhere.
 Forms scroll in `KeyboardAwareScrollView` (react-native-keyboard-controller), never `KeyboardAvoidingView`.
 
-**Every stacked screen with a back button uses `PageScreen`** from `@/components/shared` (owner's rule:
-one wrapper so header changes happen in one place). It gives a plain `bg-background` page, a round
-Liquid Glass back button (`HeaderButton`, `GlassSurface`), an optional `headerRight` action drawn at
-the same size, `buttonSize` (default `HEADER_BUTTON_SIZE`, 48pt), and a large `title` that collapses
-into the bar on scroll. Register the route with `headerShown: false`. Never hand-roll a back button. Screens that close rather than go back pass `backIcon={X}`. Header-sized controls on a page without `PageScreen` (home avatar, bell) use `HEADER_BUTTON_SIZE` / `<HeaderButton isPlain>` so they match.
+**Page headers** (owner's rules, 2026-11-03). The native header bar was too tall: it left too much space
+between the status bar and the title. So **titled pages and tab roots hide the native bar** and
+`PageScreen` / `useCollapsingTitle` draw a compact header themselves. The native stack still provides
+navigation, transitions and swipe-back. Change headers only in these files:
+
+- `src/components/shared/PageScreen.tsx`: every page with a back button. Round glass back button
+  (`GlassHeaderButton`; `backIcon={X}` for screens that close) and an optional `headerRight` action float
+  just under the status bar, drawn inside the page so they travel with any transition. A page without a
+  `title` (profile) shows only the buttons. `isTabRoot` drops the buttons for a tab's first screen.
+  **Primary buttons go in `actions`** (a solid bar pinned to the bottom, lifted above the keyboard),
+  never at the end of the content with `mt-auto`: pages are given extra scroll height for the
+  collapsing title, so `mt-auto` pushes a button below the screen edge.
+- `src/components/shared/CollapsingTitle.tsx`: `useCollapsingTitle(title, { header })`.
+  - **`header`:** `'buttons'` puts the title under the floating button row; `'tab'` puts it 12pt under the
+    status bar; `'native'` is for a native header.
+  - **On scroll:** the big left title scrolls away, a solid status strip and a compact bar with the centred
+    title fade in (`collapsing.bar`, rendered after the scroll view). Short pages get a `minHeight` so they
+    can always scroll far enough.
+  - **Title spacing is fixed:** the title ends 16pt above the content, and a screen's first block adds no top
+    margin (`PageSection`, `SettingsSection`, `ComposeSection` take `className="mt-0"` when first).
+  - **Own lists:** a screen with its own list (Broadcasts, Members, Credits) uses an `Animated.FlatList` with
+    `onScroll`/`onLayout`/`minHeight` from the hook, `largeTitle` first in `ListHeaderComponent`, then
+    `{collapsing.bar}`.
+- **Tabs:** every tab except home is a folder (`(tabs)/broadcasts/_layout.tsx` + `index.tsx`) whose layout is
+  `<TabStack title="…" />`, with the root's native bar hidden (`header: 'tab'` / `PageScreen isTabRoot`).
+  **Home has no title** and keeps the native tab header: profile avatar (`ProfileButton`, home only) left,
+  bell right, set with `<Tabs.Screen options={{ headerLeft, headerRight }} />`.
+- **Placeholders:** placeholder routes (`Placeholder`) still show the native header. `src/hooks/use_header_options.ts`
+  styles it (background surface, no shadow, Manrope title, iOS 26 scroll-edge blur off), and every stack
+  sets `headerLeft: androidHeaderBack` because the Android system arrow vanished with our nested stacks.
+  Never set `headerLeft: undefined` in options.
+- **Do not use the native `headerLargeTitleEnabled`:** it failed to track our scroll views on device.
+- **Broadcasts "New":** no header action. "New" is a gold pill `Button` (`shape="pill"`) with a `SquarePen`
+  icon floating bottom-right.
+
+**Motion** (owner: pages should move slowly and nicely). Timing lives only in `src/constants/motion.ts`.
+- **Page content:** `PageScreen` and `ScrollScreen` fade their content in while it rises 12pt
+  (`enterContent`, about 420ms).
+- **Lists:** wrap each row in `<Animated.View entering={enterRow(index)}>`. The first 12 rows stagger in
+  40ms apart; later rows don't animate.
+- **Transitions:** iOS keeps the native slide (it follows the swipe-back finger). Android uses
+  `ios_from_right`. Bottom-up screens (profile, new broadcast) take 450ms. Tabs switch with `shift`.
+- **Reduce Motion:** Reanimated honours the system setting. Don't add per-screen animations elsewhere.
+
 Inner pages stay plain — the wave/illustrated backgrounds are for sign-in and onboarding only.
 
-**Tab home screens share one layout** (admin home and the executive/chairman dashboard): `HomeHeader`
-(`@/components/shared`; the executive home passes no title: profile avatar left, bell right; the admin
-home keeps eyebrow + name with the avatar on the right), a 2×2 grid of
+**Tab home screens share one layout** (admin home and the executive/chairman dashboard): the native
+tab header (avatar left, bell right on the executive home; avatar left on the admin home), a 2×2 grid of
 plain `StatTile`s (card surface + border like `Card`; owner's rule: no coloured tiles, the only colour is the
 small gold icon chip), then `ListCard`
 sections (titled card + "View all") holding plain rows. `StatTile` and `ListCard` live in `components/ui`.
@@ -606,8 +646,9 @@ session at the deadline while open and on resume, and shows "Your session has en
 rows are `SettingsSection` + `SettingsRow` / `SettingsExpandableRow`. Settings and support rows are
 UI only for now (no values or actions wired).
 
-**Sign-out** lives on the profile screen (`features/settings`, route `(app)/profile`, slides up
-from the dashboard avatar). It always asks first (`ConfirmDialog`), then `signOut({ allDevices })`.
+**Sign-out** lives on the profile screen (`features/settings`, route `(app)/profile`, opened from the
+home avatar, slides up full screen). Like every `PageScreen`, its round glass back and gear buttons are drawn inside the page, so they
+travel with the custom slide animation (owner's choice over a sheet). It always asks first (`ConfirmDialog`), then `signOut({ allDevices })`.
 `signOut` is deliberately *not* `skipAuthRefresh`: an expired access token is refreshed first, so
 the server really revokes the session. The device is signed out even if the call fails.
 
