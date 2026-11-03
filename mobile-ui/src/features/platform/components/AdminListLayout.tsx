@@ -2,9 +2,8 @@ import type { LucideIcon } from 'lucide-react-native';
 import type { PropsWithChildren } from 'react';
 import { View } from 'react-native';
 
-import { HomeHeader } from '@/components/shared';
-import { Button, ScrollScreen, Text } from '@/components/ui';
-import { useCurrentUser } from '@/features/auth';
+import { PageScreen } from '@/components/shared';
+import { Button, Text } from '@/components/ui';
 
 import { ListControls, type ListControlsProps } from './ListControls';
 
@@ -23,11 +22,8 @@ export function AdminListLayout<F extends string>({
   children,
   ...controls
 }: PropsWithChildren<AdminListLayoutProps<F>>) {
-  const user = useCurrentUser();
-
   return (
-    <ScrollScreen className="gap-4 pt-2">
-      <HomeHeader eyebrow="Platform" title={title} avatarName={user?.fullName ?? ''} />
+    <PageScreen title={title} isTabRoot contentClassName="gap-4">
       {action ? (
         <Button label={action.label} icon={action.icon} variant="accent" onPress={action.onPress} />
       ) : null}
@@ -38,6 +34,6 @@ export function AdminListLayout<F extends string>({
           {footnote}
         </Text>
       ) : null}
-    </ScrollScreen>
+    </PageScreen>
   );
 }
