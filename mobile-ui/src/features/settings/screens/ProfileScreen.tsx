@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
 import { Pencil, Settings } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -40,7 +40,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-// Opened from the dashboard avatar; slides up from the bottom (see app/(app)/_layout.tsx).
+// Opened from the home avatar; slides up full screen (see app/(app)/_layout.tsx).
 export function ProfileScreen() {
   const theme = useTheme();
   const user = useCurrentUser();

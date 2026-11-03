@@ -22,7 +22,7 @@ import { SettingsSection } from '../components/SettingsSection';
 export function SettingsScreen() {
   return (
     <PageScreen title="Settings">
-      <SettingsSection title="Preferences">
+      <SettingsSection title="Preferences" className="mt-0">
         <SettingsRow icon={Paintbrush} label="Appearance" value="System" />
         <SettingsRow icon={Bell} label="Notifications" value="On" />
       </SettingsSection>

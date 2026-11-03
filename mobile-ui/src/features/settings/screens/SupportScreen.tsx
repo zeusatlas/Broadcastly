@@ -22,7 +22,7 @@ import { SettingsSection } from '../components/SettingsSection';
 export function SupportScreen() {
   return (
     <PageScreen title="Help & Support">
-      <SettingsSection title="Is the app helping?">
+      <SettingsSection title="Is the app helping?" className="mt-0">
         <SettingsExpandableRow icon={Sparkles} label="Tell us how it’s going">
           <View className="gap-4">
             <Text variant="bodyMuted">
