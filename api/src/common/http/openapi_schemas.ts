@@ -29,6 +29,17 @@ export function successEnvelope<T extends ZodType>(
   });
 }
 
+// The `data` of a list endpoint: Paginated<T> from pagination.ts.
+export function paginatedSchema<T extends ZodType>(item: T) {
+  return z.object({
+    items: z.array(item),
+    page: z.number().int().openapi({ example: 1 }),
+    pageSize: z.number().int().openapi({ example: 20 }),
+    total: z.number().int().openapi({ example: 1 }),
+    hasNextPage: z.boolean().openapi({ example: false }),
+  });
+}
+
 // For endpoints that return no `data`.
 export function messageEnvelope(message: string) {
   return z.object({

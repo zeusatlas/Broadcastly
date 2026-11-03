@@ -12,7 +12,7 @@ import { checkAccess, type AccessRule } from '../utils/access_policy';
 // The general form. Re-renders only when the boolean result changes.
 //   useCan({ permission: 'broadcast.send' })
 //   useCan({ anyOf: ['broadcast.send', 'broadcast.submit'] })
-//   useCan({ allOf: ['member.manage', 'member.import'], roles: ['constituency_chairman'] })
+//   useCan({ allOf: ['member.manage', 'member.import'], roles: ['chairman'] })
 export const useCan = (rule: AccessRule) => useAuthStore((state) => checkAccess(state.user, rule));
 
 export const useHasPermission = (permission: Permission) => useCan({ permission });

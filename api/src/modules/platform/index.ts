@@ -1,3 +1,5 @@
-// Public API of the platform module — Platform administration: organisation onboarding, provider settings, failed jobs (FR-ADM-01..04).
-// Other modules import from here only.
-export {};
+// Public API of the platform module — the super admin's tools: constituencies, chairmen, every
+// executive, and other platform admins (FR-ADM). Other modules import only this.
+export { platformRouter } from './platform_routes';
+export { platformService } from './platform_service';
+export { appointChairmanSchema } from './platform_schemas';

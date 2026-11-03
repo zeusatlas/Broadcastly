@@ -1,11 +1,9 @@
-import { X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { KeyboardStickyView } from 'react-native-keyboard-controller';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HeaderButton } from '@/components/shared';
 import { Button, OtpInput, Text } from '@/components/ui';
 import { MaxContentWidth } from '@/constants/theme';
 import { formatCountdown, useCountdown } from '@/hooks/use_countdown';
@@ -17,12 +15,12 @@ import { useAuthError, useIsAuthSubmitting, usePendingChallenge } from '../hooks
 import { useAuthStore } from '../store/auth_store';
 
 const CODE_LENGTH = 6;
+const KEYBOARD_CLEARANCE = 160;
 
 // Step 2 of sign-in. Reachable only while a code is pending (guard in app/(auth)/_layout.tsx);
 // success signs the user in and the root guard moves them to the app.
 export function VerifyOtpScreen() {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const challenge = usePendingChallenge();
   const error = useAuthError();
   const isSubmitting = useIsAuthSubmitting();
@@ -35,7 +33,6 @@ export function VerifyOtpScreen() {
   const resendIn = useCountdown(challenge?.resendAvailableAt ?? 0);
   const expiresIn = useCountdown(challenge?.codeExpiresAt ?? 0);
 
-  // The success of step 1 is announced here: entering the right details only sends a code.
   const challengeId = challenge?.challengeId;
   const maskedPhone = challenge?.maskedPhone;
   useEffect(() => {
@@ -43,7 +40,6 @@ export function VerifyOtpScreen() {
       notify.success('Code sent', `Check the SMS sent to ${maskedPhone}.`);
   }, [challengeId, maskedPhone]);
 
-  // Warn once when the code runs out, not on every render after.
   const hasWarnedExpiry = useRef(false);
   useEffect(() => {
     if (expiresIn > 0) hasWarnedExpiry.current = false;
@@ -109,91 +105,94 @@ export function VerifyOtpScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="h-14 flex-row items-center px-4">
-        <HeaderButton icon={X} label="Cancel sign-in" onPress={leave} />
-        <Text
-          accessibilityRole="header"
-          className="absolute inset-x-0 text-center font-sans-bold text-lg text-foreground"
-          pointerEvents="none"
-        >
-          Verification
-        </Text>
-      </View>
-
-      <View className="w-full flex-1 self-center px-6 pt-6" style={{ maxWidth: MaxContentWidth }}>
-        <Text variant="bodyMuted" className="text-lg">
-          Enter the 6-digit code sent to
-        </Text>
-        <Text className="mt-1 font-sans-bold text-lg text-foreground">{challenge.maskedPhone}</Text>
-
-        <View className="mt-8">
-          <OtpInput
-            value={code}
-            onChangeText={changeCode}
-            length={CODE_LENGTH}
-            hasError={!!error && !isSubmitting}
-            isDisabled={isSubmitting}
-            isLoading={isVerifying}
-          />
-        </View>
-
-        <View className="mt-4 min-h-6 items-center">
-          {isVerifying ? (
-            <Text variant="bodyMuted" className="text-sm">
-              Checking your code…
-            </Text>
-          ) : expiresIn > 0 ? (
-            <Text variant="bodyMuted" className="text-sm">
-              Code expires in {formatCountdown(expiresIn)}
-            </Text>
-          ) : (
-            <Text className="font-sans-medium text-sm text-destructive">
-              This code has expired. Request a new one.
-            </Text>
-          )}
-        </View>
-
-        <View className="mt-4 h-11 items-center justify-center">
-          {isResending ? (
-            <View className="flex-row items-center gap-2">
-              <ActivityIndicator size="small" color={theme.accentEmphasis} />
-              <Text className="font-sans-bold text-base text-accent-emphasis">Sending…</Text>
-            </View>
-          ) : resendIn > 0 ? (
-            <Text variant="bodyMuted">
-              Resend code in{' '}
-              <Text className="font-sans-bold text-foreground">{formatCountdown(resendIn)}</Text>
-            </Text>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Resend code"
-              onPress={resend}
-              disabled={isSubmitting}
-              hitSlop={8}
-              className="h-11 justify-center px-4"
+      <KeyboardAwareScrollView
+        // Keeps the Verify button and resend link under the code visible above the keyboard.
+        bottomOffset={KEYBOARD_CLEARANCE}
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+      >
+        <View className="w-full self-center px-6 py-8" style={{ maxWidth: MaxContentWidth }}>
+          <View className="items-center gap-2">
+            <Text
+              accessibilityRole="header"
+              className="text-center font-sans-extrabold text-3xl text-foreground"
             >
-              <Text className="font-sans-bold text-base text-accent-emphasis">Resend code</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
+              Verification
+            </Text>
+            <Text variant="bodyMuted" className="text-center text-lg">
+              Enter the 6-digit code sent to
+            </Text>
+            <Text className="font-sans-bold text-lg text-foreground">{challenge.maskedPhone}</Text>
+          </View>
 
-      {/* Rides on top of the keyboard, so Verify is always reachable while typing. */}
-      <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
-        <View className="w-full self-center px-6 pb-4" style={{ maxWidth: MaxContentWidth }}>
-          <Button
-            label="Verify"
-            variant="accent"
-            size="lg"
-            fullWidth
-            isLoading={isVerifying}
-            loadingLabel="Verifying…"
-            disabled={code.length !== CODE_LENGTH || isResending}
-            onPress={() => verify(code)}
-          />
+          <View className="mt-8">
+            <OtpInput
+              value={code}
+              onChangeText={changeCode}
+              length={CODE_LENGTH}
+              hasError={!!error && !isSubmitting}
+              isDisabled={isSubmitting}
+              isLoading={isVerifying}
+            />
+          </View>
+
+          <View className="mt-4 min-h-6 items-center">
+            {isVerifying ? (
+              <Text variant="bodyMuted" className="text-sm">
+                Checking your code…
+              </Text>
+            ) : expiresIn > 0 ? (
+              <Text variant="bodyMuted" className="text-sm">
+                Code expires in {formatCountdown(expiresIn)}
+              </Text>
+            ) : (
+              <Text className="font-sans-medium text-sm text-destructive">
+                This code has expired. Request a new one.
+              </Text>
+            )}
+          </View>
+
+          <View className="mt-6">
+            <Button
+              label="Verify"
+              variant="accent"
+              size="lg"
+              fullWidth
+              isLoading={isVerifying}
+              loadingLabel="Verifying…"
+              disabled={code.length !== CODE_LENGTH || isResending}
+              onPress={() => verify(code)}
+            />
+          </View>
+
+          <View className="mt-3 h-11 items-center justify-center">
+            {isResending ? (
+              <View className="flex-row items-center gap-2">
+                <ActivityIndicator size="small" color={theme.accentEmphasis} />
+                <Text className="font-sans-bold text-base text-accent-emphasis">Sending…</Text>
+              </View>
+            ) : resendIn > 0 ? (
+              <Text variant="bodyMuted">
+                Resend code in{' '}
+                <Text className="font-sans-bold text-foreground">{formatCountdown(resendIn)}</Text>
+              </Text>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Resend code"
+                onPress={resend}
+                disabled={isSubmitting}
+                hitSlop={8}
+                className="h-11 justify-center px-4"
+              >
+                <Text className="font-sans-bold text-base text-accent-emphasis">Resend code</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
-      </KeyboardStickyView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

@@ -30,8 +30,8 @@ npm run setup               # creates .env with a fresh secret
 #              on first start (or run scripts/create_database.sql; or services:up + DB_PORT=55432)
 npm run services:up         # Redis + PostgreSQL in Docker
 npm run dev                 # http://localhost:8000/api/docs
-npm run seed                # dev chairman: chairman.test@xmaple.com / 0241234567
-npm run executive:create    # or create your own executive (email, phone, date of birth)
+npm run seed                # dev accounts — web: admin.test@example.com / 0201234567
+                            #   mobile: chairman.test@example.com / 0241234567
 
 # 2. App — in a second terminal; details in mobile-ui/README.md
 cd mobile-ui

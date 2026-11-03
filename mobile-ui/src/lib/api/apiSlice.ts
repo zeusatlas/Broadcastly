@@ -8,6 +8,7 @@ import { memberImportEndpoints } from '@/features/members/api/member_import_api'
 import { membersEndpoints } from '@/features/members/api/members_api';
 import { notificationsEndpoints } from '@/features/notifications/api/notifications_api';
 import { organisationEndpoints } from '@/features/organisation/api/organisation_api';
+import { platformEndpoints } from '@/features/platform/api/platform_api';
 import { reportsEndpoints } from '@/features/reports/api/reports_api';
 
 // The single entry point for every backend call:
@@ -28,4 +29,5 @@ export const api = {
   credits: creditsEndpoints,
   reports: reportsEndpoints,
   notifications: notificationsEndpoints,
+  platform: platformEndpoints,
 };

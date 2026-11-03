@@ -1,11 +1,27 @@
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, Unique } from 'typeorm';
 
 import { BaseEntity } from '../../../database/base_entity';
+import { Organisation } from '../../organisation';
 
-// One record per party member. Executives (logins), appointments and memberships all point here,
-// so appointing a member never duplicates them (FR-ORG-05, BR-04).
+// One record per party member, always inside one organisation. An executive is a member promoted
+// to a login, so appointing a member never duplicates them (FR-ORG-05, BR-04).
 @Entity({ name: 'members' })
+// A party ID is unique within its organisation; other organisations may reuse it.
+@Index('uq_members_organisation_party_id', ['organisationId', 'partyId'], {
+  unique: true,
+  where: '"party_id" IS NOT NULL',
+})
+// Target of organisation_executives' composite key (member + organisation).
+@Unique('uq_members_id_organisation', ['id', 'organisationId'])
 export class Member extends BaseEntity {
+  @Index('idx_members_organisation_id')
+  @Column({ type: 'uuid', name: 'organisation_id' })
+  organisationId: string;
+
+  @ManyToOne(() => Organisation, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'organisation_id' })
+  organisation?: Organisation;
+
   @Column({ type: 'varchar', length: 100, name: 'first_name' })
   firstName: string;
 
@@ -15,8 +31,7 @@ export class Member extends BaseEntity {
   @Column({ type: 'varchar', length: 100, name: 'last_name' })
   lastName: string;
 
-  // Party membership number, where the party issues one. The key to look a member up by.
-  @Column({ type: 'varchar', length: 50, name: 'party_id', nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 50, name: 'party_id', nullable: true })
   partyId: string | null;
 
   // E.164, e.g. +233241234567 (FR-MEM-05).

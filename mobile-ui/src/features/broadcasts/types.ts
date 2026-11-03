@@ -1,4 +1,4 @@
-/** Every status FR-SMS-12 names. */
+// Every status FR-SMS-12 names.
 export type BroadcastStatus =
   | 'draft'
   | 'pending_approval'
@@ -21,7 +21,7 @@ export interface BroadcastSummary {
   recipients: number;
 }
 
-/** Organisational scopes a broadcast can target (FR-SMS-02); the server limits them to the user's scope. */
+// Organisational scopes a broadcast can target (FR-SMS-02); the server limits them to the user's scope.
 export type AudienceLevel =
   'constituency' | 'electoral_area' | 'branch' | 'polling_station' | 'executive_group';
 
@@ -33,6 +33,6 @@ export interface SegmentEstimate {
   encoding: SmsEncoding;
   characters: number;
   segments: number;
-  /** Characters left before the next segment starts. */
+  // Characters left before the next segment starts.
   remaining: number;
 }

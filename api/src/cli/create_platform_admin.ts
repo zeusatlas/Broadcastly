@@ -4,33 +4,23 @@ import { createInterface } from 'node:readline/promises';
 
 import { dataSource } from '../config/database';
 import { initializeDatabase } from '../database/initialize_database';
-import { authService, createExecutiveSchema, USER_ROLES } from '../modules/auth';
+import { authService, createPlatformAdminSchema } from '../modules/auth';
 
-// `npm run executive:create` — creates an executive account from the terminal, e.g. the first
-// chairman or platform admin, before any admin endpoint exists. They sign in with email + phone.
+// `npm run admin:create` — the first platform admin on a new server. After that, admins add
+// each other from the web app.
 
 const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-
 const print = (line = '') => process.stdout.write(`${line}\n`);
 const ask = async (label: string) => (await rl.question(`${label}: `)).trim() || undefined;
 
 async function main() {
-  print('Create an executive account\n');
-  USER_ROLES.forEach((role, index) => print(`  ${index + 1}. ${role}`));
-  const roleChoice = Number(await ask('\nRole number'));
-
-  const input = {
-    role: USER_ROLES[roleChoice - 1],
+  print('Create a platform admin\n');
+  const parsed = createPlatformAdminSchema.safeParse({
     firstName: await ask('First name'),
-    middleName: await ask('Middle name (optional)'),
     lastName: await ask('Last name'),
-    partyId: await ask('Party ID (optional)'),
     email: await ask('Email'),
     phone: await ask('Phone number (e.g. 0241234567)'),
-    dateOfBirth: await ask('Date of birth (YYYY-MM-DD)'),
-  };
-
-  const parsed = createExecutiveSchema.safeParse(input);
+  });
   if (!parsed.success) {
     parsed.error.issues.forEach((issue) => print(`  ${issue.path.join('.')}: ${issue.message}`));
     process.exitCode = 1;
@@ -38,8 +28,8 @@ async function main() {
   }
 
   await initializeDatabase();
-  const { executiveId } = await authService.createExecutive(parsed.data);
-  print(`\nAccount created: ${executiveId}`);
+  const admin = await authService.createPlatformAdmin(parsed.data);
+  print(`\nPlatform admin created: ${admin.id}`);
 }
 
 main()

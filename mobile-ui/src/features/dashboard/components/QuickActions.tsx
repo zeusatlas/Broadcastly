@@ -1,5 +1,5 @@
 import { router, type Href } from 'expo-router';
-import { ChevronRight, type LucideIcon } from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui';
@@ -18,11 +18,12 @@ interface QuickActionsProps {
   actions: QuickAction[];
 }
 
+// One row of icon shortcuts; the label sits under the icon so four fit on a small phone.
 export function QuickActions({ actions }: QuickActionsProps) {
   const theme = useTheme();
 
   return (
-    <View className="flex-row flex-wrap gap-3">
+    <View className="flex-row">
       {actions.map(({ key, label, hint, icon: Icon, href }) => (
         <Pressable
           key={key}
@@ -33,22 +34,17 @@ export function QuickActions({ actions }: QuickActionsProps) {
             haptics.tap();
             router.push(href);
           }}
-          className="min-h-[112px] flex-1 basis-[44%] justify-between gap-3 rounded-2xl border-2 border-b-4 border-border bg-card p-4 active:translate-y-0.5 active:border-b-2"
+          className="flex-1 items-center gap-2 active:opacity-70"
         >
-          <View className="flex-row items-start justify-between">
-            <View className="h-11 w-11 items-center justify-center rounded-full bg-accent/15">
-              <Icon size={22} color={theme.accentEmphasis} />
-            </View>
-            <ChevronRight size={18} color={theme.mutedForeground} />
+          <View className="h-14 w-14 items-center justify-center rounded-2xl bg-accent/15">
+            <Icon size={24} color={theme.accentEmphasis} />
           </View>
-          <View className="gap-0.5">
-            <Text className="font-sans-bold text-base text-foreground" numberOfLines={1}>
-              {label}
-            </Text>
-            <Text variant="caption" numberOfLines={1}>
-              {hint}
-            </Text>
-          </View>
+          <Text
+            className="text-center font-sans-semibold text-xs text-foreground"
+            numberOfLines={2}
+          >
+            {label}
+          </Text>
         </Pressable>
       ))}
     </View>

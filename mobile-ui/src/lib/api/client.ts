@@ -14,7 +14,6 @@ const REQUEST_TIMEOUT_MS = 20_000;
 
 declare module 'axios' {
   interface AxiosRequestConfig {
-    // Set on endpoints that must never trigger a session refresh, e.g. sign-in and refresh itself.
     skipAuthRefresh?: boolean;
     hasRetriedAuth?: boolean;
   }
@@ -85,9 +84,7 @@ axiosClient.interceptors.response.use(
           config.headers.set('Authorization', `Bearer ${token}`);
           return axiosClient.request(config);
         }
-      } catch {
-        // Fall through: a failed refresh ends the session below.
-      }
+      } catch {}
     }
 
     const apiError = ApiError.from(error);

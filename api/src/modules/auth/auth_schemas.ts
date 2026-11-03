@@ -7,8 +7,11 @@ import { normaliseGhanaPhone } from '../members';
 import {
   EXECUTIVE_STATUSES,
   PERMISSIONS,
+  PLATFORM_ADMIN_STATUSES,
+  SIGN_IN_CLIENTS,
   USER_ROLES,
   type CreateExecutiveRequest,
+  type CreatePlatformAdminRequest,
   type RefreshTokenRequest,
   type ResendOtpRequest,
   type SignInRequest,
@@ -46,10 +49,8 @@ const dateOfBirthSchema = z.iso
 
 const nameSchema = z.string().trim().min(1, 'Required.').max(100);
 
-// ── Requests ────────────────────────────────────────────────────────────────
-
 export const signInSchema = z
-  .object({ email: emailSchema, phone: phoneSchema })
+  .object({ email: emailSchema, phone: phoneSchema, client: z.enum(SIGN_IN_CLIENTS).optional() })
   .openapi('SignInRequest') satisfies z.ZodType<SignInRequest>;
 
 export const verifyOtpSchema = z
@@ -76,6 +77,7 @@ export const signOutSchema = z
   .openapi('SignOutRequest') satisfies z.ZodType<SignOutRequest>;
 
 export const createExecutiveSchema = z.object({
+  organisationId: z.uuid('Not a valid organisation id.'),
   firstName: nameSchema,
   middleName: nameSchema.optional(),
   lastName: nameSchema,
@@ -83,9 +85,11 @@ export const createExecutiveSchema = z.object({
   email: emailSchema,
   phone: phoneSchema,
   dateOfBirth: dateOfBirthSchema,
-  role: z.enum(USER_ROLES),
 }) satisfies z.ZodType<CreateExecutiveRequest>;
-// ── Responses (documentation only) ──────────────────────────────────────────
+
+export const createPlatformAdminSchema = z
+  .object({ firstName: nameSchema, lastName: nameSchema, email: emailSchema, phone: phoneSchema })
+  .openapi('CreatePlatformAdminRequest') satisfies z.ZodType<CreatePlatformAdminRequest>;
 
 export const authTokensResponseSchema = z
   .object({
@@ -101,18 +105,30 @@ const appointmentSchema = z
   .object({
     id: z.uuid(),
     positionTitle: z.string().openapi({ example: 'Constituency Chairman' }),
-    unitId: z.uuid(),
-    unitName: z.string().openapi({ example: 'Central Constituency' }),
-    unitType: z.string().openapi({ example: 'constituency' }),
+    organisationId: z.uuid(),
+    organisationName: z.string().openapi({ example: 'Central Constituency' }),
+    unitId: z.uuid().nullable(),
+    unitName: z.string().nullable().openapi({ example: null }),
+    unitType: z.string().nullable().openapi({ example: null }),
     effectiveFrom: z.iso.datetime(),
     effectiveTo: z.iso.datetime().nullable(),
   })
   .openapi('AppointmentSummary');
 
+export const organisationRefSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string().openapi({ example: 'Central Constituency' }),
+    type: z.string().openapi({ example: 'constituency' }),
+  })
+  .openapi('OrganisationRef');
+
 export const userResponseSchema = z
   .object({
     id: z.uuid(),
-    memberId: z.uuid(),
+    role: z.enum(USER_ROLES).openapi({ example: 'chairman' }),
+    status: z.enum(EXECUTIVE_STATUSES).openapi({ example: 'active' }),
+    memberId: z.uuid().nullable(),
     partyId: z.string().nullable().openapi({ example: 'M-004512' }),
     firstName: z.string().openapi({ example: 'Ama' }),
     middleName: z.string().nullable().openapi({ example: 'Serwaa' }),
@@ -121,8 +137,7 @@ export const userResponseSchema = z
     email: z.string().openapi({ example: 'ama.mensah@example.com' }),
     phone: z.string().nullable().openapi({ example: '+233241234567' }),
     dateOfBirth: z.iso.date().nullable().openapi({ example: '1984-03-12' }),
-    role: z.enum(USER_ROLES).openapi({ example: 'constituency_chairman' }),
-    status: z.enum(EXECUTIVE_STATUSES).openapi({ example: 'active' }),
+    organisation: organisationRefSchema.nullable(),
     permissions: z
       .array(z.enum(PERMISSIONS))
       .openapi({ example: ['broadcast.draft', 'member.manage', 'report.view'] }),
@@ -145,3 +160,17 @@ export const otpChallengeResponseSchema = z
 export const signInResponseSchema = z
   .object({ user: userResponseSchema, tokens: authTokensResponseSchema })
   .openapi('SignInResponse');
+
+export const platformAdminResponseSchema = z
+  .object({
+    id: z.uuid(),
+    firstName: z.string().openapi({ example: 'Ama' }),
+    lastName: z.string().openapi({ example: 'Owusu' }),
+    fullName: z.string().openapi({ example: 'Ama Owusu' }),
+    email: z.string().openapi({ example: 'ama.owusu@example.com' }),
+    phone: z.string().openapi({ example: '+233201234567' }),
+    status: z.enum(PLATFORM_ADMIN_STATUSES).openapi({ example: 'active' }),
+    lastSignInAt: z.iso.datetime().nullable(),
+    createdAt: z.iso.datetime(),
+  })
+  .openapi('PlatformAdminResponse');

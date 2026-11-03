@@ -27,8 +27,7 @@
     "services:up": "docker compose up -d",
     "services:down": "docker compose down",
     "seed": "tsx src/cli/seed.ts",
-    "executive:create": "tsx src/cli/create_executive.ts",
-    "executive:create:prod": "node dist/cli/create_executive.js"
+    "admin:create": "tsx src/cli/create_platform_admin.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",

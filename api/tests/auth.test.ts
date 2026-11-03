@@ -19,7 +19,7 @@ import {
 } from '../src/modules/auth/token_service';
 
 // Pure auth logic only; nothing here opens a database. Endpoint flows were verified against
-// PostgreSQL by hand (see server/AGENTS.md §7) until an integration test database exists.
+// PostgreSQL by hand (see api/AGENTS.md §7) until an integration test database exists.
 
 const SESSION_ID = '0b8a7c56-2f3e-4d1a-9c6b-1e2f3a4b5c6d';
 
@@ -108,11 +108,11 @@ describe('schemas', () => {
 
   it('requires a real past date of birth for a new account', () => {
     const base = {
+      organisationId: '0b8a7c56-2f3e-4d1a-9c6b-1e2f3a4b5c6d',
       firstName: 'Ama',
       lastName: 'Mensah',
       email: 'ama@example.com',
       phone: '0241234567',
-      role: 'constituency_chairman',
     };
 
     expect(createExecutiveSchema.safeParse({ ...base, dateOfBirth: '1984-03-12' }).success).toBe(
@@ -128,10 +128,13 @@ describe('schemas', () => {
 });
 describe('hasAccess', () => {
   const auth: AccessContext = {
-    executiveId: 'a',
+    kind: 'executive',
+    accountId: 'a',
     memberId: 'p',
+    organisationId: 'o',
+    organisationWide: false,
     sessionId: 's',
-    role: 'area_executive',
+    role: 'executive',
     permissions: new Set(['broadcast.draft', 'report.view']),
     scopeUnitIds: [],
   };
@@ -141,7 +144,7 @@ describe('hasAccess', () => {
     expect(hasAccess(auth, { permission: 'broadcast.send' })).toBe(false);
     expect(hasAccess(auth, { anyOf: ['broadcast.send', 'report.view'] })).toBe(true);
     expect(hasAccess(auth, { allOf: ['broadcast.draft', 'broadcast.send'] })).toBe(false);
-    expect(hasAccess(auth, { roles: ['constituency_chairman'] })).toBe(false);
+    expect(hasAccess(auth, { roles: ['chairman'] })).toBe(false);
   });
 });
 

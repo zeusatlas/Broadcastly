@@ -13,11 +13,12 @@ interface AppointmentRowProps {
 
 export function AppointmentRow({ appointment, isLast = false }: AppointmentRowProps) {
   const since = formatShortDate(appointment.effectiveFrom);
+  const place = appointment.unitName ?? appointment.organisationName;
 
   return (
     <View
       accessible
-      accessibilityLabel={`${appointment.positionTitle}, ${appointment.unitName}, since ${since}`}
+      accessibilityLabel={`${appointment.positionTitle}, ${place}, since ${since}`}
       className={cn('flex-row items-center gap-3 py-4', !isLast && 'border-b border-border')}
     >
       <View className="h-2.5 w-2.5 rounded-full bg-accent" />
@@ -26,7 +27,7 @@ export function AppointmentRow({ appointment, isLast = false }: AppointmentRowPr
           {appointment.positionTitle}
         </Text>
         <Text variant="caption" className="text-sm" numberOfLines={1}>
-          {appointment.unitName} · since {since}
+          {place} · since {since}
         </Text>
       </View>
     </View>

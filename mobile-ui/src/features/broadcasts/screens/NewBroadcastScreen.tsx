@@ -14,7 +14,6 @@ import { RecipientPicker } from '../components/RecipientPicker';
 import type { AudienceLevel, DeliveryMode } from '../types';
 import { estimateSegments } from '../utils/sms_segments';
 
-// TODO(broadcasts API): recipient count and balance are placeholders until the estimate endpoint exists.
 const PLACEHOLDER_RECIPIENTS = 8412;
 const PLACEHOLDER_BALANCE = 24850;
 
@@ -23,7 +22,8 @@ const DELIVERY: { mode: DeliveryMode; label: string }[] = [
   { mode: 'scheduled', label: 'Schedule' },
 ];
 
-// UI only: compose → recipients → delivery → estimate (SRS UC flow, FR-SMS-01..10).
+// UI only: compose → recipients → delivery → estimate (FR-SMS-01..10).
+// TODO(broadcasts API): PLACEHOLDER_* values go once the estimate endpoint exists.
 export function NewBroadcastScreen() {
   const user = useCurrentUser();
   // Without send rights the broadcast goes for approval instead (FR-SMS-11).
@@ -33,7 +33,7 @@ export function NewBroadcastScreen() {
   const [delivery, setDelivery] = useState<DeliveryMode>('now');
   const estimate = useMemo(() => estimateSegments(message), [message]);
 
-  const scopeName = user?.appointments[0]?.unitName ?? 'Your constituency';
+  const scopeName = user?.organisation?.name ?? 'Your organisation';
   const primaryLabel = canSend
     ? delivery === 'now'
       ? 'Review & send'
@@ -43,8 +43,12 @@ export function NewBroadcastScreen() {
   return (
     <PageScreen title="New broadcast" backIcon={X} backLabel="Close new broadcast">
       <ComposeSection step={1} title="Message">
-        {/* TODO(templates): opens the template list (FR-SMS-04). */}
-        <ComposeRow icon={FileText} label="Use a template" value="Notices, meetings, reminders" />
+        <ComposeRow
+          // TODO(templates): opens the template list (FR-SMS-04).
+          icon={FileText}
+          label="Use a template"
+          value="Notices, meetings, reminders"
+        />
         <BroadcastComposer message={message} onChangeMessage={setMessage} estimate={estimate} />
       </ComposeSection>
 
@@ -105,8 +109,8 @@ export function NewBroadcastScreen() {
       </View>
 
       <View className="mt-auto gap-2 pt-10">
-        {/* TODO(dispatch): opens DispatchConfirmation with an idempotency key (FR-SMS-07, FR-SMS-14). */}
         <Button
+          // TODO(dispatch): opens DispatchConfirmation with an idempotency key (FR-SMS-07, FR-SMS-14).
           label={primaryLabel}
           variant="accent"
           size="lg"

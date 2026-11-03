@@ -16,11 +16,11 @@ export interface AvatarProps {
   name: string;
   size?: AvatarSize;
   className?: string;
-  /** For an exact size, e.g. to line up with header buttons. */
+  // For an exact size, e.g. to line up with header buttons.
   style?: StyleProp<ViewStyle>;
 }
 
-/** 'Ama Serwaa Mensah' → 'AM' (first and last name). */
+// 'Ama Serwaa Mensah' → 'AM' (first and last name).
 export const initialsOf = (name: string) => {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const letters = parts.length > 1 ? [parts[0], parts[parts.length - 1]] : parts;

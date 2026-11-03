@@ -62,14 +62,21 @@ openApiRegistry.registerPath({
   tags,
   summary: 'Sign in (step 1): request a code',
   description: `
-Send email and phone number. If they match an executive, a 6-digit code is sent to that phone by SMS.
+One sign-in for everyone: executives and platform admins. If email and phone match an account, a
+6-digit code is sent to that phone by SMS. After step 2, route by \`user.role\` (\`platform_admin\` or an executive role).
+
+- The web app sends \`"client": "web"\`: anyone who is not a platform admin gets \`403\` and no SMS is sent.
 
 - A wrong email, a wrong phone or an unknown email all get \`401 Invalid email or phone number.\`
 - Keep \`challengeId\` for \`/auth/verify-otp\`. The code expires in 3 minutes.
 - Ghanaian numbers in any common form are accepted: \`0241234567\`, \`+233 24 123 4567\`.
 `,
   request: {
-    body: jsonBody(signInSchema, { email: 'ama.mensah@example.com', phone: '0241234567' }),
+    body: jsonBody(signInSchema, {
+      email: 'ama.mensah@example.com',
+      phone: '0241234567',
+      client: 'mobile',
+    }),
   },
   responses: {
     200: jsonResponse(
@@ -84,8 +91,8 @@ Send email and phone number. If they match an executive, a 6-digit code is sent 
       ],
       [
         403,
-        'The account is suspended or deactivated.',
-        'This account is not active. Contact your chairman.',
+        'The account is suspended, or `client` is `web` and the account is not a platform admin.',
+        'This account is not active. Contact your administrator.',
       ],
       [422, 'The email or phone number is not in a valid format.'],
       [
@@ -125,7 +132,7 @@ Send the \`challengeId\` and the code from the SMS. Returns the user and tokens.
       [
         403,
         'The account is suspended or deactivated.',
-        'This account is not active. Contact your chairman.',
+        'This account is not active. Contact your administrator.',
       ],
       [422, 'The code is not 6 digits, or `challengeId` is not valid.'],
       [
@@ -229,9 +236,10 @@ openApiRegistry.registerPath({
   tags,
   summary: 'Get the signed-in user',
   description: `
-Get the signed-in user, their permissions and active appointments.
+Get the signed-in user: role, organisation, permissions and active appointments.
 
-- Use \`permissions\` to show or hide features in the app.
+- Route by \`role\`. Platform admins have no \`memberId\`, \`organisation\` or appointments.
+- Use \`permissions\` to show or hide executive features.
 `,
   security: secured,
   responses: {

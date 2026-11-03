@@ -29,11 +29,9 @@ export interface HeaderButtonProps {
   label: string;
   onPress?: () => void;
   size?: number;
-  /** No glass, just the icon: for buttons sitting on the page itself (home header). */
   isPlain?: boolean;
-  /** Defaults to 60% of the button. */
   iconSize?: number;
-  /** Unread count shown as a red pill on the corner; hidden at 0. */
+  // Unread count shown as a red pill on the corner; hidden at 0.
   badgeCount?: number;
 }
 
@@ -94,13 +92,9 @@ export function HeaderButton({
 }
 
 interface PageScreenProps extends PropsWithChildren {
-  /** Shown large above the content; it slides into the bar as the page scrolls. */
   title?: string;
-  /** Drawn as a HeaderButton at the same size as the back button. */
   headerRight?: Omit<HeaderButtonProps, 'size'>;
-  /** Size of both header buttons; defaults to the platform touch target. */
   buttonSize?: number;
-  /** ChevronLeft by default; X for screens that close rather than go back. */
   backIcon?: LucideIcon;
   backLabel?: string;
   onBack?: () => void;
@@ -141,7 +135,6 @@ export function PageScreen({
 
   return (
     <View className="flex-1 bg-background">
-      {/* Keyboard-aware so form screens keep the focused field visible (react-native-keyboard-controller). */}
       <KeyboardAwareScrollView
         bottomOffset={24}
         keyboardShouldPersistTaps="handled"
@@ -173,7 +166,6 @@ export function PageScreen({
         </View>
       </KeyboardAwareScrollView>
 
-      {/* Pinned above the scroll view with no bar of its own: the page background shows through. */}
       <View
         pointerEvents="box-none"
         style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top }}

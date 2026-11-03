@@ -160,12 +160,15 @@ implement it.
 Write code that does not need explaining. Then explain only what the code
 cannot say itself.
 
+- **At most 5 comments per file** (owner's rule), each one or two lines.
+- **`//` only.** No `/* */`, no JSDoc. In JSX, put the `//` comment between the element's props,
+  never as a `{/* */}` child. `global.css` is the one exception (CSS has no `//`), still at most 5.
 - **One line.** If a comment needs a paragraph, the code is wrong.
 - Comment **why**, never **what**. `// increment counter` is noise.
 - A non-obvious constraint, a requirement ID, a deliberate trade-off or a
   workaround earns a comment. Nothing else does.
-- No file-header banners, no section-divider art, no JSDoc on obvious props,
-  no restating the type signature in prose.
+- No file-header banners, no section-divider art, no restating the type signature in prose.
+- No commented-out code. Delete it; git keeps the history.
 - `TODO` must say who or what unblocks it.
 
 ```ts
@@ -203,7 +206,8 @@ src/
 │   ├── credits/            Balance, ledger, allocation (§4.7)
 │   ├── reports/            Delivery reports and history (§4.8)
 │   ├── notifications/      (§4.9)
-│   └── settings/           The More tab
+│   ├── settings/           The More tab
+│   └── platform/           Platform admin tools (admin/(tabs)): overview, organisations, executives, admins
 ├── components/
 │   ├── ui/                 Generic primitives (Button, Card, Text…). No domain knowledge.
 │   └── shared/             App-level composites used across features
@@ -315,6 +319,22 @@ Liquid Glass back button (`HeaderButton`, `GlassSurface`), an optional `headerRi
 the same size, `buttonSize` (default `HEADER_BUTTON_SIZE`, 48pt), and a large `title` that collapses
 into the bar on scroll. Register the route with `headerShown: false`. Never hand-roll a back button. Screens that close rather than go back pass `backIcon={X}`. Header-sized controls on a page without `PageScreen` (home avatar, bell) use `HEADER_BUTTON_SIZE` / `<HeaderButton isPlain>` so they match.
 Inner pages stay plain — the wave/illustrated backgrounds are for sign-in and onboarding only.
+
+**Tab home screens share one layout** (admin home and the executive/chairman dashboard): `HomeHeader`
+(`@/components/shared`; the executive home passes no title: profile avatar left, bell right; the admin
+home keeps eyebrow + name with the avatar on the right), a 2×2 grid of
+plain `StatTile`s (card surface + border like `Card`; owner's rule: no coloured tiles, the only colour is the
+small gold icon chip), then `ListCard`
+sections (titled card + "View all") holding plain rows. `StatTile` and `ListCard` live in `components/ui`.
+**Keep screens minimal** (owner's rule): one job per block, no repeated information, no placeholder or
+empty-state sections for features the API does not serve yet. The dashboard is header → position · scope line →
+four tiles (Members, Executives, Units, Positions from `GET /organisation/overview`, enabled only for
+`appointment.manage` holders) → one row of quick actions. Credits, approvals and broadcasts tiles return when those API modules are mounted.
+`QueryState` (loading / retryable error / empty) is in `components/ui`.
+
+**Top and bottom bars match** (owner's rule): the tab bar is `background`, the same colour the status bar
+sits on, with a hairline `border` top. Sign-in has no back button and verify has no close button; leaving
+verify is the system back gesture, which returns to sign-in and drops the pending code.
 
 **Phone chrome follows the theme** through `SystemBars` (root layout): status bar and Android
 navigation bar icons (expo-status-bar, expo-navigation-bar) and the native window colour
@@ -557,13 +577,17 @@ write their own try/catch around an API call.
 
 ### Route protection
 
-There are exactly two guard points. Do not add redirects inside screens.
+There are exactly three guard points. Do not add redirects inside screens.
 
 1. **Authentication** — `app/_layout.tsx` wraps `(app)` and `(auth)` in
    `Stack.Protected`. Signed out, `(app)` does not exist; signed in, `(auth)`
    does not exist. The splash screen stays up until the session is restored.
-2. **Permission** — `app/(app)/_layout.tsx` reads `GATED_ROUTES` in
-   `constants/routes.ts`. To gate a new screen, add one line there.
+2. **Role** — `app/(app)/_layout.tsx`: `user.role === 'platform_admin'` gets `admin/(tabs)`
+   (`ADMIN_TABS`: Home, Organisations, Admins; an organisation's executives live on its page,
+   `admin/organisations/[id]`); everyone else gets `(tabs)`
+   (`EXECUTIVE_TABS`). One login for both (owner's decision); the API re-checks every request.
+3. **Permission** — the same layout reads `GATED_ROUTES` in `constants/routes.ts` for executive
+   screens. To gate a new screen, add one line there.
 
 **Sign-in is two steps** (no passwords): `sign-in` sends email + phone (`requestCode`), the
 store keeps a `PendingChallenge`, and `verify-otp` — guarded in `(auth)/_layout.tsx` by

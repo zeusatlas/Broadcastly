@@ -8,7 +8,7 @@ export interface ConfirmDialogProps {
   title: string;
   message: string;
   confirmLabel: string;
-  /** Shown beside the spinner while `isConfirming`, e.g. 'Logging out…'. */
+  // Shown beside the spinner while `isConfirming`, e.g. 'Logging out…'.
   confirmingLabel?: string;
   confirmVariant?: ButtonVariant;
   isConfirming?: boolean;
@@ -47,8 +47,8 @@ export function ConfirmDialog({
         onPress={cancel}
         className="flex-1 items-center justify-center bg-backdrop/50 px-6"
       >
-        {/* Swallows taps so pressing the card itself does not close the dialog. */}
         <Pressable
+          // Swallows taps so pressing the card itself does not close the dialog.
           accessibilityViewIsModal
           onPress={() => {}}
           className="w-full max-w-sm gap-5 rounded-2xl border-2 border-b-4 border-border bg-card p-6"

@@ -1,29 +1,11 @@
 #!/usr/bin/env node
-/**
- * Contrast checker — Broadcastly.
- *
- * Parses the semantic tokens straight out of `src/global.css` and verifies
- * every surface/foreground pair against WCAG 2.1:
- *
- *   - text pairs           >= 4.5:1  (AA, 1.4.3)
- *   - UI / non-text pairs  >= 3.0:1  (AA, 1.4.11)
- *
- * Reading the CSS rather than a copy is deliberate: the check cannot silently
- * pass against stale values. Run it after any palette edit.
- *
- *   npm run check:contrast
- *
- * Exits non-zero on failure, so it can gate CI.
- */
+// Checks every surface/foreground pair in src/global.css against WCAG 2.1 (text 4.5:1, UI 3:1).
+// Reads the CSS itself, so it cannot pass against stale values. Exits non-zero on failure (CI gate).
 
 const fs = require('node:fs');
 const path = require('node:path');
 
 const CSS_PATH = path.join(__dirname, '..', 'src', 'global.css');
-
-/* -------------------------------------------------------------------------- */
-/* Colour maths                                                                */
-/* -------------------------------------------------------------------------- */
 
 function hslToRgb(h, s, l) {
   s /= 100;
@@ -52,16 +34,12 @@ function contrastRatio(a, b) {
 }
 
 const toHex = ([r, g, b]) =>
-  '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+  '#' +
+  [r, g, b]
+    .map((v) => v.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
 
-/* -------------------------------------------------------------------------- */
-/* Parse global.css                                                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Extract the declarations inside a selector block, handling the nested braces
- * of the surrounding `@layer base { ... }`.
- */
 function extractBlock(css, selector) {
   const start = css.indexOf(selector);
   if (start === -1) return null;
@@ -81,7 +59,6 @@ function extractBlock(css, selector) {
   return null;
 }
 
-/** Collect `--token: value;` pairs from a block, ignoring comments. */
 function parseDeclarations(block) {
   const tokens = {};
   const withoutComments = block.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -93,7 +70,6 @@ function parseDeclarations(block) {
   return tokens;
 }
 
-/** Resolve `var(--x)` indirection down to literal HSL channels. */
 function resolve(tokens, name, seen = new Set()) {
   const raw = tokens[name];
   if (raw === undefined) return null;
@@ -107,10 +83,6 @@ function resolve(tokens, name, seen = new Set()) {
 
   return hslToRgb(Number(channels[1]), Number(channels[2]), Number(channels[3]));
 }
-
-/* -------------------------------------------------------------------------- */
-/* The pairs under test                                                        */
-/* -------------------------------------------------------------------------- */
 
 const TEXT_PAIRS = [
   ['body text', 'foreground', 'background'],
@@ -138,24 +110,14 @@ const UI_PAIRS = [
   ['ring vs page', 'ring', 'background'],
 ];
 
-/**
- * Pairs that are knowingly below threshold, with the reason.
- *
- * `accent` is the exact brand gold (#C08A2E). Against Stone it reaches only
- * 2.66:1, so it is approved for FILLED surfaces — where `accent-foreground`
- * carries the text at 5.50:1 — and `accent-emphasis` covers every standalone
- * use. Darkening it here would misrepresent the brand colour of record.
- */
+// Known exceptions. Brand gold reaches only 2.66:1 on Stone, so it is approved for filled
+// surfaces (text uses accent-foreground); accent-emphasis covers every standalone use.
 const ACCEPTED_EXCEPTIONS = new Map([
   ['light:accent vs page', 'brand gold, fills only — use accent-emphasis standalone'],
 ]);
 
 const TEXT_MIN = 4.5;
 const UI_MIN = 3.0;
-
-/* -------------------------------------------------------------------------- */
-/* Run                                                                         */
-/* -------------------------------------------------------------------------- */
 
 function main() {
   const css = fs.readFileSync(CSS_PATH, 'utf8');
@@ -168,9 +130,8 @@ function main() {
     process.exit(1);
   }
 
-  // The brand layer and the light semantic layer are both `:root` blocks, so
-  // merge every `:root` block in file order — later declarations win, exactly
-  // as the cascade resolves them at runtime.
+  // Brand and light semantic tokens are both `:root` blocks: merge them in file order, later
+  // declarations winning, exactly as the cascade does at runtime.
   const lightTokens = {};
   let cursor = 0;
   while (true) {

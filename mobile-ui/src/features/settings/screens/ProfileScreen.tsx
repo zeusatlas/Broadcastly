@@ -12,7 +12,7 @@ import { cn, formatGhanaPhone } from '@/utils/helpers';
 
 import { AppointmentRow } from '../components/AppointmentRow';
 import { DetailRow } from '../components/DetailRow';
-import { formatCalendarDate, formatRole, formatShortDate } from '../utils/format';
+import { formatCalendarDate, formatShortDate } from '../utils/format';
 
 type SignOutScope = 'this_device' | 'all_devices';
 
@@ -67,7 +67,7 @@ export function ProfileScreen() {
   };
 
   const isActive = user.status === 'active';
-  const unitName = user.appointments[0]?.unitName;
+  const unitName = user.appointments[0]?.unitName ?? user.organisation?.name;
 
   const details = [
     { label: 'Party ID', value: user.partyId ?? 'Not on record' },
@@ -87,8 +87,10 @@ export function ProfileScreen() {
       <View className="items-center pt-4">
         <View className="h-36 w-36 items-center justify-center rounded-full bg-accent/15">
           <Avatar name={user.fullName} size="xl" />
-          {/* TODO(profile photo): decorative until photo upload is specified. */}
-          <View className="absolute bottom-2 right-2 h-9 w-9 items-center justify-center rounded-full border-4 border-background bg-accent">
+          <View
+            // TODO(profile photo): decorative until photo upload is specified.
+            className="absolute bottom-2 right-2 h-9 w-9 items-center justify-center rounded-full border-4 border-background bg-accent"
+          >
             <Pencil size={14} color={theme.accentForeground} />
           </View>
         </View>
@@ -101,9 +103,6 @@ export function ProfileScreen() {
         >
           {user.fullName}
         </Text>
-        {/* <Text variant="bodyMuted" className="mt-1 text-center">
-          {formatRole(user.role)}
-        </Text> */}
 
         <View className="mt-4 flex-row flex-wrap items-center justify-center gap-2">
           <View

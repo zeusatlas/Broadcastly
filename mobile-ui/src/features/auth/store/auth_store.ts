@@ -25,11 +25,8 @@ interface AuthState {
   user: User | null;
   accessToken: string | null;
   status: SessionStatus;
-  // Epoch ms the session ends; drives the expiry timer while the app is open.
   sessionExpiresAt: number | null;
-  // Set when a session ends on its own, so the sign-in screen can say why; cleared once shown.
   endReason: SessionEndReason | null;
-  // Set between step 1 (code sent) and step 2 (code verified); unlocks the verify screen.
   challenge: PendingChallenge | null;
   isSubmitting: boolean;
   error: ApiError | null;
@@ -40,7 +37,6 @@ interface AuthActions {
   verifyCode: (code: string) => Promise<boolean>;
   resendCode: () => Promise<boolean>;
   cancelChallenge: () => void;
-  // Resolves true when the server confirmed the revocation; the device is signed out either way.
   signOut: (body?: SignOutRequest) => Promise<boolean>;
   restore: () => Promise<void>;
   clearError: () => void;
@@ -60,7 +56,6 @@ const SIGNED_OUT: AuthState = {
   error: null,
 };
 
-// Server durations become device timestamps, so countdowns survive re-renders and navigation.
 const toPendingChallenge = (data: OtpChallengeResponse): PendingChallenge => ({
   challengeId: data.challengeId,
   maskedPhone: data.maskedPhone,
@@ -169,7 +164,6 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
       await api.auth.signOut(body);
       return true;
     } catch {
-      // A failed logout call must never strand the user signed in.
       return false;
     } finally {
       await endSession();
@@ -236,7 +230,6 @@ setSessionRefresher(async () => {
   return tokens.accessToken;
 });
 
-// The server refused the session. If its 24 hours are up, say so; otherwise it was revoked.
 setUnauthorizedHandler(() => {
   const { sessionExpiresAt } = useAuthStore.getState();
   const isExpired = sessionExpiresAt !== null && sessionExpiresAt <= Date.now();

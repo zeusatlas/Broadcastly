@@ -13,7 +13,7 @@ const WAVE_EDGE: readonly (readonly [number, number])[] = [
   [1, 0],
 ];
 
-/** Left-to-right edge across `width`; `toY` maps a depth (0–1) to a y coordinate. */
+// Left-to-right edge across `width`; `toY` maps a depth (0–1) to a y coordinate.
 export function waveEdge(width: number, toY: (depth: number) => number) {
   const curve = WAVE_EDGE.slice(1)
     .map(([x, depth]) => `${width * x} ${toY(depth)}`)
@@ -22,7 +22,7 @@ export function waveEdge(width: number, toY: (depth: number) => number) {
   return { startY: toY(WAVE_EDGE[0][1]), curve };
 }
 
-/** A filled region from the top of the canvas down to a wave edge. */
+// A filled region from the top of the canvas down to a wave edge.
 export function waveRegionFromTop(width: number, toY: (depth: number) => number): string {
   const { startY, curve } = waveEdge(width, toY);
 

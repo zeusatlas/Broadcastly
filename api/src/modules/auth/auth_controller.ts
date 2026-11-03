@@ -47,7 +47,7 @@ export const authController = {
 
   async signOut(req: Request, res: Response) {
     const body = validated<SignOutRequest>(res, 'body');
-    await authService.signOut(requireAuth(req), body, getRequestContext(req));
+    await authService.signOut(requireAuth(req), body.allDevices ?? false, getRequestContext(req));
     return sendNoData(res, 'Signed out successfully.');
   },
 

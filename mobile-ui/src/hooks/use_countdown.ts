@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-/** Whole seconds left until `targetMs` (epoch ms), ticking once a second and stopping at 0. */
+// Whole seconds left until `targetMs` (epoch ms), ticking once a second and stopping at 0.
 export function useCountdown(targetMs: number): number {
   const [now, setNow] = useState(() => Date.now());
   const secondsLeft = Math.max(0, Math.ceil((targetMs - now) / 1000));
@@ -19,6 +19,6 @@ export function useCountdown(targetMs: number): number {
   return secondsLeft;
 }
 
-/** 75 → '01:15' */
+// 75 → '01:15'
 export const formatCountdown = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;

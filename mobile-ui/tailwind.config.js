@@ -1,9 +1,5 @@
-/**
- * Colours are defined in src/global.css, not here. This file only maps them to
- * utility names. `<alpha-value>` is what makes `bg-primary/10` work.
- *
- * @type {import('tailwindcss').Config}
- */
+// Colours live in src/global.css; this file only maps them to class names.
+// `<alpha-value>` is what makes `bg-primary/10` work.
 const withAlpha = (token) => `hsl(var(--${token}) / <alpha-value>)`;
 
 module.exports = {

@@ -6,17 +6,12 @@ import {
 } from '../organisation';
 
 import { authRepository } from './auth_repository';
-import {
-  PERMISSIONS,
-  ROLE_DEFAULT_PERMISSIONS,
-  type AccessContext,
-  type Permission,
-  type UserRole,
-} from './auth_types';
+import { PERMISSIONS, type AccessContext, type Permission, type UserRole } from './auth_types';
 
 const SESSION_ENDED = 'Your session has ended. Please sign in again.';
 
 export interface ProfileAccess {
+  role: UserRole;
   permissions: Permission[];
   appointments: AppointmentSummaryResponse[];
 }
@@ -24,40 +19,58 @@ export interface ProfileAccess {
 const isPermission = (value: string): value is Permission =>
   (PERMISSIONS as readonly string[]).includes(value);
 
-// Role defaults only apply while the member holds an active appointment (BR-01), so ending
-// someone's last appointment removes their access even though their role is unchanged.
-function effectivePermissions(access: ActiveAccess, role: UserRole): Permission[] {
-  const fromRole = access.hasActiveAppointment ? ROLE_DEFAULT_PERMISSIONS[role] : [];
-  return [...new Set([...fromRole, ...access.grantedPermissions.filter(isPermission)])].sort();
+// An active chairman appointment brings every permission; everyone else gets what was granted on
+// their active appointments (BR-01). Ending the appointment removes the access at once.
+function effectivePermissions(access: ActiveAccess): Permission[] {
+  if (access.holdsChairman) return [...PERMISSIONS];
+  return [...new Set(access.grantedPermissions.filter(isPermission))].sort();
 }
 
-// For responses that show the user (sign-in, /me): permissions and appointments, no scope.
-export async function loadProfileAccess(memberId: string, role: UserRole): Promise<ProfileAccess> {
+const roleOf = (access: ActiveAccess): UserRole =>
+  access.holdsChairman ? 'chairman' : 'executive';
+
+export async function loadProfileAccess(memberId: string): Promise<ProfileAccess> {
   const access = await organisationService.getActiveAccess(memberId, { appointments: true });
-  return { permissions: effectivePermissions(access, role), appointments: access.appointments };
+  return {
+    role: roleOf(access),
+    permissions: effectivePermissions(access),
+    appointments: access.appointments,
+  };
 }
 
-// Runs on every authenticated request (BR-05, FR-AUTH-04): a revoked session, a suspended
-// executive or an ended appointment takes effect on the very next request. Two queries in all:
-// the session row with its executive's state, then permissions and scope in one statement.
-export async function resolveAccess(
-  executiveId: string,
-  sessionId: string,
-): Promise<AccessContext> {
+// Runs on every authenticated request (BR-05, FR-AUTH-04): a revoked session, a suspended account
+// or an ended appointment takes effect on the very next request. At most two queries.
+export async function resolveAccess(accountId: string, sessionId: string): Promise<AccessContext> {
   const session = await authRepository.findSessionForAccess(sessionId);
-
-  if (!session || session.executiveId !== executiveId || session.status !== 'active') {
+  const ownerId = session?.executiveId ?? session?.platformAdminId;
+  if (!session || ownerId !== accountId || session.status !== 'active') {
     throw new UnauthorizedError(SESSION_ENDED);
   }
 
-  const access = await organisationService.getActiveAccess(session.memberId, { scope: true });
+  if (!session.executiveId || !session.memberId) {
+    return {
+      kind: 'platform_admin',
+      accountId,
+      sessionId,
+      role: 'platform_admin',
+      memberId: null,
+      organisationId: null,
+      organisationWide: false,
+      permissions: new Set(),
+      scopeUnitIds: [],
+    };
+  }
 
+  const access = await organisationService.getActiveAccess(session.memberId, { scope: true });
   return {
-    executiveId,
-    memberId: session.memberId,
+    kind: 'executive',
+    accountId,
     sessionId,
-    role: session.role,
-    permissions: new Set(effectivePermissions(access, session.role)),
+    role: roleOf(access),
+    memberId: session.memberId,
+    organisationId: session.organisationId,
+    organisationWide: access.organisationWide,
+    permissions: new Set(effectivePermissions(access)),
     scopeUnitIds: access.scopeUnitIds,
   };
 }
