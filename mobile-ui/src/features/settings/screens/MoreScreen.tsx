@@ -26,21 +26,23 @@ interface MoreLink {
   route: string;
 }
 
+const href = (path: string) => path as Href;
+
 // Grouped from the SRS: structure and people, messaging, then records.
 const SECTIONS: { title: string; links: MoreLink[] }[] = [
   {
     title: 'Organisation',
     links: [
       { label: 'Structure', icon: Network, href: '/organisation', route: 'organisation/index' },
-      { label: 'Executives', icon: UsersRound, href: '/executives', route: 'executives/index' },
+      { label: 'Executives', icon: UsersRound, href: href('/executives'), route: 'executives/index' },
     ],
   },
   {
     title: 'Messaging',
     links: [
       { label: 'Approvals', icon: CheckCheck, href: '/approvals', route: 'approvals/index' },
-      { label: 'Templates', icon: FileText, href: '/templates', route: 'templates/index' },
-      { label: 'Opt-outs', icon: BellOff, href: '/opt-outs', route: 'opt-outs/index' },
+      { label: 'Templates', icon: FileText, href: href('/templates'), route: 'templates/index' },
+      { label: 'Opt-outs', icon: BellOff, href: href('/opt-outs'), route: 'opt-outs/index' },
     ],
   },
   {
