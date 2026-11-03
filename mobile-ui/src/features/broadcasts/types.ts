@@ -21,6 +21,13 @@ export interface BroadcastSummary {
   recipients: number;
 }
 
+export interface BroadcastDetail extends BroadcastSummary {
+  message: string;
+  estimatedSegments: number;
+  estimatedCost: number;
+  failed: number;
+}
+
 // Organisational scopes a broadcast can target (FR-SMS-02); the server limits them to the user's scope.
 export type AudienceLevel =
   'constituency' | 'electoral_area' | 'branch' | 'polling_station' | 'executive_group';

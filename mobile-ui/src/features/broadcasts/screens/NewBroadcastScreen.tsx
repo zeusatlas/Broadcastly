@@ -1,4 +1,4 @@
-import { CalendarClock, FileText, X } from 'lucide-react-native';
+import { CalendarClock, FileText } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -41,8 +41,23 @@ export function NewBroadcastScreen() {
     : 'Submit for approval';
 
   return (
-    <PageScreen title="New broadcast" backIcon={X} backLabel="Close new broadcast">
-      <ComposeSection step={1} title="Message">
+    <PageScreen
+      title="New broadcast"
+      actions={
+        <>
+          <Button
+            // TODO(dispatch): opens DispatchConfirmation with an idempotency key (FR-SMS-07, FR-SMS-14).
+            label={primaryLabel}
+            variant="accent"
+            size="lg"
+            fullWidth
+            disabled={message.trim().length === 0}
+          />
+          <Button label="Save draft" variant="ghost" size="lg" fullWidth />
+        </>
+      }
+    >
+      <ComposeSection step={1} title="Message" className="mt-0">
         <ComposeRow
           // TODO(templates): opens the template list (FR-SMS-04).
           icon={FileText}
@@ -97,7 +112,7 @@ export function NewBroadcastScreen() {
         ) : null}
       </ComposeSection>
 
-      <View className="mt-8 gap-3">
+      <View className="mt-6 gap-3">
         <Text accessibilityRole="header" className="font-sans-bold text-lg text-foreground">
           Estimate
         </Text>
@@ -106,18 +121,6 @@ export function NewBroadcastScreen() {
           segments={Math.max(estimate.segments, 1)}
           balance={PLACEHOLDER_BALANCE}
         />
-      </View>
-
-      <View className="mt-auto gap-2 pt-10">
-        <Button
-          // TODO(dispatch): opens DispatchConfirmation with an idempotency key (FR-SMS-07, FR-SMS-14).
-          label={primaryLabel}
-          variant="accent"
-          size="lg"
-          fullWidth
-          disabled={message.trim().length === 0}
-        />
-        <Button label="Save draft" variant="ghost" size="lg" fullWidth />
       </View>
     </PageScreen>
   );
