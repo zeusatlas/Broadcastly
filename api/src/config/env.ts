@@ -51,13 +51,15 @@ const envSchema = z
 
     API_DOCS_ENABLED: booleanString,
 
-    // 'log' writes messages (sign-in codes included) to the console. Development only; production
-    // refuses it until a real provider driver is added (SRS §6.2).
+    // 'log' writes messages (sign-in codes included) to the console. Testing stand-in until a real
+    // provider is connected (SRS §6.2); startup warns while it is in use (config/startup.ts).
     SMS_DRIVER: z.enum(['log']).default('log'),
-  })
-  .refine((value) => value.NODE_ENV !== 'production' || value.SMS_DRIVER !== 'log', {
-    path: ['SMS_DRIVER'],
-    message: 'SMS_DRIVER=log is for development only. Configure an SMS provider for production.',
+
+    PUBLIC_BASE_URL: z.url().default('http://localhost:8000'),
+    UPLOADS_DIR: z.string().min(1).default('uploads'),
+
+    PAYMENT_DRIVER: z.enum(['simulate']).default('simulate'),
+    CREDIT_PRICE_PESEWAS: z.coerce.number().int().positive().default(4),
   });
 
 export type Env = z.infer<typeof envSchema>;

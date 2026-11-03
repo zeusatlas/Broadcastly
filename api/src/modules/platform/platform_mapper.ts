@@ -1,3 +1,4 @@
+import { publicUploadUrl } from '../../common/uploads/image_upload';
 import type { PlatformAdminResponse } from '../auth';
 
 import type { ExecutiveRow, OrganisationRow, PlatformAdminRow } from './platform_repository';
@@ -25,7 +26,11 @@ function executiveBase(row: ExecutiveRow) {
 }
 
 export function toOrganisationExecutive(row: ExecutiveRow): OrganisationExecutiveResponse {
-  return { ...executiveBase(row), positions: row.positions ?? [] };
+  return {
+    ...executiveBase(row),
+    positions: row.positions ?? [],
+    creditBalance: row.creditBalance,
+  };
 }
 
 export function toOrganisationResponse(row: OrganisationRow): OrganisationResponse {
@@ -40,6 +45,12 @@ export function toOrganisationResponse(row: OrganisationRow): OrganisationRespon
     name: row.name,
     type: row.type,
     status: row.status,
+    logoUrl: publicUploadUrl(row.logoPath),
+    credits: {
+      balance: row.creditBalance,
+      reserved: row.creditReserved,
+      available: row.creditBalance - row.creditReserved,
+    },
     chairman,
     memberCount: row.memberCount,
     executiveCount: row.executiveCount,

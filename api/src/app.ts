@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
@@ -37,6 +39,16 @@ export function createApp(): Express {
   );
 
   app.use(helmet());
+  // Uploaded images (organisation logos) under random names; cross-origin so the web app can show them.
+  app.use(
+    '/uploads',
+    express.static(path.resolve(env.UPLOADS_DIR), {
+      index: false,
+      dotfiles: 'deny',
+      maxAge: '7d',
+      setHeaders: (res) => res.set('Cross-Origin-Resource-Policy', 'cross-origin'),
+    }),
+  );
   app.use(cors({ origin: env.CORS_ORIGINS, credentials: false }));
   app.use('/api', apiRateLimit);
   app.use(express.json({ limit: '100kb' }));

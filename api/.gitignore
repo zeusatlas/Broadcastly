@@ -10,7 +10,7 @@ coverage/
 
 # Uploaded spreadsheets must never be committed: they hold member personal data.
 storage/
-uploads/
+/uploads/
 
 npm-debug.log*
 .DS_Store

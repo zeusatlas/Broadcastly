@@ -1,6 +1,8 @@
 import { toSkipTake, type PageParams } from '../../common/http/pagination';
+import type { DateRange } from '../../common/http/period';
 import { dataSource } from '../../config/database';
 import type { ExecutiveStatus, PlatformAdminStatus } from '../auth';
+import type { BroadcastResponse, BroadcastStatus } from '../broadcasts';
 import { CHAIRMAN_POSITION_ID, type OrganisationStatus } from '../organisation';
 
 import type {
@@ -25,6 +27,7 @@ export interface ExecutiveRow {
   status: ExecutiveStatus;
   lastSignInAt: Date | string | null;
   createdAt: Date | string;
+  creditBalance: number;
   positions?: string[];
 }
 
@@ -33,6 +36,9 @@ export interface OrganisationRow {
   name: string;
   type: string;
   status: OrganisationStatus;
+  logoPath: string | null;
+  creditBalance: number;
+  creditReserved: number;
   memberCount: number;
   executiveCount: number;
   createdAt: Date;
@@ -51,6 +57,31 @@ export interface PlatformAdminRow {
   createdAt: Date;
 }
 
+export type OverviewCounts = Omit<
+  PlatformOverviewResponse,
+  'creditsPurchased' | 'amountPaidPesewas' | 'pendingPurchases' | 'failedPurchases'
+>;
+
+export interface BroadcastFilters {
+  organisationId?: string;
+  status?: BroadcastStatus;
+  search?: string;
+  range: DateRange;
+}
+
+const BROADCAST_SELECT = `
+  SELECT b.id, b.organisation_id AS "organisationId", o.name AS "organisationName", b.title,
+         b.message, b.status, b.audience_summary AS "audienceSummary",
+         b.recipient_count AS "recipientCount", b.segment_count AS "segmentCount",
+         b.estimated_credits AS "estimatedCredits", b.delivered_count AS "deliveredCount",
+         b.failed_count AS "failedCount", m.first_name || ' ' || m.last_name AS "createdBy",
+         b.scheduled_at AS "scheduledAt", b.submitted_at AS "submittedAt",
+         b.completed_at AS "completedAt", b.created_at AS "createdAt"
+    FROM broadcasts b
+    JOIN organisations o ON o.id = b.organisation_id
+    LEFT JOIN organisation_executives e ON e.id = b.created_by_executive_id
+    LEFT JOIN members m ON m.id = e.member_id`;
+
 type ExecutiveFilters = Omit<ListOrganisationExecutivesRequest, 'page' | 'pageSize'> & {
   id?: string;
 };
@@ -58,16 +89,20 @@ type ExecutiveFilters = Omit<ListOrganisationExecutivesRequest, 'page' | 'pageSi
 const EXECUTIVE_COLUMNS = `
   e.id, m.id AS "memberId", m.party_id AS "partyId", m.first_name AS "firstName",
   m.middle_name AS "middleName", m.last_name AS "lastName", e.email, m.phone, e.status,
-  e.last_sign_in_at AS "lastSignInAt", e.created_at AS "createdAt"`;
+  e.last_sign_in_at AS "lastSignInAt", e.created_at AS "createdAt",
+  COALESCE((SELECT w.balance FROM wallets w WHERE w.executive_id = e.id), 0) AS "creditBalance"`;
 
 // $1 = chairman position id.
 const ORGANISATION_SELECT = `
-  SELECT o.id, o.name, o.type, o.status, o.created_at AS "createdAt", o.updated_at AS "updatedAt",
+  SELECT o.id, o.name, o.type, o.status, o.logo_path AS "logoPath",
+         COALESCE(w.balance, 0) AS "creditBalance", COALESCE(w.reserved, 0) AS "creditReserved",
+         o.created_at AS "createdAt", o.updated_at AS "updatedAt",
          (SELECT count(*) FROM members mm WHERE mm.organisation_id = o.id)::int AS "memberCount",
          (SELECT count(*) FROM organisation_executives ee WHERE ee.organisation_id = o.id)::int
            AS "executiveCount",
          CASE WHEN c.id IS NULL THEN NULL ELSE to_jsonb(c) END AS chairman
     FROM organisations o
+    LEFT JOIN wallets w ON w.organisation_id = o.id AND w.owner_type = 'organisation'
     LEFT JOIN LATERAL (
       SELECT ${EXECUTIVE_COLUMNS}, a.id AS "appointmentId", a.effective_from AS "appointedAt"
         FROM appointments a
@@ -143,10 +178,12 @@ async function paged<T>(
 }
 
 export const platformRepository = {
-  async getOverview(): Promise<PlatformOverviewResponse> {
+  async getOverview(): Promise<OverviewCounts> {
     const [row] = (await dataSource.query(
       `SELECT
          (SELECT count(*) FROM organisations)::int AS "organisations",
+         (SELECT count(*) FROM organisations WHERE status = 'suspended')::int
+           AS "suspendedOrganisations",
          (SELECT count(*) FROM organisations o WHERE NOT EXISTS (
             SELECT 1 FROM appointments a
              WHERE a.organisation_id = o.id AND a.position_id = $1 AND a.status = 'active'))::int
@@ -160,7 +197,7 @@ export const platformRepository = {
            AS "suspendedExecutives",
          (SELECT count(*) FROM platform_admins WHERE status = 'active')::int AS "platformAdmins"`,
       [CHAIRMAN_POSITION_ID],
-    )) as PlatformOverviewResponse[];
+    )) as OverviewCounts[];
 
     return row!;
   },
@@ -207,6 +244,29 @@ export const platformRepository = {
       where.params,
     )) as ExecutiveRow[];
     return row ?? null;
+  },
+
+  listBroadcasts({ organisationId, status, search, range }: BroadcastFilters, page: PageParams) {
+    const params: unknown[] = [];
+    const param = (value: unknown) => `$${params.push(value)}`;
+    const clauses: string[] = [];
+    if (organisationId) clauses.push(`b.organisation_id = ${param(organisationId)}`);
+    if (status) clauses.push(`b.status = ${param(status)}`);
+    if (range.from) clauses.push(`b.created_at >= ${param(range.from)}`);
+    if (range.to) clauses.push(`b.created_at < ${param(range.to)}`);
+    if (search) {
+      const p = param(likePattern(search));
+      clauses.push(`(b.title ILIKE ${p} OR b.message ILIKE ${p})`);
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+
+    return paged<BroadcastResponse>(
+      `${BROADCAST_SELECT} ${where} ORDER BY b.created_at DESC, b.id`,
+      `SELECT count(*)::int AS total FROM broadcasts b ${where}`,
+      params,
+      params,
+      page,
+    );
   },
 
   listPlatformAdmins(

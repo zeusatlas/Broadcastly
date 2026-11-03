@@ -1,6 +1,8 @@
 // Public API of the auth module — one sign-in for every account, sessions and access control
 // (FR-AUTH, FR-IAM). Other modules import from here only.
 export { authRouter } from './auth_routes';
+export { OrganisationExecutive } from './entities/organisation_executive_entity';
+export { PlatformAdmin } from './entities/platform_admin_entity';
 export { actorFrom, auditActor, authService } from './auth_service';
 export {
   authenticate,

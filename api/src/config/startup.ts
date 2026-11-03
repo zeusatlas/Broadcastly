@@ -48,6 +48,22 @@ const HINTS: Record<StartupService, Record<string, Hint>> = {
   },
 };
 
+// Testing stand-ins (owner's decision, 2026-11-03): allowed in every environment until the real SMS
+// and payment providers are connected, but announced loudly at every start instead of refused.
+export function warnAboutTestDrivers() {
+  const where = env.NODE_ENV === 'production' ? 'in PRODUCTION' : `(${env.NODE_ENV})`;
+  if (env.SMS_DRIVER === 'log') {
+    logger.warn(
+      `SMS_DRIVER=log ${where}: no SMS is sent; messages and sign-in codes go to this log. Connect an SMS provider before real users.`,
+    );
+  }
+  if (env.PAYMENT_DRIVER === 'simulate') {
+    logger.warn(
+      `PAYMENT_DRIVER=simulate ${where}: no money is collected; anyone can settle a purchase through the webhook. Connect a payment provider before real users.`,
+    );
+  }
+}
+
 export class StartupError extends Error {
   readonly known: boolean;
 

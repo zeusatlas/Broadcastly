@@ -6,7 +6,13 @@ import { dataSource } from './config/database';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import { connectRedis, redis } from './config/redis';
-import { databaseAddress, redisAddress, reportStartupFailure, startupStep } from './config/startup';
+import {
+  databaseAddress,
+  redisAddress,
+  reportStartupFailure,
+  startupStep,
+  warnAboutTestDrivers,
+} from './config/startup';
 import { closeQueues } from './jobs/queues';
 
 // Separate process from the API so a slow import or SMS burst never blocks HTTP requests
@@ -19,6 +25,7 @@ const WORKERS: Array<() => Worker> = [];
 
 async function main() {
   logger.info(`Starting Broadcastly API worker (${env.NODE_ENV})…`);
+  warnAboutTestDrivers();
 
   // The worker never creates the database or runs migrations; the API owns that.
   await startupStep('PostgreSQL', () => dataSource.initialize());

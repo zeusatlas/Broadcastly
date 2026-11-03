@@ -3,7 +3,9 @@ import type { Request, Response } from 'express';
 import { getRequestContext } from '../../common/http/request_context';
 import { sendCreated, sendNoData, sendSuccess } from '../../common/http/respond';
 import { validated } from '../../common/middleware/validate';
-import { requireAuth } from '../auth';
+import { toStoredPath } from '../../common/uploads/image_upload';
+import { actorFrom, requireAuth } from '../auth';
+import { platformService } from '../platform';
 
 import { chairmanService } from './chairman_service';
 import type {
@@ -20,7 +22,28 @@ import type {
   UpdatePositionRequest,
 } from './chairman_types';
 
+// The chairman's own organisation only; the same logo rules as the platform admin's.
+async function setOwnLogo(req: Request, logoPath: string | null) {
+  const auth = requireAuth(req);
+  const organisation = await platformService.setOrganisationLogo(
+    auth.organisationId!,
+    logoPath,
+    actorFrom(auth, getRequestContext(req)),
+  );
+  return { logoUrl: organisation.logoUrl };
+}
+
 export const chairmanController = {
+  async uploadLogo(req: Request, res: Response) {
+    const data = await setOwnLogo(req, toStoredPath(req.file!.path));
+    return sendSuccess(res, { data, message: 'Logo updated.' });
+  },
+
+  async removeLogo(req: Request, res: Response) {
+    const data = await setOwnLogo(req, null);
+    return sendSuccess(res, { data, message: 'Logo removed.' });
+  },
+
   async getOverview(req: Request, res: Response) {
     const data = await chairmanService.getOverview(requireAuth(req));
     return sendSuccess(res, { data, message: 'Overview retrieved.' });

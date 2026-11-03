@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 
 import {
   errorResponses,
@@ -8,6 +9,7 @@ import {
   successEnvelope,
 } from '../../common/http/openapi_schemas';
 import { validate } from '../../common/middleware/validate';
+import { imageUpload } from '../../common/uploads/image_upload';
 import { bearerAuth, openApiRegistry } from '../../config/openapi';
 import {
   authenticate,
@@ -15,12 +17,24 @@ import {
   createPlatformAdminSchema,
   platformAdminResponseSchema,
 } from '../auth';
+import { broadcastResponseSchema } from '../broadcasts';
+import {
+  creditTransactionResponseSchema,
+  listPurchasesSchema,
+  purchaseResponseSchema,
+} from '../credits';
 
 import { platformController as c } from './platform_controller';
 import {
   appointChairmanSchema,
   createOrganisationSchema,
+  listBroadcastsSchema,
+  listOrganisationBroadcastsSchema,
+  listOrganisationCreditTransactionsSchema,
   listOrganisationExecutivesSchema,
+  listPlatformPurchasesSchema,
+  periodQuerySchema,
+  purchaseSummaryResponseSchema,
   listOrganisationsSchema,
   listPlatformAdminsSchema,
   organisationExecutiveParamsSchema,
@@ -40,6 +54,8 @@ const organisation = validate({ params: organisationParamsSchema });
 const executive = validate({ params: organisationExecutiveParamsSchema });
 const admin = validate({ params: platformAdminParamsSchema });
 const EXECUTIVES = '/organisations/:organisationId/executives';
+const ORGANISATION = '/organisations/:organisationId';
+const logoUpload = imageUpload('organisation-logos', 'logo');
 
 platformRouter.get('/overview', c.getOverview);
 platformRouter.get(
@@ -66,6 +82,32 @@ platformRouter.get(
 platformRouter.get(`${EXECUTIVES}/:executiveId`, executive, c.getOrganisationExecutive);
 platformRouter.post(`${EXECUTIVES}/:executiveId/suspend`, executive, c.suspendExecutive);
 platformRouter.post(`${EXECUTIVES}/:executiveId/reactivate`, executive, c.reactivateExecutive);
+platformRouter.post(`${ORGANISATION}/suspend`, organisation, c.suspendOrganisation);
+platformRouter.post(`${ORGANISATION}/reactivate`, organisation, c.reactivateOrganisation);
+platformRouter.post(`${ORGANISATION}/logo`, organisation, logoUpload, c.uploadOrganisationLogo);
+platformRouter.delete(`${ORGANISATION}/logo`, organisation, c.removeOrganisationLogo);
+platformRouter.get(
+  `${ORGANISATION}/broadcasts`,
+  validate({ params: organisationParamsSchema, query: listOrganisationBroadcastsSchema }),
+  c.listOrganisationBroadcasts,
+);
+platformRouter.get(
+  `${ORGANISATION}/purchases`,
+  validate({ params: organisationParamsSchema, query: listPurchasesSchema }),
+  c.listOrganisationPurchases,
+);
+platformRouter.get(
+  `${ORGANISATION}/credit-transactions`,
+  validate({ params: organisationParamsSchema, query: listOrganisationCreditTransactionsSchema }),
+  c.listOrganisationCreditTransactions,
+);
+platformRouter.get('/broadcasts', validate({ query: listBroadcastsSchema }), c.listBroadcasts);
+platformRouter.get('/purchases', validate({ query: listPlatformPurchasesSchema }), c.listPurchases);
+platformRouter.get(
+  '/purchases/summary',
+  validate({ query: periodQuerySchema }),
+  c.getPurchaseSummary,
+);
 platformRouter.get('/admins', validate({ query: listPlatformAdminsSchema }), c.listPlatformAdmins);
 platformRouter.post(
   '/admins',
@@ -96,7 +138,7 @@ const NO_EXECUTIVE: [number, string, string] = [
 const NO_ACCOUNT: [number, string, string] = [404, 'No account has this id.', 'Account not found.'];
 
 interface Doc {
-  method: 'get' | 'post';
+  method: 'get' | 'post' | 'delete';
   path: string;
   operationId: string;
   summary: string;
@@ -319,4 +361,131 @@ document({
     ],
     422,
   ],
+});
+
+const PERIOD_HELP =
+  '`period`: `today`, `yesterday`, `last_3_days`, `last_7_days`, `last_30_days`, `last_365_days`, `all_time` (default), or `custom` with `from` and/or `to` (YYYY-MM-DD, both inclusive). Rolling periods end now.';
+
+for (const [action, verb] of [
+  ['suspend', 'Suspend'],
+  ['reactivate', 'Reactivate'],
+] as const) {
+  const suspending = action === 'suspend';
+  document({
+    method: 'post',
+    path: `/organisations/{organisationId}/${action}`,
+    operationId: `${action}Organisation`,
+    summary: `${verb} an organisation`,
+    description: suspending
+      ? 'Stop the whole organisation: every executive’s sessions end at once and none can sign in until it is reactivated. Its data is kept. Repeating it changes nothing.'
+      : 'Let a suspended organisation’s executives sign in again (their own account status still applies).',
+    request: { params: organisationParamsSchema },
+    response: successEnvelope(
+      organisationResponseSchema,
+      suspending ? 'Organisation suspended.' : 'Organisation reactivated.',
+    ),
+    message: 'The organisation.',
+    errors: [NOT_ADMIN, NO_ORGANISATION, [409, 'The organisation is inactive.'], 422],
+  });
+}
+document({
+  method: 'post',
+  path: '/organisations/{organisationId}/logo',
+  operationId: 'uploadOrganisationLogo',
+  summary: "Upload an organisation's logo",
+  description:
+    'Send `multipart/form-data` with one image in the field `logo`: PNG, JPEG or WebP, 2 MB at most. It replaces any previous logo; `logoUrl` in the response points to it.',
+  request: {
+    params: organisationParamsSchema,
+    body: {
+      content: {
+        'multipart/form-data': {
+          schema: z.object({ logo: z.string().openapi({ type: 'string', format: 'binary' }) }),
+        },
+      },
+    },
+  },
+  response: successEnvelope(organisationResponseSchema, 'Logo updated.'),
+  message: 'The organisation with its new logoUrl.',
+  errors: [NOT_ADMIN, NO_ORGANISATION, 422],
+});
+document({
+  method: 'delete',
+  path: '/organisations/{organisationId}/logo',
+  operationId: 'removeOrganisationLogo',
+  summary: "Remove an organisation's logo",
+  description: 'Deletes the logo; `logoUrl` becomes `null`.',
+  request: { params: organisationParamsSchema },
+  response: successEnvelope(organisationResponseSchema, 'Logo removed.'),
+  message: 'The organisation.',
+  errors: [NOT_ADMIN, NO_ORGANISATION, 422],
+});
+document({
+  method: 'get',
+  path: '/broadcasts',
+  operationId: 'listPlatformBroadcasts',
+  summary: 'List broadcasts across organisations',
+  description: `Newest first. Filter by \`organisationId\`, \`status\`, \`search\` (title or message) and ${PERIOD_HELP}`,
+  request: { query: listBroadcastsSchema },
+  response: successEnvelope(paginatedSchema(broadcastResponseSchema), 'Broadcasts retrieved.'),
+  message: 'A page of broadcasts.',
+  errors: [NOT_ADMIN, NO_ORGANISATION, 422],
+});
+document({
+  method: 'get',
+  path: '/organisations/{organisationId}/broadcasts',
+  operationId: 'listOrganisationBroadcasts',
+  summary: "List an organisation's broadcasts",
+  description: `Newest first. Filter by \`status\`, \`search\` and ${PERIOD_HELP}`,
+  request: { params: organisationParamsSchema, query: listOrganisationBroadcastsSchema },
+  response: successEnvelope(paginatedSchema(broadcastResponseSchema), 'Broadcasts retrieved.'),
+  message: 'A page of broadcasts.',
+  errors: [NOT_ADMIN, NO_ORGANISATION, 422],
+});
+document({
+  method: 'get',
+  path: '/purchases',
+  operationId: 'listPlatformPurchases',
+  summary: 'List credit purchases across organisations',
+  description: `Newest first. Filter by \`organisationId\`, \`status\` (\`pending\`, \`completed\`, \`failed\`) and ${PERIOD_HELP}`,
+  request: { query: listPlatformPurchasesSchema },
+  response: successEnvelope(paginatedSchema(purchaseResponseSchema), 'Purchases retrieved.'),
+  message: 'A page of purchases.',
+  errors: [NOT_ADMIN, NO_ORGANISATION, 422],
+});
+document({
+  method: 'get',
+  path: '/purchases/summary',
+  operationId: 'getPurchaseSummary',
+  summary: 'Total credits purchased',
+  description: `Credits bought and amount paid (completed purchases), plus pending and failed counts, across all organisations. ${PERIOD_HELP}`,
+  request: { query: periodQuerySchema },
+  response: successEnvelope(purchaseSummaryResponseSchema, 'Purchase summary retrieved.'),
+  message: 'Totals for the period.',
+  errors: [NOT_ADMIN, 422],
+});
+document({
+  method: 'get',
+  path: '/organisations/{organisationId}/purchases',
+  operationId: 'listOrganisationPurchases',
+  summary: "List an organisation's credit purchases",
+  description: `Newest first. Filter by \`status\` and ${PERIOD_HELP}`,
+  request: { params: organisationParamsSchema, query: listPurchasesSchema },
+  response: successEnvelope(paginatedSchema(purchaseResponseSchema), 'Purchases retrieved.'),
+  message: 'A page of purchases.',
+  errors: [NOT_ADMIN, NO_ORGANISATION, 422],
+});
+document({
+  method: 'get',
+  path: '/organisations/{organisationId}/credit-transactions',
+  operationId: 'listOrganisationCreditTransactions',
+  summary: "List an organisation's credit history",
+  description: `The organisation wallet's ledger, newest first. ${PERIOD_HELP}`,
+  request: { params: organisationParamsSchema, query: listOrganisationCreditTransactionsSchema },
+  response: successEnvelope(
+    paginatedSchema(creditTransactionResponseSchema),
+    'Credit history retrieved.',
+  ),
+  message: 'A page of ledger entries.',
+  errors: [NOT_ADMIN, NO_ORGANISATION, 422],
 });

@@ -1,3 +1,5 @@
+import { publicUploadUrl } from '../../common/uploads/image_upload';
+
 import type { ProfileAccess } from './access_resolver';
 import type { PlatformAdminResponse, UserResponse } from './auth_types';
 import type { OrganisationExecutive } from './entities/organisation_executive_entity';
@@ -24,7 +26,12 @@ export function toUserResponse(
     memberId: member.id,
     partyId: member.partyId,
     dateOfBirth: member.dateOfBirth,
-    organisation: { id: organisation.id, name: organisation.name, type: organisation.type },
+    organisation: {
+      id: organisation.id,
+      name: organisation.name,
+      type: organisation.type,
+      logoUrl: publicUploadUrl(organisation.logoPath),
+    },
     permissions: access.permissions,
     appointments: access.appointments,
     lastSignInAt: executive.lastSignInAt,

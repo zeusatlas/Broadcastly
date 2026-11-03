@@ -1,5 +1,6 @@
 import type { EntityManager } from 'typeorm';
 
+import { Organisation } from './entities/organisation_entity';
 import { organisationRepository } from './organisation_repository';
 import type {
   AccessIncludes,
@@ -27,6 +28,18 @@ export const organisationService = {
 
   lockOrganisation(organisationId: string, manager: EntityManager) {
     return organisationRepository.lockOrganisation(organisationId, manager);
+  },
+
+  async setOrganisationStatus(
+    organisationId: string,
+    status: 'active' | 'suspended',
+    manager: EntityManager,
+  ) {
+    await manager.getRepository(Organisation).update({ id: organisationId }, { status });
+  },
+
+  async setOrganisationLogo(organisationId: string, logoPath: string | null, manager: EntityManager) {
+    await manager.getRepository(Organisation).update({ id: organisationId }, { logoPath });
   },
 
   hasActiveChairman(organisationId: string, manager: EntityManager) {
