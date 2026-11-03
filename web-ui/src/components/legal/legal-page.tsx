@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
+import { BrandMark } from "@/components/brand/brand-mark";
 
 export interface LegalSection {
   title: string;

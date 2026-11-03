@@ -1,4 +1,4 @@
-import { LegalPage, type LegalSection } from "@/components/legal-page";
+import { LegalPage, type LegalSection } from "@/components/legal/legal-page";
 
 const sections: LegalSection[] = [
   { title: "About this policy", paragraphs: ["This page explains the privacy approach intended for Broadcastly, a workspace for organising people and teams and coordinating approved SMS communication. The final policy must be confirmed by the organisation that operates the service."] },

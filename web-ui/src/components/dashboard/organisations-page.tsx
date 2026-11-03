@@ -224,7 +224,7 @@ export function OrganisationsPage() {
                   size="sm"
                   aria-pressed={filter === item}
                   onClick={() => setFilter(item)}
-                  className={filter === item ? "bg-card shadow-sm" : "text-muted-foreground"}
+                  className={filter === item ? "bg-white text-[hsl(var(--brand-atlas-navy))] shadow-sm hover:bg-white hover:text-[hsl(var(--brand-atlas-navy))]" : "text-muted-foreground"}
                 >
                   {item}
                 </Button>

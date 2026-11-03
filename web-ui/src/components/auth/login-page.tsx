@@ -1,12 +1,12 @@
 ﻿import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { PhoneNumberInput } from "@/components/phone-number-input";
+import { PhoneNumberInput } from "@/components/auth/phone-number-input";
 
-export function Login2() {
+export function LoginPage() {
   return (
     <main className="h-svh w-full overflow-hidden bg-card text-foreground">
       <div className="grid h-full min-h-0 w-full md:grid-cols-[.8fr_1.2fr] lg:grid-cols-[1.05fr_.95fr]">

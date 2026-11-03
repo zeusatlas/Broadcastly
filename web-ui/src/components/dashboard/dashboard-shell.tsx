@@ -9,7 +9,7 @@ import {
   PanelLeftOpen,
   X,
 } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { platformAdminNavigation } from "@/lib/platform-admin-navigation";
 
 function AdminNavigation({

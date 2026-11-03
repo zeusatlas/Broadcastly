@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { type DateRange } from "react-day-picker";
 import {
   ArrowDownToLine,
   ArrowUpRight,
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePickerWithRange } from "@/components/dashboard/date-range-picker";
 import {
   Select,
   SelectContent,
@@ -79,23 +81,28 @@ export default function AuditLogPage() {
   const [actor, setActor] = useState("all");
   const [action, setAction] = useState("all");
   const [organisation, setOrganisation] = useState("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null);
 
   const filteredEvents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return events.filter((event) => {
-      const date = event.timestamp.slice(0, 10);
+      const eventDate = new Date(event.timestamp);
+      const startDate = dateRange?.from
+        ? new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate())
+        : undefined;
+      const endDate = dateRange?.to
+        ? new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate(), 23, 59, 59, 999)
+        : undefined;
       const matchesQuery = !normalizedQuery || [event.actor, event.action, event.category, event.organisation, event.summary, event.id].some((value) => value.toLowerCase().includes(normalizedQuery));
       return matchesQuery &&
         (actor === "all" || event.actor === actor) &&
         (action === "all" || event.action === action) &&
         (organisation === "all" || event.organisation === organisation) &&
-        (!fromDate || date >= fromDate) &&
-        (!toDate || date <= toDate);
+        (!startDate || eventDate >= startDate) &&
+        (!endDate || eventDate <= endDate);
     });
-  }, [action, actor, fromDate, organisation, query, toDate]);
+  }, [action, actor, dateRange, organisation, query]);
 
   function exportCsv() {
     const headings = ["Event ID", "Timestamp", "Administrator", "Role", "Action", "Category", "Organisation", "Summary", "Details", "IP address"];
@@ -143,13 +150,12 @@ export default function AuditLogPage() {
             <div className="relative w-full md:max-w-xs"><Search size={15} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" /><Input aria-label="Search audit log" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search activity" className="h-9 pl-9" /></div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_155px_155px_auto] xl:items-end">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_280px_auto] xl:items-end">
             <div className="space-y-1.5"><Label className="text-[10px] text-muted-foreground" htmlFor="audit-actor">Administrator</Label><Select value={actor} onValueChange={(value) => value && setActor(value)}><SelectTrigger id="audit-actor" className="h-9 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All administrators</SelectItem>{actors.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1.5"><Label className="text-[10px] text-muted-foreground" htmlFor="audit-action">Action</Label><Select value={action} onValueChange={(value) => value && setAction(value)}><SelectTrigger id="audit-action" className="h-9 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All actions</SelectItem>{actions.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div>
             <div className="space-y-1.5"><Label className="text-[10px] text-muted-foreground" htmlFor="audit-organisation">Organisation</Label><Select value={organisation} onValueChange={(value) => value && setOrganisation(value)}><SelectTrigger id="audit-organisation" className="h-9 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All organisations</SelectItem>{organisations.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1.5"><Label className="text-[10px] text-muted-foreground" htmlFor="audit-from">From</Label><Input id="audit-from" type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="h-9 text-xs" /></div>
-            <div className="space-y-1.5"><Label className="text-[10px] text-muted-foreground" htmlFor="audit-to">To</Label><Input id="audit-to" type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="h-9 text-xs" /></div>
-            <Button type="button" variant="ghost" size="sm" className="h-9 gap-1.5 text-muted-foreground" onClick={() => { setQuery(""); setActor("all"); setAction("all"); setOrganisation("all"); setFromDate(""); setToDate(""); }}><CalendarDays size={14} /> Clear filters</Button>
+            <div className="space-y-1.5"><Label className="text-[10px] text-muted-foreground" htmlFor="audit-date-range">Date range</Label><DatePickerWithRange id="audit-date-range" date={dateRange} onDateChange={setDateRange} /></div>
+            <Button type="button" variant="ghost" size="sm" className="h-9 gap-1.5 text-muted-foreground" onClick={() => { setQuery(""); setActor("all"); setAction("all"); setOrganisation("all"); setDateRange(undefined); }}><CalendarDays size={14} /> Clear filters</Button>
           </div>
         </div>
 

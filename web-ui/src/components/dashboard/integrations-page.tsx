@@ -148,7 +148,7 @@ export default function IntegrationsPage() {
               <p className="mt-1 text-xs text-muted-foreground">Provider callbacks and message processing events that need review or have recovered.</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" render={<Link href="/dashboard/jobs-errors" />} className="gap-1.5">
+          <Button nativeButton={false} variant="outline" size="sm" render={<Link href="/dashboard/jobs-errors" />} className="gap-1.5">
             Open jobs and errors <ArrowRight size={14} />
           </Button>
         </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, KeyRound } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
-import { AuthHeading } from "@/components/auth-shell";
+import { BrandMark } from "@/components/brand/brand-mark";
+import { AuthHeading } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import {
   InputOTP,

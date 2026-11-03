@@ -10,12 +10,12 @@ import {
   Megaphone,
   UsersRound,
 } from "lucide-react";
-import { LandingMotion } from "@/components/landing-motion";
+import { LandingMotion } from "@/components/landing/landing-motion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { SiteHeader } from "@/components/site-header";
-import { Footer2 } from "@/components/footer2";
-import { BrandMark } from "@/components/brand-mark";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { BrandMark } from "@/components/brand/brand-mark";
 
 const features = [
   {
@@ -454,7 +454,7 @@ export default function Home() {
           </div>
         </section>
       </main>
-      <Footer2 />
+      <SiteFooter />
     </div>
   );
 }

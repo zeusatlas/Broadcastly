@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Menu, X } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
+import { BrandMark } from "@/components/brand/brand-mark";
 
 const links = [
   ["Platform", "platform"],

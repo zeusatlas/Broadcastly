@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, Check, LockKeyhole, Megaphone, UsersRound } from "lucide-react";
-import { BrandMark } from "@/components/brand-mark";
+import { BrandMark } from "@/components/brand/brand-mark";
 
 export function AuthShell({ children }: { children: React.ReactNode }) {
   return <div className="min-h-screen bg-[hsl(var(--brand-stone))] text-foreground">

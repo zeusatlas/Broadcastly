@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BrandMark } from "@/components/brand-mark";
+import { BrandMark } from "@/components/brand/brand-mark";
 
 const siteLinks = [
   ["Platform", "platform"],
@@ -8,7 +8,7 @@ const siteLinks = [
   ["Get started", "contact"],
 ] as const;
 
-export function Footer2() {
+export function SiteFooter() {
   return (
     <footer className="bg-[hsl(var(--brand-midnight))] px-5 py-8 text-white md:px-[max(32px,calc((100vw-1200px)/2))]">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6 md:flex-row md:items-center md:justify-between">
