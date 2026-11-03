@@ -7,7 +7,6 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
-  Settings2,
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
@@ -78,8 +77,6 @@ function AdminNavigation({
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const pathname = usePathname();
-  const isSettingsActive = pathname === "/dashboard/settings";
 
   return (
     <div className="flex h-svh overflow-hidden bg-[hsl(var(--brand-stone))] text-foreground">
@@ -95,7 +92,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               onClick={() => setCollapsed(false)}
               aria-label="Expand dashboard sidebar"
               title="Expand sidebar"
-              className="grid size-11 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-[hsl(var(--brand-stone))] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-atlas-navy))]"
+              className="grid size-11 cursor-pointer place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-[hsl(var(--brand-stone))] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-atlas-navy))]"
             >
               <PanelLeftOpen size={22} strokeWidth={2} />
             </button>
@@ -107,7 +104,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setCollapsed(true)}
                 aria-label="Collapse dashboard sidebar"
                 title="Collapse sidebar"
-                className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[hsl(var(--brand-stone))] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-atlas-navy))]"
+                className="grid size-9 cursor-pointer place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[hsl(var(--brand-stone))] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-atlas-navy))]"
               >
                 <PanelLeftClose size={19} />
               </button>
@@ -118,27 +115,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <AdminNavigation collapsed={collapsed} />
         </div>
         <div className={`border-t border-border ${collapsed ? "p-3" : "p-4"}`}>
-          <Link
-            href="/dashboard/settings"
-            title={collapsed ? "Platform settings" : undefined}
-            aria-label="Platform settings"
-            className={`flex items-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-atlas-navy))] ${
-              collapsed
-                ? "size-11 mx-auto justify-center rounded-xl p-0"
-                : "h-10 gap-3 rounded-xl px-3 text-sm font-medium"
-            } ${
-              isSettingsActive
-                ? "bg-[hsl(var(--brand-atlas-navy))] text-white font-semibold shadow-sm"
-                : "text-foreground/75 hover:bg-[hsl(var(--brand-stone))] hover:text-foreground"
-            }`}
-          >
-            <Settings2
-              size={collapsed ? 24 : 18}
-              strokeWidth={collapsed ? 2 : 1.8}
-              className="shrink-0"
-            />
-            {!collapsed && <span>Platform settings</span>}
-          </Link>
           <div
             title={collapsed ? "Platform administrator" : undefined}
             className={`mt-2.5 flex items-center gap-3 rounded-xl bg-[hsl(var(--brand-stone))] ${collapsed ? "size-11 mx-auto justify-center p-0" : "p-3"}`}
@@ -166,7 +142,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               onClick={() => setMobileOpen((open) => !open)}
               aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
               aria-expanded={mobileOpen}
-              className="grid size-9 place-items-center rounded-lg border border-border text-foreground hover:bg-[hsl(var(--brand-stone))] lg:hidden"
+              className="grid size-9 cursor-pointer place-items-center rounded-lg border border-border text-foreground hover:bg-[hsl(var(--brand-stone))] lg:hidden"
             >
               {mobileOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
@@ -182,14 +158,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         {mobileOpen && (
           <div className="absolute inset-x-0 top-16 z-30 max-h-[calc(100svh-64px)] overflow-y-auto border-b border-border bg-card py-5 shadow-lg lg:hidden">
             <AdminNavigation onNavigate={() => setMobileOpen(false)} />
-            <Link
-              href="/dashboard/settings"
-              onClick={() => setMobileOpen(false)}
-              className="mx-3 mt-5 flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-foreground/75 hover:bg-[hsl(var(--brand-stone))]"
-            >
-              <Settings2 size={18} />
-              Platform settings
-            </Link>
           </div>
         )}
         <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">

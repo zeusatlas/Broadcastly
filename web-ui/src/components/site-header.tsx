@@ -87,7 +87,7 @@ export function SiteHeader() {
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-nav-panel"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="grid size-11 place-items-center rounded-full border border-black/10 bg-white text-foreground transition-colors hover:bg-[hsl(var(--brand-warning-amber))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-atlas-navy))]"
+              className="grid size-11 cursor-pointer place-items-center rounded-full border border-black/10 bg-white text-foreground transition-colors hover:bg-[hsl(var(--brand-warning-amber))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-atlas-navy))]"
             >
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>

@@ -2,52 +2,98 @@ import {
   Building2,
   ClipboardList,
   CreditCard,
-  FileUp,
-  Gauge,
   LayoutDashboard,
-  MessageSquareText,
   Settings2,
-  ShieldCheck,
-  UsersRound,
+  TriangleAlert,
+  Waypoints,
 } from "lucide-react";
 
 export const platformAdminNavigation = [
   {
     title: "Workspace",
     items: [
-      { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Organisations", href: "/dashboard/organisations", icon: Building2 },
-      { label: "Accounts & access", href: "/dashboard/accounts", icon: UsersRound },
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      {
+        label: "Organisations",
+        href: "/dashboard/organisations",
+        icon: Building2,
+      },
+    ],
+  },
+  {
+    title: "Finance",
+    items: [
+      {
+        label: "Credits and payments",
+        href: "/dashboard/credits-payments",
+        icon: CreditCard,
+      },
     ],
   },
   {
     title: "Operations",
     items: [
-      { label: "Broadcast oversight", href: "/dashboard/broadcasts", icon: MessageSquareText },
-      { label: "Credits & payments", href: "/dashboard/credits", icon: CreditCard },
-      { label: "Imports", href: "/dashboard/imports", icon: FileUp },
+      {
+        label: "Integrations",
+        href: "/dashboard/integrations",
+        icon: Waypoints,
+      },
+      {
+        label: "Jobs and errors",
+        href: "/dashboard/jobs-errors",
+        icon: TriangleAlert,
+      },
     ],
   },
   {
-    title: "Platform",
+    title: "Governance",
     items: [
-      { label: "SMS providers", href: "/dashboard/sms-providers", icon: Settings2 },
-      { label: "System health", href: "/dashboard/system-health", icon: Gauge },
-      { label: "Audit log", href: "/dashboard/audit-log", icon: ClipboardList },
-      { label: "Security & support", href: "/dashboard/security-support", icon: ShieldCheck },
+      {
+        label: "Audit log",
+        href: "/dashboard/audit-log",
+        icon: ClipboardList,
+      },
+      {
+        label: "Settings",
+        href: "/dashboard/settings",
+        icon: Settings2,
+      },
     ],
   },
 ] as const;
 
-export const platformAdminSections: Record<string, { title: string; description: string }> = {
-  organisations: { title: "Organisations", description: "Review and support the organisations configured on the platform." },
-  accounts: { title: "Accounts & access", description: "Support account status, access issues and authorised platform-level administration." },
-  broadcasts: { title: "Broadcast oversight", description: "Review broadcast operations and investigate authorised support requests." },
-  credits: { title: "Credits & payments", description: "Review credit activity, allocations and payment integration status." },
-  imports: { title: "Imports", description: "Monitor spreadsheet import activity and help resolve processing issues." },
-  "sms-providers": { title: "SMS providers", description: "Configure SMS provider connections and sender settings for the platform." },
-  "system-health": { title: "System health", description: "Monitor platform services, background processing and integration availability." },
-  "audit-log": { title: "Audit log", description: "Review recorded administrative and security events for authorised operational needs." },
-  "security-support": { title: "Security & support", description: "Handle authorised support workflows and review security-related operations." },
-  settings: { title: "Platform settings", description: "Manage platform-wide configuration and operational preferences." },
+export const platformAdminSections: Record<
+  string,
+  { title: string; description: string }
+> = {
+  organisations: {
+    title: "Organisations",
+    description:
+      "Review organisation status, primary contacts, members and credit balances.",
+  },
+  "credits-payments": {
+    title: "Credits and payments",
+    description:
+      "Review provider references, payment status, credit ledger entries and reasoned adjustments.",
+  },
+  integrations: {
+    title: "Integrations",
+    description:
+      "Monitor SMS gateway, payment provider and email service connections and recent errors.",
+  },
+  "jobs-errors": {
+    title: "Jobs and errors",
+    description:
+      "Investigate failed background jobs and integration errors, and safely retry eligible work.",
+  },
+  "audit-log": {
+    title: "Audit log",
+    description:
+      "Review and export auditable organisation, provider, access and credit activity.",
+  },
+  settings: {
+    title: "Settings",
+    description:
+      "Manage platform import limits, notification settings and platform administrator roles.",
+  },
 };

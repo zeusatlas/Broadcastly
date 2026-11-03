@@ -62,7 +62,7 @@ export default function OtpPage() {
           Didn’t get a code?{" "}
           <button
             type="button"
-            className="font-semibold text-[hsl(var(--brand-atlas-navy))] hover:underline"
+            className="cursor-pointer font-semibold text-[hsl(var(--brand-atlas-navy))] hover:underline"
           >
             Resend code
           </button>
