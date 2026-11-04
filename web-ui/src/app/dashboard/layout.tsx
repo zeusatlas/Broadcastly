@@ -1,5 +1,5 @@
-import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { DashboardAuthGate } from "@/components/auth/dashboard-auth-gate";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell>{children}</DashboardShell>;
+  return <DashboardAuthGate>{children}</DashboardAuthGate>;
 }

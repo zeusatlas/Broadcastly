@@ -10,9 +10,6 @@ import type {
   PlatformOverviewResponse,
 } from './platform_types';
 
-// Read models for the admin screens: lean raw SQL across modules' tables, one round trip each.
-// Writes always go through the owning module's service (AGENTS.md §5).
-
 export interface ExecutiveRow {
   id: string;
   memberId: string;

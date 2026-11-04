@@ -2,13 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
-  X,
-} from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { authApi } from "@/lib/api";
+import { clearTokens, readTokens } from "@/lib/auth-session";
+import { Menu, PanelLeftClose, PanelLeftOpen, X, LogOut } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { platformAdminNavigation } from "@/lib/platform-admin-navigation";
 
@@ -33,7 +30,9 @@ function AdminNavigation({
               {group.title}
             </p>
           ) : (
-            groupIdx > 0 && <div className="mx-auto my-2.5 h-px w-8 bg-border/70" />
+            groupIdx > 0 && (
+              <div className="mx-auto my-2.5 h-px w-8 bg-border/70" />
+            )
           )}
           <div className={collapsed ? "space-y-1.5" : "space-y-1"}>
             {group.items.map(({ label, href, icon: Icon }) => {
@@ -77,6 +76,14 @@ function AdminNavigation({
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const router = useRouter();
+
+  function handleSignOut() {
+    const { accessToken } = readTokens();
+    clearTokens();
+    router.replace("/auth/login");
+    if (accessToken) void authApi.signOut(accessToken).catch(() => undefined);
+  }
 
   return (
     <div className="flex h-svh overflow-hidden bg-[hsl(var(--brand-stone))] text-foreground">
@@ -115,21 +122,35 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <AdminNavigation collapsed={collapsed} />
         </div>
         <div className={`border-t border-border ${collapsed ? "p-3" : "p-4"}`}>
-          <div
-            title={collapsed ? "Platform administrator" : undefined}
-            className={`mt-2.5 flex items-center gap-3 rounded-xl bg-[hsl(var(--brand-stone))] ${collapsed ? "size-11 mx-auto justify-center p-0" : "p-3"}`}
-          >
-            <span className="grid size-9 place-items-center rounded-full bg-[hsl(var(--brand-atlas-navy))] text-xs font-bold text-white shrink-0">
-              PA
-            </span>
-            {!collapsed && (
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold">Platform admin</p>
-                <p className="text-[10px] text-muted-foreground">
-                  Administrator
-                </p>
-              </div>
-            )}
+          <div className="space-y-2">
+            <div
+              title={collapsed ? "Platform administrator" : undefined}
+              className={`flex items-center gap-3 rounded-xl bg-[hsl(var(--brand-stone))] ${collapsed ? "size-11 mx-auto justify-center p-0" : "p-3"}`}
+            >
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[hsl(var(--brand-atlas-navy))] text-xs font-bold text-white">
+                PA
+              </span>
+              {!collapsed && (
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold">
+                    Platform admin
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Administrator
+                  </p>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              title={collapsed ? "Sign out" : undefined}
+              aria-label="Sign out"
+              className={`flex h-10 cursor-pointer items-center rounded-lg text-xs font-medium text-muted-foreground transition-colors hover:bg-[hsl(var(--brand-stone))] hover:text-foreground ${collapsed ? "mx-auto size-11 justify-center" : "w-full gap-3 px-3"}`}
+            >
+              <LogOut size={17} />
+              {!collapsed && <span>Sign out</span>}
+            </button>
           </div>
         </div>
       </aside>
@@ -150,9 +171,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               Platform administration
             </span>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-border px-3 py-1.5">
-            <span className="size-2 rounded-full bg-[hsl(var(--brand-success-green))]" />
-            <span className="text-[11px] font-medium">Admin workspace</span>
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-2 rounded-full border border-border px-3 py-1.5 sm:flex">
+              <span className="size-2 rounded-full bg-[hsl(var(--brand-success-green))]" />
+              <span className="text-[11px] font-medium">Admin workspace</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-xs font-medium hover:bg-[hsl(var(--brand-stone))] lg:hidden"
+              aria-label="Sign out"
+            >
+              <LogOut size={15} /> <span>Sign out</span>
+            </button>
           </div>
         </header>
         {mobileOpen && (
