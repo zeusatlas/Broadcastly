@@ -51,7 +51,7 @@ export function ConfirmDialog({
           // Swallows taps so pressing the card itself does not close the dialog.
           accessibilityViewIsModal
           onPress={() => {}}
-          className="w-full max-w-sm gap-5 rounded-2xl border-2 border-b-4 border-border bg-card p-6"
+          className="w-full max-w-sm gap-5 rounded-xl border border-border bg-card p-6"
         >
           <View className="gap-2">
             <Text

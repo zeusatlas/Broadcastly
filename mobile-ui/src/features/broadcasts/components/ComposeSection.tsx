@@ -49,7 +49,7 @@ export function ComposeRow({ icon: Icon, label, value, onPress, isDisabled }: Co
       accessibilityState={{ disabled: isDisabled }}
       disabled={isDisabled}
       onPress={onPress}
-      className="min-h-14 flex-row items-center gap-3 rounded-2xl border border-border px-4 py-3 active:opacity-60 disabled:opacity-50"
+      className="min-h-14 flex-row items-center gap-3 rounded-lg border border-border px-4 py-3 active:opacity-60 disabled:opacity-50"
     >
       <Icon size={20} color={theme.mutedForeground} />
       <View className="flex-1">

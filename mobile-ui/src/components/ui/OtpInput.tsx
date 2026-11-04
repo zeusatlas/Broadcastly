@@ -57,7 +57,7 @@ export function OtpInput({
               <View
                 key={index}
                 className={cn(
-                  'h-16 flex-1 items-center justify-center rounded-2xl border-2 border-b-4 bg-card',
+                  'h-16 flex-1 items-center justify-center rounded-lg border bg-card',
                   hasError ? 'border-destructive' : isActive ? 'border-ring' : 'border-border',
                   isDisabled && !isLoading && 'opacity-60',
                 )}

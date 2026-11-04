@@ -82,7 +82,7 @@ function StructureScene() {
   return (
     <>
       <View
-        className="absolute rounded-3xl border border-border bg-card"
+        className="absolute rounded-xl border border-border bg-card"
         style={{ left: 30, top: 44, width: 200, height: 172 }}
       >
         <Svg width={200} height={172} style={{ position: 'absolute' }}>
@@ -124,24 +124,24 @@ function MembersScene() {
   return (
     <>
       <View
-        className="absolute items-center rounded-[28px] border-2 border-border bg-card px-3"
+        className="absolute items-center rounded-xl border border-border bg-card px-3"
         style={{ left: 66, top: 12, width: 132, height: 236 }}
       >
         <Bar width={40} className="mt-2.5 h-1" />
         <View className="mt-5 w-full gap-3">
-          <View className="w-24 gap-1.5 rounded-2xl rounded-tl-sm bg-muted p-2.5">
+          <View className="w-24 gap-1.5 rounded-lg rounded-tl-sm bg-muted p-2.5">
             <Bar width={64} className="bg-border" />
             <Bar width={44} className="bg-border" />
           </View>
-          <View className="w-28 gap-1.5 self-end rounded-2xl rounded-tr-sm bg-primary p-2.5">
+          <View className="w-28 gap-1.5 self-end rounded-lg rounded-tr-sm bg-primary p-2.5">
             <Bar width={72} className="bg-primary-foreground/70" />
             <Bar width={56} className="bg-primary-foreground/70" />
             <Bar width={38} className="bg-primary-foreground/70" />
           </View>
-          <View className="w-20 gap-1.5 rounded-2xl rounded-tl-sm bg-muted p-2.5">
+          <View className="w-20 gap-1.5 rounded-lg rounded-tl-sm bg-muted p-2.5">
             <Bar width={50} className="bg-border" />
           </View>
-          <View className="w-24 gap-1.5 self-end rounded-2xl rounded-tr-sm bg-primary p-2.5">
+          <View className="w-24 gap-1.5 self-end rounded-lg rounded-tr-sm bg-primary p-2.5">
             <Bar width={58} className="bg-primary-foreground/70" />
             <Bar width={40} className="bg-primary-foreground/70" />
           </View>
@@ -173,7 +173,7 @@ function ApprovalsScene() {
   return (
     <>
       <View
-        className="absolute rounded-3xl border border-border bg-card p-4"
+        className="absolute rounded-xl border border-border bg-card p-4"
         style={{ left: 40, top: 32, width: 176, height: 190 }}
       >
         <Bar width={90} className="h-2" />
@@ -196,7 +196,7 @@ function ApprovalsScene() {
         </IconDisc>
       </Floating>
       <Floating delay={400} distance={5} style={{ position: 'absolute', left: 8, top: 186 }}>
-        <View className="flex-row items-center gap-2 rounded-2xl bg-accent px-3 py-2.5">
+        <View className="flex-row items-center gap-2 rounded-lg bg-accent px-3 py-2.5">
           <Coins size={20} color={theme.accentForeground} />
           <View className="gap-1.5">
             <Bar width={44} className="bg-accent-foreground/40" />
@@ -205,7 +205,7 @@ function ApprovalsScene() {
         </View>
       </Floating>
       <Floating delay={800} style={{ position: 'absolute', left: 200, top: 150 }}>
-        <IconDisc size={52} className="rounded-2xl border border-border bg-card">
+        <IconDisc size={52} className="rounded-lg border border-border bg-card">
           <ChartColumn size={24} color={theme.accentEmphasis} />
         </IconDisc>
       </Floating>

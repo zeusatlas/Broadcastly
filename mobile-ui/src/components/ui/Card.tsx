@@ -13,7 +13,7 @@ export function Card({ variant = 'elevated', className, ...props }: CardProps) {
   return (
     <View
       className={cn(
-        'rounded-2xl border-2 border-b-4 border-border p-4',
+        'rounded-xl border border-border p-4',
         variant === 'elevated' ? 'bg-card' : 'bg-transparent',
         className,
       )}

@@ -60,7 +60,9 @@ export function TemplatesScreen() {
           />
         </Pressable>
         {filter !== 'all' ? (
-          <Text className="px-1 font-sans-semibold text-base text-foreground">{selectedFilter}</Text>
+          <Text className="px-1 font-sans-semibold text-base text-foreground">
+            {selectedFilter}
+          </Text>
         ) : null}
       </View>
       <View className="flex-row items-center gap-3">
@@ -115,10 +117,7 @@ export function TemplatesScreen() {
         </View>
       </View>
 
-      <TemplatePreviewSheet
-        template={selectedTemplate}
-        onClose={() => setSelectedTemplate(null)}
-      />
+      <TemplatePreviewSheet template={selectedTemplate} onClose={() => setSelectedTemplate(null)} />
 
       <Modal
         visible={isFilterOpen}
@@ -165,12 +164,10 @@ export function TemplatesScreen() {
                   }}
                   className="flex-row items-center justify-between border-b border-border py-4 active:opacity-60"
                 >
-                  <Text className="font-sans-semibold text-base text-foreground">
-                    {item.label}
-                  </Text>
+                  <Text className="font-sans-semibold text-base text-foreground">{item.label}</Text>
                   <View
                     className={cn(
-                      'h-6 w-6 rounded-full border-2',
+                      'h-6 w-6 rounded-full border',
                       isSelected ? 'border-primary bg-primary' : 'border-input',
                     )}
                   />

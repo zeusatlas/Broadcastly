@@ -1,11 +1,6 @@
 import { Check, ChevronDown, X } from 'lucide-react-native';
 import { useState } from 'react';
-import {
-  FlatList,
-  Modal,
-  Pressable,
-  View,
-} from 'react-native';
+import { FlatList, Modal, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PageScreen } from '@/components/shared';
@@ -73,7 +68,7 @@ function SelectionField({ label, value, placeholder, onPress }: SelectionFieldPr
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${value?.label ?? placeholder}`}
       onPress={onPress}
-      className="min-h-14 flex-row items-center gap-3 rounded-2xl border-2 border-input bg-muted/40 px-4 active:opacity-70"
+      className="min-h-14 flex-row items-center gap-3 rounded-lg border border-input bg-muted/40 px-4 active:opacity-70"
     >
       <View className="flex-1 gap-0.5">
         <Text
@@ -253,16 +248,14 @@ function PermissionSheet({
                 >
                   <View
                     className={cn(
-                      'h-6 w-6 items-center justify-center rounded-md border-2',
+                      'h-6 w-6 items-center justify-center rounded-md border',
                       isSelected ? 'border-primary bg-primary' : 'border-input bg-transparent',
                     )}
                   >
                     {isSelected ? <Check size={16} color={theme.primaryForeground} /> : null}
                   </View>
                   <View className="flex-1 gap-0.5">
-                    <Text className="font-sans-medium text-base text-foreground">
-                      {item.label}
-                    </Text>
+                    <Text className="font-sans-medium text-base text-foreground">{item.label}</Text>
                     <Text variant="caption">{item.group}</Text>
                   </View>
                 </Pressable>
@@ -360,9 +353,7 @@ export function NewExecutiveScreen() {
 
       <View className="mt-8 gap-1">
         <Text variant="overline">Permissions</Text>
-        <Text variant="caption">
-          Select the responsibilities this appointment should have.
-        </Text>
+        <Text variant="caption">Select the responsibilities this appointment should have.</Text>
         <SelectionField
           label="Responsibilities"
           value={

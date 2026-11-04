@@ -110,7 +110,7 @@ export function SettingsScreen() {
             onPress={() => setIsAppearanceOpen(false)}
             className="absolute inset-0"
           />
-          <View className="rounded-t-3xl border-2 border-b-0 border-border bg-card px-5 pb-8 pt-4">
+          <View className="rounded-t-2xl border border-b-0 border-border bg-card px-5 pb-8 pt-4">
             <View className="mb-4 h-1 w-10 self-center rounded-full bg-muted-foreground" />
             <Text variant="heading">Appearance</Text>
             <Text variant="caption" className="mt-1">
@@ -130,7 +130,7 @@ export function SettingsScreen() {
                       setColorScheme(option.key);
                       setIsAppearanceOpen(false);
                     }}
-                    className={`min-h-16 flex-row items-center rounded-xl border-2 px-4 ${isSelected ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'}`}
+                    className={`min-h-16 flex-row items-center rounded-lg border px-4 ${isSelected ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'}`}
                   >
                     <View className="flex-1 gap-0.5">
                       <Text variant="label">{option.label}</Text>

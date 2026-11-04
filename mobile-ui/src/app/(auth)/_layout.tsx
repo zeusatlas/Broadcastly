@@ -10,7 +10,7 @@ export default function AuthLayout() {
   const hasPendingCode = usePendingChallenge() !== null;
 
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Protected guard={isOnboardingPending} redirectTo="/sign-in">
         <Stack.Screen name="onboarding" />
       </Stack.Protected>

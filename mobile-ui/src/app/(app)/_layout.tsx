@@ -1,5 +1,4 @@
 import { Stack } from 'expo-router';
-import { Platform } from 'react-native';
 
 import { androidHeaderBack } from '@/components/shared';
 import { GATED_ROUTES } from '@/constants/routes';
@@ -8,58 +7,45 @@ import { useStackHeaderOptions } from '@/hooks/use_header_options';
 
 // Every route in this group requires a session (guarded in app/_layout.tsx). The role picks the
 // app: platform admins get admin/(tabs), everyone else the executive tabs. UX only; the API re-checks.
-const PAGE_OPTIONS: Record<
-  string,
-  { animation: 'slide_from_bottom'; animationDuration: number; gestureDirection?: 'vertical' }
-> =
-  {
-    'broadcasts/new': { animation: 'slide_from_bottom', animationDuration: 450 },
-    'executives/search': {
-      animation: 'slide_from_bottom',
-      animationDuration: 450,
-      gestureDirection: 'vertical',
-    },
-    'approvals/search': {
-      animation: 'slide_from_bottom',
-      animationDuration: 450,
-      gestureDirection: 'vertical',
-    },
-    'templates/search': {
-      animation: 'slide_from_bottom',
-      animationDuration: 450,
-      gestureDirection: 'vertical',
-    },
-    'templates/new': {
-      animation: 'slide_from_bottom',
-      animationDuration: 450,
-      gestureDirection: 'vertical',
-    },
-    'templates/[id]/edit': {
-      animation: 'slide_from_bottom',
-      animationDuration: 450,
-      gestureDirection: 'vertical',
-    },
-    'reports/search': {
-      animation: 'slide_from_bottom',
-      animationDuration: 450,
-      gestureDirection: 'vertical',
-    },
-    'executives/new': {
-      animation: 'slide_from_bottom',
-      animationDuration: 450,
-      gestureDirection: 'vertical',
-    },
-    'organisation/unit/new': {
-      animation: 'slide_from_bottom',
-      animationDuration: 450,
-      gestureDirection: 'vertical',
-    },
-    'organisation/position/new': {
-      animation: 'slide_from_bottom',
-      animationDuration: 450,
-      gestureDirection: 'vertical',
-    },
-  };
+const PAGE_OPTIONS: Record<string, { animation: 'slide_from_right'; animationDuration: number }> = {
+  'broadcasts/new': { animation: 'slide_from_right', animationDuration: 350 },
+  'executives/search': {
+    animation: 'slide_from_right',
+    animationDuration: 350,
+  },
+  'approvals/search': {
+    animation: 'slide_from_right',
+    animationDuration: 350,
+  },
+  'templates/search': {
+    animation: 'slide_from_right',
+    animationDuration: 350,
+  },
+  'templates/new': {
+    animation: 'slide_from_right',
+    animationDuration: 350,
+  },
+  'templates/[id]/edit': {
+    animation: 'slide_from_right',
+    animationDuration: 350,
+  },
+  'reports/search': {
+    animation: 'slide_from_right',
+    animationDuration: 350,
+  },
+  'executives/new': {
+    animation: 'slide_from_right',
+    animationDuration: 350,
+  },
+  'organisation/unit/new': {
+    animation: 'slide_from_right',
+    animationDuration: 350,
+  },
+  'organisation/position/new': {
+    animation: 'slide_from_right',
+    animationDuration: 350,
+  },
+};
 // The tab groups draw their own header (AppTabs), so the stack hides its one there.
 const TABS = { headerShown: false };
 
@@ -74,7 +60,7 @@ export default function AppLayout() {
         ...headerOptions,
         headerLeft: androidHeaderBack,
         // iOS keeps its native, finger-following slide; Android gets the same slide instead of its zoom-fade.
-        animation: Platform.OS === 'android' ? 'ios_from_right' : 'default',
+        animation: 'slide_from_right',
       }}
     >
       <Stack.Protected guard={!isPlatformAdmin}>
@@ -90,12 +76,10 @@ export default function AppLayout() {
         <Stack.Screen name="admin/organisations/[id]" />
       </Stack.Protected>
       <Stack.Screen
-        // Slides up full screen; its glass buttons are drawn in the page so they travel with it.
         name="profile"
         options={{
-          animation: 'slide_from_bottom',
-          animationDuration: 450,
-          gestureDirection: 'vertical',
+          animation: 'slide_from_right',
+          animationDuration: 350,
         }}
       />
       <Stack.Screen name="settings/index" />

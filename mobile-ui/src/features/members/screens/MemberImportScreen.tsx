@@ -225,7 +225,7 @@ export function MemberImportScreen() {
         />
       </View>
 
-      <View className="mt-6 flex-row gap-3 rounded-2xl bg-muted/60 p-4">
+      <View className="mt-6 flex-row gap-3 rounded-lg bg-muted/60 p-4">
         <Info size={18} color={theme.mutedForeground} style={{ marginTop: 1 }} />
         <Text variant="caption" className="flex-1 text-sm leading-5">
           Importing adds people as members only. It doesn’t give them an app account or let them

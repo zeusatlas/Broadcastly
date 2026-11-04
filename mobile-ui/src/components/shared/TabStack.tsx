@@ -10,7 +10,9 @@ export function TabStack({ title }: { title: string }) {
   const options = useStackHeaderOptions();
 
   return (
-    <Stack screenOptions={{ ...options, headerLeft: androidHeaderBack }}>
+    <Stack
+      screenOptions={{ ...options, headerLeft: androidHeaderBack, animation: 'slide_from_right' }}
+    >
       <Stack.Screen name="index" options={{ title, headerShown: false }} />
     </Stack>
   );

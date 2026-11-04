@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { useTheme } from '@/hooks/use_theme';
 
@@ -15,16 +15,14 @@ export interface StatTileProps {
 
 // Plain card like Card: the border and thicker bottom edge separate it from the page in both
 // themes, so the only colour is the small gold icon chip.
-export function StatTile({ label, value, caption, icon: Icon, onPress }: StatTileProps) {
+export function StatTile({ label, value, caption, icon: Icon }: StatTileProps) {
   const theme = useTheme();
 
   return (
-    <Pressable
-      accessibilityRole={onPress ? 'button' : 'summary'}
+    <View
+      accessibilityRole="summary"
       accessibilityLabel={`${label}: ${value}. ${caption}`}
-      onPress={onPress}
-      disabled={!onPress}
-      className="min-h-32 flex-1 justify-between gap-3 rounded-2xl border-2 border-b-4 border-border bg-card p-4 active:translate-y-0.5 active:border-b-2"
+      className="min-h-32 flex-1 justify-between gap-3 rounded-xl border border-border bg-card p-4"
     >
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 gap-0.5">
@@ -42,6 +40,6 @@ export function StatTile({ label, value, caption, icon: Icon, onPress }: StatTil
       <Text variant="caption" numberOfLines={1}>
         {caption}
       </Text>
-    </Pressable>
+    </View>
   );
 }

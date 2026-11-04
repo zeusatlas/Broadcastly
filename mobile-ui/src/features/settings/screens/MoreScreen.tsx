@@ -41,21 +41,31 @@ const SECTIONS: { title: string; links: MoreLink[] }[] = [
     title: 'Organisation',
     links: [
       { label: 'Structure', icon: Network, href: '/organisation', route: 'organisation/index' },
-      { label: 'Executives', icon: UsersRound, href: href('/executives'), route: 'executives/index' },
+      {
+        label: 'Executives',
+        icon: UsersRound,
+        href: href('/executives'),
+        route: 'executives/index',
+      },
     ],
   },
   {
-      title: 'Messaging',
-      links: [
-        { label: 'Approvals', icon: CheckCheck, href: '/approvals', route: 'approvals/index' },
-        { label: 'Templates', icon: FileText, href: href('/templates'), route: 'templates/index' },
-      ],
+    title: 'Messaging',
+    links: [
+      { label: 'Approvals', icon: CheckCheck, href: '/approvals', route: 'approvals/index' },
+      { label: 'Templates', icon: FileText, href: href('/templates'), route: 'templates/index' },
+    ],
   },
   {
     title: 'Records',
     links: [
       { label: 'Reports', icon: ChartColumn, href: '/reports', route: 'reports/index' },
-      { label: 'Import activity', icon: History, href: '/members/imports', route: 'members/imports' },
+      {
+        label: 'Import activity',
+        icon: History,
+        href: '/members/imports',
+        route: 'members/imports',
+      },
     ],
   },
 ];
@@ -74,9 +84,7 @@ export function MoreScreen() {
 
   return (
     <PageScreen title="More" isTabRoot>
-      <View
-        className="mt-0 flex-row items-center gap-4 rounded-2xl border-2 border-b-4 border-border bg-card p-4"
-      >
+      <View className="mt-0 flex-row items-center gap-4 rounded-xl border border-border bg-card p-4">
         <Avatar
           name={user?.organisation?.name ?? user?.fullName ?? ''}
           imageUrl={user?.organisation?.logoUrl}

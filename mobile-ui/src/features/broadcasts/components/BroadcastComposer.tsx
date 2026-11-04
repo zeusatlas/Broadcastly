@@ -31,7 +31,7 @@ export function BroadcastComposer({ message, onChangeMessage, estimate }: Broadc
     <View className="gap-3">
       <View
         className={cn(
-          'rounded-2xl border-2 bg-muted/40 px-4 pb-3 pt-3',
+          'rounded-lg border bg-muted/40 px-4 pb-3 pt-3',
           isFocused ? 'border-ring' : 'border-input',
         )}
       >

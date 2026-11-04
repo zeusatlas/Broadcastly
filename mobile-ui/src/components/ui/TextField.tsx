@@ -29,7 +29,7 @@ export const TextField = forwardRef<ComponentRef<typeof TextInput>, TextFieldPro
         <Text className="font-sans-bold text-base text-foreground">{label}</Text>
         <View
           className={cn(
-            'h-14 flex-row items-center rounded-2xl border-2 bg-muted/40 px-4',
+            'h-14 flex-row items-center rounded-lg border bg-muted/40 px-4',
             error ? 'border-destructive' : isFocused ? 'border-ring' : 'border-input',
             !editable && 'opacity-60',
           )}

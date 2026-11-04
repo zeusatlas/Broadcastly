@@ -31,7 +31,7 @@ export function HeaderButton({ icon: Icon, label, onPress, badgeCount = 0 }: Hea
       {badgeCount > 0 ? (
         <View
           pointerEvents="none"
-          className="absolute right-0.5 top-1 h-5 min-w-5 items-center justify-center rounded-full border-2 border-background bg-destructive px-1"
+          className="absolute right-0.5 top-1 h-5 min-w-5 items-center justify-center rounded-full border border-background bg-destructive px-1"
         >
           <Text className="font-sans-bold text-[10px] leading-3 text-destructive-foreground">
             {badgeCount > 99 ? '99+' : badgeCount}
@@ -48,11 +48,7 @@ interface ProfileButtonProps {
   organisationLogoUrl?: string | null;
 }
 
-export function ProfileButton({
-  name,
-  organisationName,
-  organisationLogoUrl,
-}: ProfileButtonProps) {
+export function ProfileButton({ name, organisationName, organisationLogoUrl }: ProfileButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"

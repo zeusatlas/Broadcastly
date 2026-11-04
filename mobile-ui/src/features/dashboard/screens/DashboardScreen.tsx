@@ -73,7 +73,6 @@ export function DashboardScreen() {
   const overview = useReadOrganisationOverviewQuery({ enabled: canManage });
   const totals = overview.data;
   const quickActions = QUICK_ACTIONS.filter((a) => isRouteAllowed(a.route, access.check));
-  const openOrganisation = () => router.push('/organisation');
   const role = user?.appointments[0]?.positionTitle ?? 'Executive';
 
   return (
@@ -113,14 +112,12 @@ export function DashboardScreen() {
               value={count(totals?.members)}
               caption={totals?.members === null ? 'Organisation-wide only' : 'In your organisation'}
               icon={Users}
-              onPress={() => router.push('/members')}
             />
             <StatTile
               label="Executives"
               value={count(totals?.activeExecutives)}
               caption={`${count(totals?.suspendedExecutives)} suspended`}
               icon={UsersRound}
-              onPress={openOrganisation}
             />
           </View>
           <View className="flex-row gap-3">
@@ -129,14 +126,12 @@ export function DashboardScreen() {
               value={count(totals?.units)}
               caption="In your reach"
               icon={MapPinned}
-              onPress={openOrganisation}
             />
             <StatTile
               label="Positions"
               value={count(totals?.positions)}
               caption="Offices you created"
               icon={BriefcaseBusiness}
-              onPress={openOrganisation}
             />
           </View>
           <QueryState

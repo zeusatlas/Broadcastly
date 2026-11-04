@@ -29,7 +29,7 @@ export function BroadcastDetailScreen() {
       </View>
 
       <PageSection title="Message">
-        <View className="rounded-2xl bg-muted/60 p-4">
+        <View className="rounded-lg bg-muted/60 p-4">
           <Text className="leading-6">{broadcast.message}</Text>
         </View>
         <Text variant="caption">

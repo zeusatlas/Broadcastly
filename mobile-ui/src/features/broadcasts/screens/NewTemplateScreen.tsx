@@ -117,7 +117,10 @@ const fieldsFromTemplate = (template?: TemplateItem): TemplateField[] => {
   if (!template) return INITIAL_FIELDS;
 
   return template.variables.map((label) => {
-    const tokenName = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const tokenName = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '');
     const lowerLabel = label.toLowerCase();
     const type: TemplateFieldType = lowerLabel.includes('date')
       ? 'date'
@@ -148,7 +151,10 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
   const addField = () => {
     const label = fieldName.trim();
     if (!label) return;
-    const tokenName = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const tokenName = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '');
     const field: TemplateField = {
       id: `${tokenName}-${Date.now()}`,
       label,
@@ -162,7 +168,9 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
   };
 
   const insertField = (field: TemplateField) => {
-    setMessage((current) => `${current}${current && !current.endsWith(' ') ? ' ' : ''}${field.token}`);
+    setMessage(
+      (current) => `${current}${current && !current.endsWith(' ') ? ' ' : ''}${field.token}`,
+    );
   };
 
   return (
@@ -178,7 +186,11 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
           fullWidth
           disabled={!canDraft || !name.trim() || !category || !message.trim()}
           onPress={() =>
-            notify.info(isEditing ? 'Template update is ready for API wiring' : 'Template save is ready for API wiring')
+            notify.info(
+              isEditing
+                ? 'Template update is ready for API wiring'
+                : 'Template save is ready for API wiring',
+            )
           }
         />
       }
@@ -207,9 +219,15 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
             Keyboard.dismiss();
             setIsCategoryOpen(true);
           }}
-          className="min-h-14 flex-row items-center justify-between rounded-2xl border-2 border-input bg-muted/40 px-4 active:opacity-70"
+          className="min-h-14 flex-row items-center justify-between rounded-lg border border-input bg-muted/40 px-4 active:opacity-70"
         >
-          <Text className={category ? 'font-sans-medium text-base text-foreground' : 'font-sans-medium text-base text-muted-foreground'}>
+          <Text
+            className={
+              category
+                ? 'font-sans-medium text-base text-foreground'
+                : 'font-sans-medium text-base text-muted-foreground'
+            }
+          >
             {category || 'Select a category'}
           </Text>
           <ChevronDown size={20} color={theme.mutedForeground} />
@@ -255,12 +273,22 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
         </View>
         <View className="flex-row flex-wrap gap-2">
           {fields.map((field) => (
-            <Chip key={field.id} label={field.label} icon={Plus} onPress={() => insertField(field)} />
+            <Chip
+              key={field.id}
+              label={field.label}
+              icon={Plus}
+              onPress={() => insertField(field)}
+            />
           ))}
         </View>
       </View>
 
-      <Modal visible={isFieldOpen} transparent animationType="slide" onRequestClose={() => setIsFieldOpen(false)}>
+      <Modal
+        visible={isFieldOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsFieldOpen(false)}
+      >
         <View className="flex-1 bg-backdrop/60">
           <Pressable
             accessibilityRole="button"
@@ -274,7 +302,7 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}
           >
-            <View className="w-full max-w-sm self-center gap-5 rounded-2xl border-2 border-b-4 border-border bg-card p-6">
+            <View className="w-full max-w-sm gap-5 self-center rounded-xl border border-border bg-card p-6">
               <View className="flex-row items-center justify-between gap-4">
                 <View className="flex-1 gap-0.5">
                   <Text variant="heading">Add personalisation field</Text>

@@ -12,28 +12,14 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export type ButtonShape = 'rounded' | 'pill';
 
-// Chunky 3D style: the face sits on a darker lip and sinks onto it while pressed.
-const LIP = 4;
-
 const VARIANT_FACE: Record<ButtonVariant, string> = {
   primary: 'bg-primary',
   secondary: 'bg-secondary',
   accent: 'bg-accent',
   critical: 'bg-critical',
   destructive: 'bg-destructive',
-  outline: 'border-2 border-border bg-card',
+  outline: 'border border-border bg-card',
   ghost: 'bg-transparent',
-};
-
-// The lip reuses the face colour, darkened by a backdrop overlay, so no extra tokens are needed.
-const VARIANT_LIP: Record<ButtonVariant, string | null> = {
-  primary: 'bg-primary',
-  secondary: 'bg-secondary',
-  accent: 'bg-accent',
-  critical: 'bg-critical',
-  destructive: 'bg-destructive',
-  outline: 'bg-border',
-  ghost: null,
 };
 
 const VARIANT_LABEL: Record<ButtonVariant, string> = {
@@ -108,8 +94,7 @@ export function Button({
 }: ButtonProps) {
   const foreground = useForegroundColor(variant, 'primary');
   const isDisabled = disabled || isLoading;
-  const lip = VARIANT_LIP[variant];
-  const radius = shape === 'pill' ? 'rounded-full' : 'rounded-2xl';
+  const radius = 'rounded-full';
 
   return (
     <Pressable
@@ -121,58 +106,38 @@ export function Button({
       className={cn(fullWidth && 'w-full', disabled && !isLoading && 'opacity-50', className)}
       {...props}
     >
-      {({ pressed }) => {
-        const isSunk = pressed && !isDisabled && lip !== null;
-
-        return (
-          <View
-            className={cn(radius, lip)}
-            // Shrinking the lip and shifting down keeps the button's footprint fixed while it sinks.
-            style={{ marginTop: isSunk ? LIP : 0, paddingBottom: lip && !isSunk ? LIP : 0 }}
-          >
-            {lip ? <View className={cn('absolute inset-0 bg-backdrop/25', radius)} /> : null}
-            <View
-              className={cn(
-                'flex-row items-center justify-center',
-                radius,
-                SIZE_FACE[size],
-                VARIANT_FACE[variant],
-              )}
-              style={{ opacity: pressed && !lip ? 0.7 : 1 }}
-            >
-              {isLoading ? (
-                <>
-                  <ActivityIndicator size="small" color={foreground} />
-                  {loadingLabel ? (
-                    <Text
-                      className={cn(
-                        'font-sans-extrabold uppercase tracking-wide',
-                        SIZE_LABEL[size],
-                        VARIANT_LABEL[variant],
-                      )}
-                    >
-                      {loadingLabel}
-                    </Text>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  {Icon ? <Icon size={SIZE_ICON[size]} color={foreground} /> : null}
-                  <Text
-                    className={cn(
-                      'font-sans-extrabold uppercase tracking-wide',
-                      SIZE_LABEL[size],
-                      VARIANT_LABEL[variant],
-                    )}
-                  >
-                    {label}
-                  </Text>
-                </>
-              )}
-            </View>
-          </View>
-        );
-      }}
+      {({ pressed }) => (
+        <View
+          className={cn(
+            'flex-row items-center justify-center border',
+            radius,
+            SIZE_FACE[size],
+            VARIANT_FACE[variant],
+            variant === 'outline' ? 'border-border' : 'border-transparent',
+          )}
+          style={{ opacity: pressed ? 0.78 : 1 }}
+        >
+          {isLoading ? (
+            <>
+              <ActivityIndicator size="small" color={foreground} />
+              {loadingLabel ? (
+                <Text
+                  className={cn('font-sans-semibold', SIZE_LABEL[size], VARIANT_LABEL[variant])}
+                >
+                  {loadingLabel}
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {Icon ? <Icon size={SIZE_ICON[size]} color={foreground} /> : null}
+              <Text className={cn('font-sans-semibold', SIZE_LABEL[size], VARIANT_LABEL[variant])}>
+                {label}
+              </Text>
+            </>
+          )}
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -199,7 +164,7 @@ export function IconButton({
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       className={cn(
-        'items-center justify-center rounded-2xl',
+        'items-center justify-center rounded-full',
         SIZE_BOX[size],
         VARIANT_FACE[variant],
         disabled && 'opacity-50',

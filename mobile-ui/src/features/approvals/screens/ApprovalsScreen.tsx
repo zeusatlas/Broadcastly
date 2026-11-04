@@ -28,7 +28,8 @@ export function ApprovalsScreen() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
   const approvals = useMemo(
-    () => DEMO_APPROVALS.filter((approval) => filter === 'all' || approval.submittedPeriod === filter),
+    () =>
+      DEMO_APPROVALS.filter((approval) => filter === 'all' || approval.submittedPeriod === filter),
     [filter],
   );
   const selectedFilter = FILTERS.find((item) => item.key === filter)?.label ?? 'All approvals';
@@ -62,9 +63,7 @@ export function ApprovalsScreen() {
             onPress={() => setIsFilterOpen((open) => !open)}
             className="flex-row items-center gap-1 px-1 active:opacity-70"
           >
-            <Text className="font-sans-semibold text-base text-foreground">
-              {selectedFilter}
-            </Text>
+            <Text className="font-sans-semibold text-base text-foreground">{selectedFilter}</Text>
             <ChevronDown size={17} color={theme.mutedForeground} />
           </Pressable>
         ) : null}
@@ -109,10 +108,7 @@ export function ApprovalsScreen() {
           )}
         </View>
       </View>
-      <ApprovalDetailSheet
-        approval={selectedApproval}
-        onClose={() => setSelectedApproval(null)}
-      />
+      <ApprovalDetailSheet approval={selectedApproval} onClose={() => setSelectedApproval(null)} />
 
       <Modal
         visible={isFilterOpen}
@@ -159,12 +155,10 @@ export function ApprovalsScreen() {
                   }}
                   className="flex-row items-center justify-between border-b border-border py-4 active:opacity-60"
                 >
-                  <Text className="font-sans-semibold text-base text-foreground">
-                    {item.label}
-                  </Text>
+                  <Text className="font-sans-semibold text-base text-foreground">{item.label}</Text>
                   <View
                     className={cn(
-                      'h-6 w-6 rounded-full border-2',
+                      'h-6 w-6 rounded-full border',
                       isSelected ? 'border-primary bg-primary' : 'border-input',
                     )}
                   />

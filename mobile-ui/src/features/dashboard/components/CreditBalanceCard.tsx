@@ -32,7 +32,7 @@ export function CreditBalanceCard({ organisationName, role, onPress }: CreditBal
               {role}
             </Text>
           </View>
-          <View className="h-11 w-11 items-center justify-center rounded-2xl bg-accent/15">
+          <View className="h-11 w-11 items-center justify-center rounded-lg bg-accent/15">
             <Wallet size={21} color={theme.accentEmphasis} />
           </View>
         </View>

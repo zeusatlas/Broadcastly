@@ -1,4 +1,13 @@
 import { Tabs } from 'expo-router';
+import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs/types';
+import {
+  Pressable,
+  Text as RNText,
+  type PressableProps,
+  type StyleProp,
+  type ViewStyle,
+  View,
+} from 'react-native';
 import {
   Building2,
   LayoutDashboard,
@@ -9,6 +18,7 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Fonts } from '@/constants/theme';
 import { useHeaderOptions } from '@/hooks/use_header_options';
@@ -38,8 +48,10 @@ export const ADMIN_TABS: TabDefinition[] = [
 // Tab bar on the bottom. Home ('index') uses this header with no title and fills its sides itself;
 // every other tab is a TabStack with its own large, collapsing title.
 export function AppTabs({ tabs }: { tabs: TabDefinition[] }) {
-  const palette = Colors[useThemeName()];
+  const themeName = useThemeName();
+  const palette = Colors[themeName];
   const headerOptions = useHeaderOptions();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -48,14 +60,19 @@ export function AppTabs({ tabs }: { tabs: TabDefinition[] }) {
         animation: 'shift',
         headerLeftContainerStyle: { paddingLeft: 12 },
         headerRightContainerStyle: { paddingRight: 12 },
-        // Gold, not navy: on the dark canvas only gold clears 3:1 against the bar.
-        tabBarActiveTintColor: palette.accentEmphasis,
+        // Navy on light, gold on dark: each clears 4.5:1 against the `border` pill behind it.
+        tabBarActiveTintColor: themeName === 'light' ? palette.primary : palette.accentEmphasis,
         tabBarInactiveTintColor: palette.mutedForeground,
+        tabBarItemStyle: { flex: 1, minWidth: 0 },
         tabBarStyle: {
           backgroundColor: palette.background,
           borderTopColor: palette.border,
+          height: 60 + insets.bottom,
+          paddingHorizontal: 6,
+          paddingTop: 5,
+          paddingBottom: insets.bottom + 5,
         },
-        tabBarLabelStyle: { fontSize: 11, fontFamily: Fonts.medium },
+        tabBarLabelStyle: { fontSize: 10, fontFamily: Fonts.medium, marginTop: 1 },
       }}
     >
       {tabs.map(({ name, title, icon: Icon }) => (
@@ -66,10 +83,66 @@ export function AppTabs({ tabs }: { tabs: TabDefinition[] }) {
             title,
             headerShown: name === 'index',
             headerTitle: '',
-            tabBarIcon: ({ color, size }) => <Icon color={color} size={size - 2} />,
+            tabBarButton: (props) => <TabBarButton {...props} activeColor={palette.border} />,
+            tabBarLabel: ({ color, focused }) => (
+              <RNText
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
+                style={{
+                  color,
+                  fontFamily: focused ? Fonts.bold : Fonts.semibold,
+                  fontSize: 11,
+                  marginTop: 2,
+                }}
+              >
+                {title}
+              </RNText>
+            ),
+            tabBarIcon: ({ color }) => <Icon color={color} size={20} strokeWidth={2.25} />,
           }}
         />
       ))}
     </Tabs>
+  );
+}
+
+interface TabBarButtonProps extends BottomTabBarButtonProps {
+  activeColor: string;
+}
+
+function TabBarButton({
+  activeColor,
+  accessibilityState,
+  children,
+  href: _href,
+  onPress,
+  style,
+  ...props
+}: TabBarButtonProps) {
+  const isSelected = accessibilityState?.selected === true;
+
+  return (
+    <Pressable
+      {...(props as PressableProps)}
+      onPress={onPress as PressableProps['onPress']}
+      style={[
+        style as StyleProp<ViewStyle>,
+        { flex: 1, alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 2 },
+      ]}
+    >
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 999,
+          paddingHorizontal: 8,
+          backgroundColor: isSelected ? activeColor : 'transparent',
+        }}
+      >
+        {children}
+      </View>
+    </Pressable>
   );
 }

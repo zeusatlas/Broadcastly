@@ -34,7 +34,7 @@ export function Avatar({ name, imageUrl, size = 'md', className, style }: Avatar
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       className={cn(
-        'items-center justify-center rounded-full border-2 border-b-4 border-secondary bg-secondary',
+        'items-center justify-center rounded-full border border-secondary bg-secondary',
         SIZE[size].box,
         className,
       )}
