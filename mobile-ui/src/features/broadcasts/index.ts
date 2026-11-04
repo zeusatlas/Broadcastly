@@ -4,4 +4,8 @@ export { BroadcastStatusBadge } from './components/BroadcastStatusBadge';
 export { BroadcastDetailScreen } from './screens/BroadcastDetailScreen';
 export { BroadcastsScreen } from './screens/BroadcastsScreen';
 export { NewBroadcastScreen } from './screens/NewBroadcastScreen';
+export { TemplateSearchScreen } from './screens/TemplateSearchScreen';
+export { TemplatesScreen } from './screens/TemplatesScreen';
+export { NewTemplateScreen } from './screens/NewTemplateScreen';
+export { EditTemplateScreen } from './screens/EditTemplateScreen';
 export type { BroadcastDetail, BroadcastStatus, BroadcastSummary } from './types';

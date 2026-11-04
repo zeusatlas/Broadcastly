@@ -19,6 +19,26 @@ const PAGE_OPTIONS: Record<
       animationDuration: 450,
       gestureDirection: 'vertical',
     },
+    'approvals/search': {
+      animation: 'slide_from_bottom',
+      animationDuration: 450,
+      gestureDirection: 'vertical',
+    },
+    'templates/search': {
+      animation: 'slide_from_bottom',
+      animationDuration: 450,
+      gestureDirection: 'vertical',
+    },
+    'templates/new': {
+      animation: 'slide_from_bottom',
+      animationDuration: 450,
+      gestureDirection: 'vertical',
+    },
+    'templates/[id]/edit': {
+      animation: 'slide_from_bottom',
+      animationDuration: 450,
+      gestureDirection: 'vertical',
+    },
     'executives/new': {
       animation: 'slide_from_bottom',
       animationDuration: 450,

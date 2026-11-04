@@ -1,6 +1,5 @@
 import { router, type Href } from 'expo-router';
 import {
-  BellOff,
   ChartColumn,
   CheckCheck,
   FileText,
@@ -46,12 +45,11 @@ const SECTIONS: { title: string; links: MoreLink[] }[] = [
     ],
   },
   {
-    title: 'Messaging',
-    links: [
-      { label: 'Approvals', icon: CheckCheck, href: '/approvals', route: 'approvals/index' },
-      { label: 'Templates', icon: FileText, href: href('/templates'), route: 'templates/index' },
-      { label: 'Opt-outs', icon: BellOff, href: href('/opt-outs'), route: 'opt-outs/index' },
-    ],
+      title: 'Messaging',
+      links: [
+        { label: 'Approvals', icon: CheckCheck, href: '/approvals', route: 'approvals/index' },
+        { label: 'Templates', icon: FileText, href: href('/templates'), route: 'templates/index' },
+      ],
   },
   {
     title: 'Records',

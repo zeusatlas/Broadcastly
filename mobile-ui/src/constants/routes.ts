@@ -11,6 +11,7 @@ interface GatedRoute {
 export const GATED_ROUTES: readonly GatedRoute[] = [
   { name: 'broadcasts/new', access: { permission: 'broadcast.draft' } },
   { name: 'approvals/index', access: { permission: 'broadcast.approve' } },
+  { name: 'approvals/search', access: { permission: 'broadcast.approve' } },
   { name: 'members/import', access: { permission: 'member.import' } },
   { name: 'credits/allocate', access: { permission: 'credit.allocate' } },
   { name: 'organisation/index', access: { permission: 'appointment.manage' } },
@@ -23,6 +24,9 @@ export const GATED_ROUTES: readonly GatedRoute[] = [
   { name: 'executives/new', access: { permission: 'appointment.manage' } },
   // TODO(backend permissions): templates and opt-outs get their own permissions once the API defines them.
   { name: 'templates/index', access: { permission: 'broadcast.draft' } },
+  { name: 'templates/search', access: { permission: 'broadcast.draft' } },
+  { name: 'templates/new', access: { permission: 'broadcast.draft' } },
+  { name: 'templates/[id]/edit', access: { permission: 'broadcast.draft' } },
   { name: 'opt-outs/index', access: { permission: 'member.manage' } },
   { name: 'members/imports', access: { permission: 'member.import' } },
 ];
