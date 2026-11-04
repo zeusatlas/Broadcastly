@@ -18,6 +18,7 @@ export const GATED_ROUTES: readonly GatedRoute[] = [
   { name: 'organisation/unit/new', access: { permission: 'appointment.manage' } },
   { name: 'organisation/position/new', access: { permission: 'appointment.manage' } },
   { name: 'reports/index', access: { permission: 'report.view' } },
+  { name: 'reports/search', access: { permission: 'report.view' } },
   { name: 'executives/index', access: { permission: 'appointment.manage' } },
   { name: 'executives/search', access: { permission: 'appointment.manage' } },
   { name: 'executives/[id]', access: { permission: 'appointment.manage' } },

@@ -39,6 +39,11 @@ const PAGE_OPTIONS: Record<
       animationDuration: 450,
       gestureDirection: 'vertical',
     },
+    'reports/search': {
+      animation: 'slide_from_bottom',
+      animationDuration: 450,
+      gestureDirection: 'vertical',
+    },
     'executives/new': {
       animation: 'slide_from_bottom',
       animationDuration: 450,
