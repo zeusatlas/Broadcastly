@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.3",
+    "@react-native-picker/picker": "2.11.4",
     "axios": "^1.21.0",
     "clsx": "^2.1.1",
     "expo": "~58.0.21",

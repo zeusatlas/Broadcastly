@@ -56,7 +56,6 @@ const SECTIONS: { title: string; links: MoreLink[] }[] = [
     links: [
       { label: 'Reports', icon: ChartColumn, href: '/reports', route: 'reports/index' },
       { label: 'Import activity', icon: History, href: '/members/imports', route: 'members/imports' },
-      { label: 'Import history', icon: History, href: '/members/imports', route: 'members/imports' },
     ],
   },
 ];

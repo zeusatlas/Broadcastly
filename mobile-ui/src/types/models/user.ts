@@ -12,6 +12,7 @@ export interface OrganisationRef {
   id: string;
   name: string;
   type: string;
+  logoUrl: string | null;
 }
 
 export interface OrganisationalUnit {
@@ -31,6 +32,7 @@ export type Permission =
   | 'member.manage'
   | 'member.import'
   | 'credit.allocate'
+  | 'credit.purchase'
   | 'appointment.manage';
 
 export interface Appointment {

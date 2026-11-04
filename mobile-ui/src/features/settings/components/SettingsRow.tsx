@@ -29,11 +29,12 @@ export function SettingsRow({
 
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={value ? `${label}, ${value}` : label}
       onPress={onPress}
       className={cn(
         'min-h-16 flex-row items-center gap-4 py-4 active:opacity-60',
+        !onPress && 'active:opacity-100',
         !isLast && 'border-b border-border',
       )}
     >

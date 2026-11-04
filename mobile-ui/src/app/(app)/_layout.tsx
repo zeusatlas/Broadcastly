@@ -100,6 +100,11 @@ export default function AppLayout() {
       />
       <Stack.Screen name="settings/index" />
       <Stack.Screen name="settings/support" />
+      <Stack.Screen name="settings/appearance" />
+      <Stack.Screen name="settings/notifications" />
+      <Stack.Screen name="settings/security" />
+      <Stack.Screen name="settings/devices" />
+      <Stack.Screen name="settings/privacy" />
       <Stack.Screen name="notifications" />
     </Stack>
   );
