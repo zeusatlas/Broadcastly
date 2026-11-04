@@ -1,0 +1,120 @@
+import { BriefcaseBusiness, MapPinned, UsersRound } from 'lucide-react-native';
+import { View } from 'react-native';
+
+import { PageScreen } from '@/components/shared';
+import { ListCard, QueryState, StatTile, Text } from '@/components/ui';
+import { useAccess } from '@/features/auth';
+
+import {
+  useReadOrganisationOverviewQuery,
+  useReadPositionsQuery,
+} from '../hooks/use_organisation_api';
+
+const count = (value: number | null | undefined) =>
+  value === undefined || value === null ? '—' : value.toLocaleString();
+
+const formatUnitType = (value: string) =>
+  value.replaceAll('_', ' ').replace(/^\w/, (letter) => letter.toUpperCase());
+
+export function OrganisationScreen() {
+  const access = useAccess();
+  const canManage = access.check({ permission: 'appointment.manage' });
+  const overview = useReadOrganisationOverviewQuery({ enabled: canManage });
+  const positions = useReadPositionsQuery({ enabled: canManage });
+  const totals = overview.data;
+  const positionItems = positions.data ?? [];
+
+  return (
+    <PageScreen title="Organisation">
+      <View className="gap-6">
+        <Text variant="bodyMuted">
+          View your organisation structure, positions and executive activity.
+        </Text>
+
+        <View className="gap-3">
+          <View className="flex-row gap-3">
+            <StatTile
+              label="Executives"
+              value={count(totals?.activeExecutives)}
+              caption={`${count(totals?.suspendedExecutives)} suspended`}
+              icon={UsersRound}
+            />
+            <StatTile
+              label="Units"
+              value={count(totals?.units)}
+              caption="In your reach"
+              icon={MapPinned}
+            />
+          </View>
+          <View className="flex-row gap-3">
+            <StatTile
+              label="Positions"
+              value={count(totals?.positions)}
+              caption="Configured offices"
+              icon={BriefcaseBusiness}
+            />
+            <StatTile
+              label="Members"
+              value={count(totals?.members)}
+              caption="In your organisation"
+              icon={UsersRound}
+            />
+          </View>
+        </View>
+
+        {totals?.unitsByType.length ? (
+          <ListCard title="Structure">
+            {totals.unitsByType.map((unit, index) => (
+              <View
+                key={unit.type}
+                className={
+                  index < totals.unitsByType.length - 1
+                    ? 'flex-row items-center justify-between border-b border-border py-3'
+                    : 'flex-row items-center justify-between py-3'
+                }
+              >
+                <Text variant="label">{formatUnitType(unit.type)}</Text>
+                <Text variant="label" className="text-muted-foreground">
+                  {unit.count.toLocaleString()}
+                </Text>
+              </View>
+            ))}
+          </ListCard>
+        ) : null}
+
+        <ListCard title="Positions">
+          <QueryState
+            isLoading={positions.isLoading}
+            error={positions.error ?? overview.error}
+            isEmpty={!positions.isLoading && positionItems.length === 0}
+            emptyText="No positions have been configured yet."
+            onRetry={() => {
+              overview.refetch();
+              positions.refetch();
+            }}
+          />
+          {positionItems.map((position, index) => (
+            <View
+              key={position.id}
+              className={
+                index < positionItems.length - 1
+                  ? 'flex-row items-center justify-between border-b border-border py-3'
+                  : 'flex-row items-center justify-between py-3'
+              }
+            >
+              <View className="flex-1 gap-0.5">
+                <Text variant="label" numberOfLines={1}>
+                  {position.title}
+                </Text>
+                <Text variant="caption">{formatUnitType(position.unitType)}</Text>
+              </View>
+              <Text variant="caption">
+                {position.holderCount} {position.holderCount === 1 ? 'holder' : 'holders'}
+              </Text>
+            </View>
+          ))}
+        </ListCard>
+      </View>
+    </PageScreen>
+  );
+}

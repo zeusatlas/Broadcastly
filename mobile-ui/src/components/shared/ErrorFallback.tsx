@@ -12,7 +12,10 @@ export function ErrorFallback({ error, retry }: ErrorBoundaryProps) {
   logger.error('Unhandled render error', { name: error.name, message: error.message });
 
   return (
-    <Screen className="items-center justify-center gap-4">
+    <Screen
+      edges={['top', 'bottom', 'left', 'right']}
+      className="items-center justify-center gap-4"
+    >
       <View className="h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
         <TriangleAlert size={26} color={theme.destructive} />
       </View>

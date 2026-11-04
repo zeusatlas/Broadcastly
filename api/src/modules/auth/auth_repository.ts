@@ -29,7 +29,8 @@ interface SessionAccessRow {
   status: string;
 }
 
-// Code constants only, so interpolating them into SQL is safe (AGENTS.md §8).
+// Code constants only, so interpolating them into SQL is safe (AGENTS.md §8). EXECUTIVE_STATUS_SQL
+// makes an executive of a suspended organisation count as suspended at sign-in, refresh and requests.
 const ACCOUNT_TABLE = {
   executive: 'organisation_executives',
   platform_admin: 'platform_admins',
@@ -37,9 +38,12 @@ const ACCOUNT_TABLE = {
 const OWNER_COLUMN = { executive: 'executive_id', platform_admin: 'platform_admin_id' } as const;
 const OWNER_FIELD = { executive: 'executiveId', platform_admin: 'platformAdminId' } as const;
 
+const EXECUTIVE_STATUS_SQL = `CASE WHEN o.status <> 'active' THEN 'suspended' ELSE e.status::text END`;
+
 const SIGN_IN_ACCOUNT_SQL = {
-  executive: `SELECT e.id, m.phone, e.status, e.locked_until AS "lockedUntil"
-                FROM organisation_executives e JOIN members m ON m.id = e.member_id`,
+  executive: `SELECT e.id, m.phone, ${EXECUTIVE_STATUS_SQL} AS status, e.locked_until AS "lockedUntil"
+                FROM organisation_executives e JOIN members m ON m.id = e.member_id
+                JOIN organisations o ON o.id = e.organisation_id`,
   platform_admin: `SELECT a.id, a.phone, a.status, a.locked_until AS "lockedUntil"
                      FROM platform_admins a`,
 } as const;
@@ -135,9 +139,12 @@ export const authRepository = {
   },
 
   async findAccountStatus(kind: AccountKind, id: string, manager: EntityManager) {
-    const [row] = (await manager.query(`SELECT status FROM ${ACCOUNT_TABLE[kind]} WHERE id = $1`, [
-      id,
-    ])) as Array<{ status: string }>;
+    const sql =
+      kind === 'executive'
+        ? `SELECT ${EXECUTIVE_STATUS_SQL} AS status FROM organisation_executives e
+             JOIN organisations o ON o.id = e.organisation_id WHERE e.id = $1`
+        : `SELECT status FROM ${ACCOUNT_TABLE[kind]} WHERE id = $1`;
+    const [row] = (await manager.query(sql, [id])) as Array<{ status: string }>;
     return row?.status ?? null;
   },
 
@@ -150,9 +157,10 @@ export const authRepository = {
     const [row] = (await dataSource.query(
       `SELECT s.executive_id AS "executiveId", s.platform_admin_id AS "platformAdminId",
               e.member_id AS "memberId", e.organisation_id AS "organisationId",
-              COALESCE(e.status::text, a.status::text) AS status
+              COALESCE(${EXECUTIVE_STATUS_SQL}, a.status::text) AS status
          FROM sessions s
          LEFT JOIN organisation_executives e ON e.id = s.executive_id
+         LEFT JOIN organisations o ON o.id = e.organisation_id
          LEFT JOIN members m ON m.id = e.member_id
          LEFT JOIN platform_admins a ON a.id = s.platform_admin_id
         WHERE s.id = $1 AND s.revoked_at IS NULL AND s.expires_at > now()`,
@@ -215,6 +223,15 @@ export const authRepository = {
         { [OWNER_FIELD[kind]]: id, revokedAt: IsNull() },
         { revokedAt: new Date(), revokedReason: reason },
       );
+  },
+
+  revokeOrganisationSessions(organisationId: string, manager: EntityManager) {
+    return manager.query(
+      `UPDATE sessions SET revoked_at = now(), revoked_reason = 'account_inactive'
+        WHERE revoked_at IS NULL
+          AND executive_id IN (SELECT id FROM organisation_executives WHERE organisation_id = $1)`,
+      [organisationId],
+    );
   },
 
   insertChallenge(challenge: Partial<OtpChallenge>, manager: EntityManager) {

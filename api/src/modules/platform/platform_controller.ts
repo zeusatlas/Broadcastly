@@ -1,7 +1,9 @@
 import type { Request, Response } from 'express';
 
 import { getRequestContext } from '../../common/http/request_context';
+import type { PeriodParams } from '../../common/http/period';
 import { sendCreated, sendSuccess } from '../../common/http/respond';
+import { toStoredPath } from '../../common/uploads/image_upload';
 import { validated } from '../../common/middleware/validate';
 import { actorFrom, requireAuth, type CreatePlatformAdminRequest } from '../auth';
 
@@ -9,6 +11,10 @@ import { platformService } from './platform_service';
 import type {
   AppointChairmanRequest,
   CreateOrganisationRequest,
+  ListBroadcastsRequest,
+  ListOrganisationBroadcastsRequest,
+  ListOrganisationCreditTransactionsRequest,
+  ListPlatformPurchasesRequest,
   ListOrganisationExecutivesRequest,
   ListOrganisationsRequest,
   ListPlatformAdminsRequest,
@@ -84,6 +90,82 @@ export const platformController = {
       actorOf(req),
     );
     return sendSuccess(res, { data, message: 'Account reactivated.' });
+  },
+
+  async suspendOrganisation(req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const data = await platformService.setOrganisationStatus(
+      organisationId,
+      'suspended',
+      actorOf(req),
+    );
+    return sendSuccess(res, { data, message: 'Organisation suspended.' });
+  },
+
+  async reactivateOrganisation(req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const data = await platformService.setOrganisationStatus(
+      organisationId,
+      'active',
+      actorOf(req),
+    );
+    return sendSuccess(res, { data, message: 'Organisation reactivated.' });
+  },
+
+  async uploadOrganisationLogo(req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const data = await platformService.setOrganisationLogo(
+      organisationId,
+      toStoredPath(req.file!.path),
+      actorOf(req),
+    );
+    return sendSuccess(res, { data, message: 'Logo updated.' });
+  },
+
+  async removeOrganisationLogo(req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const data = await platformService.setOrganisationLogo(organisationId, null, actorOf(req));
+    return sendSuccess(res, { data, message: 'Logo removed.' });
+  },
+
+  async listBroadcasts(_req: Request, res: Response) {
+    const data = await platformService.listBroadcasts(
+      validated<ListBroadcastsRequest>(res, 'query'),
+    );
+    return sendSuccess(res, { data, message: 'Broadcasts retrieved.' });
+  },
+
+  async listOrganisationBroadcasts(_req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const query = validated<ListOrganisationBroadcastsRequest>(res, 'query');
+    const data = await platformService.listBroadcasts({ ...query, organisationId });
+    return sendSuccess(res, { data, message: 'Broadcasts retrieved.' });
+  },
+
+  async listPurchases(_req: Request, res: Response) {
+    const data = await platformService.listPurchases(
+      validated<ListPlatformPurchasesRequest>(res, 'query'),
+    );
+    return sendSuccess(res, { data, message: 'Purchases retrieved.' });
+  },
+
+  async listOrganisationPurchases(_req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const query = validated<ListPlatformPurchasesRequest>(res, 'query');
+    const data = await platformService.listPurchases({ ...query, organisationId });
+    return sendSuccess(res, { data, message: 'Purchases retrieved.' });
+  },
+
+  async getPurchaseSummary(_req: Request, res: Response) {
+    const data = await platformService.purchaseSummary(validated<PeriodParams>(res, 'query'));
+    return sendSuccess(res, { data, message: 'Purchase summary retrieved.' });
+  },
+
+  async listOrganisationCreditTransactions(_req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const query = validated<ListOrganisationCreditTransactionsRequest>(res, 'query');
+    const data = await platformService.listOrganisationCreditTransactions(organisationId, query);
+    return sendSuccess(res, { data, message: 'Credit history retrieved.' });
   },
 
   async listPlatformAdmins(_req: Request, res: Response) {

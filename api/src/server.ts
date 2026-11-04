@@ -12,6 +12,7 @@ import {
   redisAddress,
   reportStartupFailure,
   startupStep,
+  warnAboutTestDrivers,
 } from './config/startup';
 import { initializeDatabase } from './database/initialize_database';
 import { closeQueues } from './jobs/queues';
@@ -29,6 +30,7 @@ function listen(port: number): Promise<Server> {
 
 async function main() {
   logger.info(`Starting Broadcastly API (${env.NODE_ENV}, Node ${process.version})…`);
+  warnAboutTestDrivers();
 
   logDatabaseStartup(await startupStep('PostgreSQL', initializeDatabase));
 

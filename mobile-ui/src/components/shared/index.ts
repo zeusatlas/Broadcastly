@@ -2,6 +2,13 @@ export { ADMIN_TABS, AppTabs, EXECUTIVE_TABS, type TabDefinition } from './AppTa
 export { ErrorFallback } from './ErrorFallback';
 export { ExternalLink } from './ExternalLink';
 export { AppToaster } from './AppToaster';
-export { HEADER_BUTTON_SIZE, HeaderButton, PageScreen, type HeaderButtonProps } from './PageScreen';
+export {
+  androidHeaderBack,
+  HeaderButton,
+  ProfileButton,
+  type HeaderButtonProps,
+} from './HeaderButton';
+export { useCollapsingTitle } from './CollapsingTitle';
+export { PageScreen } from './PageScreen';
+export { TabStack } from './TabStack';
 export { SystemBars } from './SystemBars';
-export { HomeHeader } from './HomeHeader';

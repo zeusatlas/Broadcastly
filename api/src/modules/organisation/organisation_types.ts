@@ -1,4 +1,5 @@
-export const ORGANISATION_STATUSES = ['active', 'inactive'] as const;
+// 'suspended': a platform admin stopped it; none of its executives can sign in until reactivated.
+export const ORGANISATION_STATUSES = ['active', 'inactive', 'suspended'] as const;
 export type OrganisationStatus = (typeof ORGANISATION_STATUSES)[number];
 
 export const UNIT_STATUSES = ['active', 'inactive'] as const;
@@ -14,6 +15,7 @@ export interface OrganisationRef {
   id: string;
   name: string;
   type: string;
+  logoUrl: string | null;
 }
 
 export interface AppointmentSummaryResponse {

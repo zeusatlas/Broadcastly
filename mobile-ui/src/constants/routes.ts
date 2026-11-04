@@ -15,4 +15,9 @@ export const GATED_ROUTES: readonly GatedRoute[] = [
   { name: 'credits/allocate', access: { permission: 'credit.allocate' } },
   { name: 'organisation/index', access: { permission: 'appointment.manage' } },
   { name: 'reports/index', access: { permission: 'report.view' } },
+  { name: 'executives/index', access: { permission: 'appointment.manage' } },
+  // TODO(backend permissions): templates and opt-outs get their own permissions once the API defines them.
+  { name: 'templates/index', access: { permission: 'broadcast.draft' } },
+  { name: 'opt-outs/index', access: { permission: 'member.manage' } },
+  { name: 'members/imports', access: { permission: 'member.import' } },
 ];

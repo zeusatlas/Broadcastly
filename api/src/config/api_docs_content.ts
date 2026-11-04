@@ -15,9 +15,11 @@ and delivery reports.
 
 ## Who can use it
 
-Only executives can sign in. There is no public sign-up: executive accounts are created by the
-chairman. What each executive may see and do depends on their **active appointment**,
-their **permissions** and their **organisational scope** — never on job title alone.
+Executives and platform admins sign in through the same \`/auth\` endpoints. There is no public
+sign-up: platform admins create organisations and appoint each chairman, and chairmen appoint their
+executives. What each executive may see and do depends on their **active appointment**, their
+**permissions** and their **organisational scope** — never on job title alone. Platform admins
+manage every organisation through **Platform**.
 
 ## Getting started
 
@@ -58,6 +60,28 @@ their **permissions** and their **organisational scope** — never on job title 
 
 \`message\` is written for people and is safe to show in the app as-is.
 For validation errors, \`errors\` lists the problems for each field.
+
+## Credits and purchases
+
+Every organisation has a credit wallet, and so does every executive. One credit pays for one SMS
+segment. Balances change only through a ledger that cannot be edited, so every change is on record.
+
+1. **Buy** — \`POST /api/v1/credits/purchases\` with \`{ "credits": 10000 }\` (needs \`credit.purchase\`;
+   the chairman has it). Send an \`Idempotency-Key\` header so a retried request never buys twice.
+   The purchase starts as **pending**.
+2. **Pay** — at \`checkoutUrl\` when the provider gives one.
+3. **Settle** — the payment provider calls \`POST /api/v1/credits/payments/webhook\`. Only then do
+   the credits reach the wallet and the purchase become **completed** (or **failed**, with a reason).
+   A repeated notification changes nothing.
+
+> **Testing stand-in.** No payment provider is connected yet (\`PAYMENT_DRIVER=simulate\`). To finish a
+> test purchase, call the webhook yourself with \`{ "reference": "<purchase reference>", "outcome": "paid" }\`
+> (or \`"failed"\`). Likewise \`SMS_DRIVER=log\` writes sign-in codes to the server log instead of
+> sending them. The server warns about both at startup; do not use real people's details while they are on.
+
+History lists (credits, purchases, broadcasts) filter by \`period\`: \`today\`, \`yesterday\`,
+\`last_3_days\`, \`last_7_days\`, \`last_30_days\`, \`last_365_days\`, \`all_time\` (default), or
+\`custom\` with \`from\` / \`to\` dates (YYYY-MM-DD, both inclusive).
 
 ## Status codes
 
@@ -102,12 +126,17 @@ export const TAG_DESCRIPTIONS = [
   {
     name: 'Organisation',
     description:
-      "An organisation head's tools: positions, units, and appointing and suspending the organisation's executives.",
+      "An organisation head's tools: positions, units, the organisation's logo, and appointing and suspending its executives.",
   },
   {
     name: 'Platform',
     description:
-      'Platform admins only: dashboard totals, constituencies and their chairmen, platform admins, suspending accounts.',
+      'Platform admins only: dashboard totals, organisations and their chairmen, suspending and reactivating organisations and accounts, logos, every organisation’s broadcasts, credit purchases and credit history (filtered by period), and platform admins.',
+  },
+  {
+    name: 'Credits',
+    description:
+      'SMS credit wallets (the organisation’s and your own), their history, buying credits, and the payment webhook that settles a purchase. See *Credits and purchases* in the API overview.',
   },
   {
     name: 'Health',

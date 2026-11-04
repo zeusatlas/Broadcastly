@@ -1,8 +1,8 @@
-import { router } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import { Building2, ShieldAlert, UserRoundPlus, UsersRound } from 'lucide-react-native';
 import { View } from 'react-native';
 
-import { HomeHeader } from '@/components/shared';
+import { ProfileButton } from '@/components/shared';
 import { ListCard, QueryState, ScrollScreen, StatTile, Text } from '@/components/ui';
 import { useCurrentUser } from '@/features/auth';
 
@@ -22,13 +22,8 @@ export function AdminHomeScreen() {
   const organisations = recent.data?.items ?? [];
 
   return (
-    <ScrollScreen className="gap-6 pt-2">
-      <HomeHeader
-        eyebrow="Welcome back"
-        title={user?.fullName ?? ''}
-        avatarName={user?.fullName ?? ''}
-      />
-
+    <ScrollScreen className="gap-6 pt-4">
+      <Tabs.Screen options={{ headerLeft: () => <ProfileButton name={user?.fullName ?? ''} /> }} />
       <View className="gap-3">
         <View className="flex-row gap-3">
           <StatTile

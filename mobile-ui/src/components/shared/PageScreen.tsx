@@ -1,206 +1,125 @@
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { ChevronLeft, type LucideIcon } from 'lucide-react-native';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
-import type { PropsWithChildren } from 'react';
-import { Pressable, View } from 'react-native';
-import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useState, type PropsWithChildren, type ReactNode } from 'react';
+import { View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { KeyboardAwareScrollView, KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GlassSurface, Text } from '@/components/ui';
+import { enterContent } from '@/constants/motion';
 import { MaxContentWidth } from '@/constants/theme';
-import { useTheme } from '@/hooks/use_theme';
 import { cn } from '@/utils/helpers';
 
-// 48pt round button. Override per screen with PageScreen buttonSize.
-export const HEADER_BUTTON_SIZE = 48;
-const HAS_LIQUID_GLASS = isLiquidGlassAvailable();
-// Scroll distance over which the large title hands over to the compact one in the bar.
-const TITLE_HANDOFF = 48;
+import { useCollapsingTitle } from './CollapsingTitle';
+import { GLASS_BUTTON_SIZE, GlassHeaderButton, type HeaderButtonProps } from './HeaderButton';
 
-export interface HeaderButtonProps {
-  icon: LucideIcon;
-  label: string;
-  onPress?: () => void;
-  size?: number;
-  isPlain?: boolean;
-  iconSize?: number;
-  // Unread count shown as a red pill on the corner; hidden at 0.
-  badgeCount?: number;
-}
-
-// Round Liquid Glass button for page headers (back, settings, …). Elsewhere: blur, tint, soft shadow.
-export function HeaderButton({
-  icon: Icon,
-  label,
-  onPress,
-  size = HEADER_BUTTON_SIZE,
-  isPlain = false,
-  iconSize = Math.round(size * 0.6),
-  badgeCount = 0,
-}: HeaderButtonProps) {
-  const theme = useTheme();
-  const round = { width: size, height: size, borderRadius: size / 2 };
-  const icon = <Icon size={iconSize} strokeWidth={2.25} color={theme.foreground} />;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={badgeCount > 0 ? `${label}, ${badgeCount} unread` : label}
-      onPress={onPress}
-      hitSlop={8}
-      style={({ pressed }) => [
-        round,
-        { transform: [{ scale: pressed ? 0.92 : 1 }] },
-        !isPlain &&
-          !HAS_LIQUID_GLASS && {
-            shadowColor: theme.foreground,
-            shadowOpacity: 0.1,
-            shadowRadius: 10,
-            shadowOffset: { width: 0, height: 3 },
-            elevation: 2,
-            backgroundColor: theme.card,
-          },
-      ]}
-    >
-      {isPlain ? (
-        <View className="flex-1 items-center justify-center">{icon}</View>
-      ) : (
-        <GlassSurface className="rounded-full" style={round}>
-          {icon}
-        </GlassSurface>
-      )}
-      {badgeCount > 0 ? (
-        <View
-          pointerEvents="none"
-          className="absolute h-5 min-w-5 items-center justify-center rounded-full border-2 border-background bg-destructive px-1"
-          style={{ top: size * 0.12, right: size * 0.1 }}
-        >
-          <Text className="font-sans-bold text-[10px] leading-3 text-destructive-foreground">
-            {badgeCount > 99 ? '99+' : badgeCount}
-          </Text>
-        </View>
-      ) : null}
-    </Pressable>
-  );
-}
+const FOOTER_CLEARANCE = 96;
 
 interface PageScreenProps extends PropsWithChildren {
   title?: string;
-  headerRight?: Omit<HeaderButtonProps, 'size'>;
-  buttonSize?: number;
+  headerRight?: HeaderButtonProps;
+  // Screens that close rather than go back pass X.
   backIcon?: LucideIcon;
   backLabel?: string;
   onBack?: () => void;
   contentClassName?: string;
+  footer?: ReactNode;
+  // Primary buttons pinned to the bottom on a solid bar, always visible and lifted above the keyboard.
+  actions?: ReactNode;
+  // A tab's first screen: no back button, so the title sits just under the status bar.
+  isTabRoot?: boolean;
 }
 
-// The one wrapper for stacked screens with a back button: plain background, floating round
-// buttons, large title collapsing into the bar. Change the chrome here, not per screen.
+// The one wrapper for titled pages. No native bar (too tall for the owner): round glass back/action
+// buttons float under the status bar, the big title sits below them and collapses into a compact bar.
 export function PageScreen({
   title,
   headerRight,
-  buttonSize = HEADER_BUTTON_SIZE,
   backIcon = ChevronLeft,
   backLabel = 'Go back',
   onBack = () => router.back(),
   contentClassName,
+  footer,
+  actions,
+  isTabRoot = false,
   children,
 }: PageScreenProps) {
   const insets = useSafeAreaInsets();
-  const scrollY = useSharedValue(0);
-  const titleInset = 16 + buttonSize + 12;
-  const barHeight = buttonSize + 16;
-
-  const onScroll = useAnimatedScrollHandler((event) => {
-    scrollY.value = event.contentOffset.y;
-  });
-  const compactTitleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      scrollY.value,
-      [TITLE_HANDOFF * 0.6, TITLE_HANDOFF],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ),
-  }));
-  const largeTitleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, TITLE_HANDOFF], [1, 0], Extrapolation.CLAMP),
-  }));
+  const collapsing = useCollapsingTitle(title, { header: isTabRoot ? 'tab' : 'buttons' });
+  const [actionsHeight, setActionsHeight] = useState(0);
+  const untitledTop = isTabRoot ? insets.top + 12 : insets.top + GLASS_BUTTON_SIZE + 16;
 
   return (
-    <View className="flex-1 bg-background">
+    <>
+      <Stack.Screen options={{ headerShown: false, title: title ?? '' }} />
       <KeyboardAwareScrollView
         bottomOffset={24}
         keyboardShouldPersistTaps="handled"
-        onScroll={onScroll}
-        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
+        onScroll={collapsing.onScroll}
+        scrollEventThrottle={16}
+        onLayout={collapsing.onLayout}
+        style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
+          minHeight: collapsing.minHeight,
           alignItems: 'center',
-          paddingTop: insets.top + barHeight,
-          paddingBottom: insets.bottom + 24,
+          paddingTop: title ? 0 : untitledTop,
+          paddingBottom: actions
+            ? actionsHeight + 24
+            : insets.bottom + (footer ? FOOTER_CLEARANCE : 24),
         }}
       >
         <View
           className={cn('w-full flex-1 px-5', contentClassName)}
           style={{ maxWidth: MaxContentWidth }}
         >
-          {title ? (
-            <Animated.View style={largeTitleStyle}>
-              <Text
-                accessibilityRole="header"
-                className="pb-2 pt-1 font-sans-extrabold text-4xl leading-tight text-foreground"
-              >
-                {title}
-              </Text>
-            </Animated.View>
-          ) : null}
-          {children}
+          {collapsing.largeTitle}
+          <Animated.View entering={enterContent(60)} className="flex-1">
+            {children}
+          </Animated.View>
         </View>
       </KeyboardAwareScrollView>
 
-      <View
-        pointerEvents="box-none"
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top }}
-      >
+      {collapsing.bar}
+
+      {isTabRoot ? null : (
         <View
           pointerEvents="box-none"
-          className="flex-row items-center justify-between px-4"
-          style={{ height: barHeight }}
+          className="absolute left-0 right-0 top-0 flex-row items-center justify-between px-4"
+          style={{ paddingTop: insets.top + 4 }}
         >
-          <HeaderButton icon={backIcon} label={backLabel} onPress={onBack} size={buttonSize} />
-
-          {title ? (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                { position: 'absolute', left: titleInset, right: titleInset },
-                compactTitleStyle,
-              ]}
-            >
-              <Text
-                numberOfLines={1}
-                className="text-center font-sans-bold text-lg text-foreground"
-              >
-                {title}
-              </Text>
-            </Animated.View>
-          ) : null}
-
-          {headerRight ? (
-            <HeaderButton {...headerRight} size={buttonSize} />
-          ) : (
-            <View style={{ width: buttonSize }} />
-          )}
+          <GlassHeaderButton icon={backIcon} label={backLabel} onPress={onBack} />
+          {headerRight ? <GlassHeaderButton {...headerRight} /> : null}
         </View>
-      </View>
-    </View>
+      )}
+
+      {actions ? (
+        <KeyboardStickyView
+          offset={{ opened: insets.bottom }}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}
+        >
+          <View
+            onLayout={(event) => setActionsHeight(event.nativeEvent.layout.height)}
+            className="items-center bg-background px-5 pt-3"
+            style={{ paddingBottom: insets.bottom + 12 }}
+          >
+            <View className="w-full gap-2" style={{ maxWidth: MaxContentWidth }}>
+              {actions}
+            </View>
+          </View>
+        </KeyboardStickyView>
+      ) : null}
+
+      {footer ? (
+        <View
+          pointerEvents="box-none"
+          className="absolute bottom-0 left-0 right-0 px-5"
+          style={{ paddingBottom: insets.bottom + 16 }}
+        >
+          {footer}
+        </View>
+      ) : null}
+    </>
   );
 }

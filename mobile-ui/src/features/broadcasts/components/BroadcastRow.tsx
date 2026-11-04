@@ -5,8 +5,11 @@ import { Text } from '@/components/ui';
 import { useTheme } from '@/hooks/use_theme';
 import { cn } from '@/utils/helpers';
 
-import type { BroadcastSummary } from '../types';
+import type { BroadcastStatus, BroadcastSummary } from '../types';
 import { BROADCAST_STATUS_LABEL, BroadcastStatusBadge } from './BroadcastStatusBadge';
+import { DeliveryBar } from './DeliveryBar';
+
+const HAS_OUTCOME: BroadcastStatus[] = ['processing', 'submitted', 'completed', 'partially_failed'];
 
 interface BroadcastRowProps {
   broadcast: BroadcastSummary;
@@ -18,7 +21,7 @@ interface BroadcastRowProps {
 export function BroadcastRow({ broadcast, onPress, isLast = false }: BroadcastRowProps) {
   const theme = useTheme();
   const { title, audience, sentAt, status, delivered, recipients } = broadcast;
-  const hasDeliveries = delivered > 0;
+  const hasOutcome = HAS_OUTCOME.includes(status) && recipients > 0;
 
   return (
     <Pressable
@@ -30,20 +33,27 @@ export function BroadcastRow({ broadcast, onPress, isLast = false }: BroadcastRo
         !isLast && 'border-b border-border',
       )}
     >
-      <View className="flex-1 gap-1.5">
-        <View className="flex-row items-center gap-2">
-          <Text className="flex-1 font-sans-bold text-base text-foreground" numberOfLines={1}>
-            {title}
+      <View className="flex-1 gap-2">
+        <View className="gap-1">
+          <View className="flex-row items-center gap-2">
+            <Text
+              className="flex-1 font-sans-bold text-base leading-6 text-foreground"
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            <Text variant="caption">{sentAt}</Text>
+          </View>
+          <Text variant="bodyMuted" className="text-sm" numberOfLines={1}>
+            {audience} · {recipients.toLocaleString()} recipients
           </Text>
-          <Text variant="caption">{sentAt}</Text>
         </View>
-        <Text variant="bodyMuted" className="text-sm" numberOfLines={1}>
-          {audience} · {recipients.toLocaleString()} recipients
-        </Text>
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center gap-3">
           <BroadcastStatusBadge status={status} />
-          {hasDeliveries ? (
-            <Text variant="caption">{delivered.toLocaleString()} delivered</Text>
+          {hasOutcome ? (
+            <View className="flex-1">
+              <DeliveryBar delivered={delivered} total={recipients} status={status} />
+            </View>
           ) : null}
         </View>
       </View>

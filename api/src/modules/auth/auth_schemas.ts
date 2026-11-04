@@ -120,6 +120,10 @@ export const organisationRefSchema = z
     id: z.uuid(),
     name: z.string().openapi({ example: 'Central Constituency' }),
     type: z.string().openapi({ example: 'constituency' }),
+    logoUrl: z
+      .url()
+      .nullable()
+      .openapi({ example: 'https://api.example.com/uploads/organisation-logos/3f2a.png' }),
   })
   .openapi('OrganisationRef');
 

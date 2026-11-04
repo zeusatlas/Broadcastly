@@ -24,6 +24,13 @@ export const AUDIT_ACTIONS = {
   platformAdminCreated: 'platform_admin.created',
   platformAdminSuspended: 'platform_admin.suspended',
   platformAdminReactivated: 'platform_admin.reactivated',
+  organisationSuspended: 'organisation.suspended',
+  organisationReactivated: 'organisation.reactivated',
+  organisationLogoUpdated: 'organisation.logo_updated',
+  organisationLogoRemoved: 'organisation.logo_removed',
+  creditPurchaseStarted: 'credit.purchase_started',
+  creditPurchaseCompleted: 'credit.purchase_completed',
+  creditPurchaseFailed: 'credit.purchase_failed',
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 

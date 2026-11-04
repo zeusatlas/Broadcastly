@@ -610,6 +610,10 @@ export const authService = {
     return toPlatformAdminResponse(admin);
   },
 
+  endOrganisationSessions(organisationId: string, manager: EntityManager) {
+    return authRepository.revokeOrganisationSessions(organisationId, manager);
+  },
+
   async setPlatformAdminStatus(
     platformAdminId: string,
     status: ManageableStatus,

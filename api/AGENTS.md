@@ -3,7 +3,7 @@
 Binding rules for every agent and developer working in this repository.
 Read this fully before the first edit. These rules are not suggestions.
 
-Product requirements: `../docs/Constituency_Communication_Platform_SRS_v1.0.docx`.
+Product requirements: `../srs-docs/Constituency_Communication_Platform_SRS_v1.0.docx`.
 Requirement IDs (FR-\*, NFR-\*, BR-\*) refer to that document. The mobile app's
 rules are in `../mobile-ui/AGENTS.md`; the two share one wire contract (§6).
 
@@ -58,9 +58,9 @@ control.** The app only hides buttons; every rule is enforced here (FR-IAM-05).
 **Dependency policy:** same as the frontend — needed now, maintained (release
 in the last ~6 months), widely used, typed, commercial-friendly licence, not a
 duplicate of something we have (hashing and sign-in codes use Node's built-in `crypto`).
-Not installed on purpose until needed:
-`multer` and a spreadsheet parser (with
-imports — `xlsx` on npm and `exceljs` are unmaintained; choose deliberately).
+`multer` (2.x) handles image uploads, wrapped once in `common/uploads/image_upload.ts`. Not installed on
+purpose until needed: a spreadsheet parser (with imports — `xlsx` on npm and `exceljs` are
+unmaintained; choose deliberately).
 
 ---
 
@@ -162,9 +162,9 @@ src/
 │   ├── auth/               Sign-in, sessions, access control. Complete — the reference module.
 │   ├── organisation/       Data layer only (no routes): organisations, units, positions, appointments, grants.
 │   ├── members/            Members (every party member), memberships, suppression, imports (§4.4)
-│   ├── broadcasts/         Drafts, templates, recipients, segments, dispatch (§4.5)
+│   ├── broadcasts/         The `broadcasts` table and its read shape so far; drafting and dispatch next (§4.5)
 │   ├── approvals/          Approval rules and decisions (§4.6)
-│   ├── credits/            Wallets, ledger, reservations, purchases (§4.7)
+│   ├── credits/            Wallets, ledger, purchases (§7c); reservations and allocation next (§4.7)
 │   ├── reports/            History, delivery reports, exports (§4.8)
 │   ├── notifications/      In-app and email (§4.9)
 │   ├── audit/              Append-only audit log (NFR-SEC-05). Done; a DB trigger blocks UPDATE/DELETE.
@@ -289,7 +289,13 @@ before any SMS is sent. Admin routes are admin-only regardless (`authorize({ rol
   so the app can tell "start again" apart from "wrong code" (401).
 - Messages are short and fixed (constants at the top of `auth_service.ts`); keep them that way.
 - SMS goes through `integrations/sms/transactional_sms.ts` after the transaction commits, not
-  awaited. `SMS_DRIVER=log` prints the code to the console and is refused in production.
+  awaited. `SMS_DRIVER=log` prints the code to the console instead of sending it.
+- **Testing stand-ins (owner's decision, 2026-11-03):** `SMS_DRIVER=log` and `PAYMENT_DRIVER=simulate`
+  are allowed in every environment (production included) while the real providers are not connected.
+  They no longer stop the server: `warnAboutTestDrivers()` (`config/startup.ts`) logs a warning at every
+  start of the API and the worker. Once a real provider is connected, switch the driver and restore the
+  production refusal. Until then, never let real users near it: codes appear in the logs and anyone can
+  settle a purchase through the webhook.
 
 **Roles and permissions (BR-01).**
 - `UserRole` is derived, never stored: `platform_admin`, `chairman` (holds an active chairman
@@ -370,6 +376,30 @@ messages on mobile. All routes are under `/api/v1/platform` and need a platform 
   `partyId` matches a member of that organisation, that member is promoted instead of created.
 - **Status changes** are a no-op if already in that status; suspension revokes every session at
   once; an executive's `deactivated` status is final and cannot be changed here.
+- **Organisation status (owner's decision, 2026-11-03).** `suspend` stops a whole organisation: every
+  executive's session is revoked in the same transaction, and while it is suspended its executives
+  count as suspended at sign-in, refresh and on every request (`EXECUTIVE_STATUS_SQL` in
+  `auth_repository.ts`). Its data is kept; `reactivate` restores access (each executive's own status
+  still applies). `inactive` is reserved and cannot be changed here.
+- **Admin reach (owner's decision).** The platform admin reads everything about an organisation and acts on
+  status only: no sending broadcasts or moving credits on its behalf.
+
+More platform routes (all need a platform admin session; lists are newest first and take `period`):
+
+| Method | Path | Does |
+| --- | --- | --- |
+| POST | `/organisations/:organisationId/suspend` · `/reactivate` | See above |
+| POST · DELETE | `/organisations/:organisationId/logo` | Upload (`multipart/form-data`, field `logo`) · remove |
+| GET | `/broadcasts?organisationId=&status=&search=` · `/organisations/:id/broadcasts` | Broadcasts |
+| GET | `/purchases?organisationId=&status=` · `/organisations/:id/purchases` | Credit purchases (`pending` / `completed` / `failed`) |
+| GET | `/purchases/summary` | Credits bought, amount paid, pending and failed counts |
+| GET | `/organisations/:organisationId/credit-transactions` | The organisation wallet's ledger |
+
+- **Periods** (`common/http/period.ts`): `today`, `yesterday`, `last_3_days`, `last_7_days`,
+  `last_30_days`, `last_365_days`, `all_time` (default), or `custom` with `from`/`to` (YYYY-MM-DD,
+  inclusive). Rolling windows end now; days are UTC, which is Ghana time.
+- **Responses:** organisations carry `logoUrl` and `credits { balance, reserved, available }`, executives
+  `creditBalance`, and the overview `suspendedOrganisations` plus all-time purchase totals.
 - Not built yet: replacing a chairman, renaming or deactivating an organisation, units, wiring the mobile admin screens.
 
 ## 7b. Chairman tools (owner's decisions, 2026-11-02)
@@ -399,6 +429,46 @@ Rules, all enforced in `chairman_service.ts` (owner's decision: chairman + grant
 - **Hands off.** Only a platform admin appoints or changes the chairman; nobody changes themselves.
 - **Database:** unit names unique among siblings (`uq_organisation_units_sibling_name`); one active
   holding of a position per place (`uq_appointments_active_holding`).
+- **Logo.** The chairman can `POST` / `DELETE /organisation/logo` (same rules as the admin's). Everyone in
+  the organisation sees it as `organisation.logoUrl` on `/auth/me`.
+
+## 7c. Credits and logos (owner's decisions, 2026-11-03)
+
+Module `credits`, mounted at `/api/v1/credits`.
+
+| Method | Path | Who | Does |
+| --- | --- | --- | --- |
+| GET | `/balance` | any executive | Own wallet, plus the organisation's if you hold `credit.purchase` or `credit.allocate` |
+| GET | `/transactions?wallet=mine\|organisation&period=` | any executive | Ledger, newest first |
+| GET · POST | `/purchases` | `credit.purchase` | List · start a purchase (`{ credits }`, optional `Idempotency-Key` header) |
+| POST | `/payments/webhook` | the payment provider | Settles a purchase (public route; the driver verifies the event) |
+
+- **Wallets:** one per organisation and one per executive, created on first use (`ledgerService.walletFor`,
+  race-free through partial unique indexes). `balance` caches the ledger and changes only in
+  `ledger_service.ts`, in the same transaction as its `credit_transactions` row (BR-11). The database
+  rejects a negative balance, `reserved > balance`, a second wallet, and any UPDATE or DELETE of a
+  ledger row (trigger `credit_transactions_append_only`). Corrections are new rows.
+- **Idempotency:** every ledger row has a unique `idempotency_key` (e.g. `purchase:<id>`), so a replayed
+  webhook or retried job never moves credits twice. A purchase repeated with the same `Idempotency-Key`
+  returns the first one.
+- **Purchases:** saved `pending`, then the provider is called after commit. Credits are added only when the
+  provider's webhook confirms (`completed`), never on the app's word; otherwise `failed` with a reason.
+  `PAYMENT_DRIVER=simulate` (testing stand-in; startup warns while it is used, see §7) settles with
+  `{ reference, outcome: "paid" | "failed" }`. A real provider (SRS 12.2, still pending) is another driver
+  in `integrations/payments/payment_provider.ts`; the API does not change. Price: `CREDIT_PRICE_PESEWAS`
+  (default 4 = GHS 0.04 per credit; **set the agreed price**).
+- **Permissions:** `credit.purchase` is new (the chairman has it with every permission).
+- **Not built yet:** allocation to executives/units (FR-CR-03/04), reservation at dispatch (FR-CR-08/09),
+  refunds. Until allocation exists, executive wallets stay at 0.
+- **Logos:** `common/uploads/image_upload.ts`. PNG, JPEG or WebP, 2 MB max, random file names, checked by
+  their real first bytes (a renamed file is rejected). Stored under `UPLOADS_DIR/organisation-logos/`
+  (owner's choice: server disk for now; files are lost if the server is rebuilt, so move to object
+  storage before production). Served from `/uploads` with `Cross-Origin-Resource-Policy: cross-origin`.
+  The DB keeps the relative path (`organisations.logo_path`); responses build `logoUrl` from
+  `PUBLIC_BASE_URL`. A replaced logo's old file is deleted after the change commits.
+- **Verified end to end** on 2026-11-03 against PostgreSQL 17 on a throwaway database (38 checks):
+  purchases, idempotency, webhook replay, every period, broadcasts filters, logo upload, serving and
+  replacement, suspension blocking sign-in and sessions, and access rules.
 
 ## 8. Database — TypeORM 1.x
 

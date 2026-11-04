@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 
 import {
   errorResponses,
@@ -9,6 +10,7 @@ import {
   successEnvelope,
 } from '../../common/http/openapi_schemas';
 import { validate } from '../../common/middleware/validate';
+import { imageUpload } from '../../common/uploads/image_upload';
 import { bearerAuth, openApiRegistry } from '../../config/openapi';
 import { authenticate, authorize } from '../auth';
 
@@ -42,6 +44,8 @@ const executive = validate({ params: executiveParamsSchema });
 chairmanRouter.use(authenticate);
 
 chairmanRouter.get('/overview', manager, c.getOverview);
+chairmanRouter.post('/logo', chairman, imageUpload('organisation-logos', 'logo'), c.uploadLogo);
+chairmanRouter.delete('/logo', chairman, c.removeLogo);
 chairmanRouter.get('/positions', manager, c.listPositions);
 chairmanRouter.post(
   '/positions',
@@ -104,7 +108,7 @@ const NO_EXECUTIVE: [number, string, string] = [
 ];
 
 interface Doc {
-  method: 'get' | 'post' | 'patch';
+  method: 'get' | 'post' | 'patch' | 'delete';
   path: string;
   operationId: string;
   summary: string;
@@ -360,3 +364,38 @@ for (const [action, verb] of [
     errors: [NOT_MANAGER, NO_EXECUTIVE, [409, 'The account is deactivated.'], 422],
   });
 }
+
+const logoResponseSchema = z
+  .object({ logoUrl: z.url().nullable() })
+  .openapi('OrganisationLogoResponse');
+
+document({
+  method: 'post',
+  path: '/logo',
+  operationId: 'uploadOwnOrganisationLogo',
+  summary: "Upload your organisation's logo",
+  description:
+    'Chairman only. `multipart/form-data` with one image in the field `logo`: PNG, JPEG or WebP, 2 MB at most. Replaces any previous logo; everyone sees it as `organisation.logoUrl` on `/auth/me`.',
+  request: {
+    body: {
+      content: {
+        'multipart/form-data': {
+          schema: z.object({ logo: z.string().openapi({ type: 'string', format: 'binary' }) }),
+        },
+      },
+    },
+  },
+  response: successEnvelope(logoResponseSchema, 'Logo updated.'),
+  message: 'The new logo URL.',
+  errors: [NOT_CHAIRMAN, 422],
+});
+document({
+  method: 'delete',
+  path: '/logo',
+  operationId: 'removeOwnOrganisationLogo',
+  summary: "Remove your organisation's logo",
+  description: 'Chairman only. `logoUrl` becomes `null`.',
+  response: successEnvelope(logoResponseSchema, 'Logo removed.'),
+  message: 'No logo.',
+  errors: [NOT_CHAIRMAN],
+});

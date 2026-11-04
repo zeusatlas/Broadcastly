@@ -1,16 +1,19 @@
 import { router } from 'expo-router';
-import { Inbox, Plus } from 'lucide-react-native';
+import { Inbox, SquarePen } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { FlatList, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
+import { useCollapsingTitle } from '@/components/shared';
 import { Button, Chip, Text } from '@/components/ui';
+import { enterRow } from '@/constants/motion';
 import { MaxContentWidth } from '@/constants/theme';
 import { useHasPermission } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
 
 import { BroadcastRow } from '../components/BroadcastRow';
 import type { BroadcastStatus, BroadcastSummary } from '../types';
+import { DEMO_BROADCASTS } from '../demo_data';
 
 type Filter = 'all' | 'drafts' | 'pending' | 'scheduled' | 'sent' | 'failed';
 
@@ -23,93 +26,44 @@ const FILTERS: { key: Filter; label: string; statuses?: BroadcastStatus[] }[] = 
   { key: 'failed', label: 'Failed', statuses: ['partially_failed', 'failed', 'cancelled'] },
 ];
 
-// TODO(broadcasts API): sample data; becomes a paginated query filtered on the server.
-const BROADCASTS: BroadcastSummary[] = [
-  {
-    id: '1',
-    title: 'Executive meeting — Saturday 9am',
-    audience: 'Constituency executives',
-    sentAt: '08:14',
-    status: 'completed',
-    delivered: 142,
-    recipients: 146,
-  },
-  {
-    id: '2',
-    title: 'Membership dues reminder',
-    audience: 'All members',
-    sentAt: 'Today',
-    status: 'pending_approval',
-    delivered: 0,
-    recipients: 8412,
-  },
-  {
-    id: '3',
-    title: 'Youth rally — venue update',
-    audience: '3 electoral areas',
-    sentAt: 'Fri 10:00',
-    status: 'scheduled',
-    delivered: 0,
-    recipients: 2310,
-  },
-  {
-    id: '4',
-    title: 'Polling station verification notice',
-    audience: '4 branches',
-    sentAt: 'Yesterday',
-    status: 'partially_failed',
-    delivered: 1890,
-    recipients: 2014,
-  },
-  {
-    id: '5',
-    title: 'Condolence message',
-    audience: 'Branch executives',
-    sentAt: 'Mon',
-    status: 'draft',
-    delivered: 0,
-    recipients: 64,
-  },
-];
-
 export function BroadcastsScreen() {
+  const collapsing = useCollapsingTitle('Broadcasts', { header: 'tab' });
   const theme = useTheme();
   const canDraft = useHasPermission('broadcast.draft');
   const [filter, setFilter] = useState<Filter>('all');
 
   const items = useMemo(() => {
     const statuses = FILTERS.find((f) => f.key === filter)?.statuses;
-    return statuses ? BROADCASTS.filter((b) => statuses.includes(b.status)) : BROADCASTS;
+    return statuses
+      ? DEMO_BROADCASTS.filter((broadcast) => statuses.includes(broadcast.status))
+      : DEMO_BROADCASTS;
   }, [filter]);
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-background">
-      <FlatList
+    <>
+      <Animated.FlatList<BroadcastSummary>
         data={items}
+        onScroll={collapsing.onScroll}
+        scrollEventThrottle={16}
+        onLayout={collapsing.onLayout}
+        className="flex-1 bg-background"
         keyExtractor={(item) => item.id}
         contentContainerStyle={{
           width: '100%',
           maxWidth: MaxContentWidth,
           alignSelf: 'center',
+          minHeight: collapsing.minHeight,
           paddingHorizontal: 20,
-          paddingBottom: 120,
+          paddingBottom: canDraft ? 104 : 24,
         }}
         ListHeaderComponent={
-          <View className="gap-4 pb-2 pt-4">
-            <View className="gap-1">
-              <Text
-                accessibilityRole="header"
-                className="font-sans-extrabold text-4xl leading-tight text-foreground"
-              >
-                Broadcasts
-              </Text>
-              <Text variant="bodyMuted">Drafts, approvals and everything you’ve sent.</Text>
-            </View>
+          <View>
+            {collapsing.largeTitle}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={{ marginHorizontal: -20 }}
-              contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8, gap: 8 }}
             >
               {FILTERS.map((f) => (
                 <Chip
@@ -123,33 +77,42 @@ export function BroadcastsScreen() {
           </View>
         }
         renderItem={({ item, index }) => (
-          <BroadcastRow
-            broadcast={item}
-            isLast={index === items.length - 1}
-            onPress={() => router.push({ pathname: '/broadcasts/[id]', params: { id: item.id } })}
-          />
+          <Animated.View entering={enterRow(index)}>
+            <BroadcastRow
+              broadcast={item}
+              isLast={index === items.length - 1}
+              onPress={() => router.push({ pathname: '/broadcasts/[id]', params: { id: item.id } })}
+            />
+          </Animated.View>
         )}
         ListEmptyComponent={
           <View className="items-center gap-3 py-16">
             <View className="h-14 w-14 items-center justify-center rounded-full bg-muted">
               <Inbox size={24} color={theme.mutedForeground} />
             </View>
-            <Text variant="bodyMuted">Nothing here yet.</Text>
+            <Text variant="bodyMuted">
+              {filter === 'all'
+                ? 'No broadcasts yet.'
+                : `No ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} broadcasts.`}
+            </Text>
           </View>
         }
       />
+      {collapsing.bar}
 
       {canDraft ? (
         <View pointerEvents="box-none" className="absolute bottom-5 right-5">
           <Button
-            label="New broadcast"
-            icon={Plus}
+            label="New"
+            accessibilityLabel="New broadcast"
+            icon={SquarePen}
             variant="accent"
             size="lg"
+            shape="pill"
             onPress={() => router.push('/broadcasts/new')}
           />
         </View>
       ) : null}
-    </SafeAreaView>
+    </>
   );
 }

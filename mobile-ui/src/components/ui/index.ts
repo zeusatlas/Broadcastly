@@ -21,3 +21,5 @@ export { SearchField, type SearchFieldProps } from './SearchField';
 export { ListCard, type ListCardProps } from './ListCard';
 export { StatTile, type StatTileProps } from './StatTile';
 export { QueryState, type QueryStateProps } from './QueryState';
+export { FigureRow, type Figure } from './FigureRow';
+export { PageSection } from './PageSection';

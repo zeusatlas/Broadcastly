@@ -4,17 +4,19 @@ import { Pressable, View } from 'react-native';
 
 import { Text } from '@/components/ui';
 import { useTheme } from '@/hooks/use_theme';
+import { cn } from '@/utils/helpers';
 
 interface ComposeSectionProps {
   step: number;
   title: string;
+  className?: string;
   children: ReactNode;
 }
 
 // Numbered step on the compose screen; plain, no card, so the page reads top to bottom.
-export function ComposeSection({ step, title, children }: ComposeSectionProps) {
+export function ComposeSection({ step, title, className, children }: ComposeSectionProps) {
   return (
-    <View className="mt-8 gap-3">
+    <View className={cn('mt-6 gap-3', className)}>
       <View className="flex-row items-center gap-2.5">
         <View className="h-7 w-7 items-center justify-center rounded-full bg-primary">
           <Text className="font-sans-bold text-sm text-primary-foreground">{step}</Text>

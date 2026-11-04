@@ -1,7 +1,9 @@
 import type { PropsWithChildren } from 'react';
 import { ScrollView, View, type ScrollViewProps } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
+import { enterContent } from '@/constants/motion';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { cn } from '@/utils/helpers';
 
@@ -10,8 +12,8 @@ type ScreenProps = PropsWithChildren<{
   className?: string;
 }>;
 
-// Screens inside the tab navigator omit 'bottom' — the tab bar already covers it.
-const DEFAULT_EDGES: readonly Edge[] = ['top', 'left', 'right'];
+// The native header covers the top and the tab bar the bottom; pass edges only for headerless screens.
+const DEFAULT_EDGES: readonly Edge[] = ['left', 'right'];
 
 export function Screen({ edges = DEFAULT_EDGES, className, children }: ScreenProps) {
   return (
@@ -25,27 +27,29 @@ export function Screen({ edges = DEFAULT_EDGES, className, children }: ScreenPro
   );
 }
 
+// The scroll view is the root so tab headers sit directly above it, with no extra top padding.
 export function ScrollScreen({
-  edges = DEFAULT_EDGES,
   className,
   contentContainerStyle,
   children,
   ...props
-}: ScreenProps & ScrollViewProps) {
+}: PropsWithChildren<ScrollViewProps & { className?: string }>) {
   return (
-    <SafeAreaView edges={edges} className="flex-1 bg-background">
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={[
-          { alignItems: 'center', paddingBottom: BottomTabInset + Spacing.xl },
-          contentContainerStyle,
-        ]}
-        {...props}
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerStyle={[
+        { alignItems: 'center', paddingBottom: BottomTabInset + Spacing.xl },
+        contentContainerStyle,
+      ]}
+      {...props}
+    >
+      <Animated.View
+        entering={enterContent()}
+        className={cn('w-full px-4', className)}
+        style={{ maxWidth: MaxContentWidth }}
       >
-        <View className={cn('w-full px-4', className)} style={{ maxWidth: MaxContentWidth }}>
-          {children}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        {children}
+      </Animated.View>
+    </ScrollView>
   );
 }

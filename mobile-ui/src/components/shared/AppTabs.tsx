@@ -11,6 +11,7 @@ import {
 } from 'lucide-react-native';
 
 import { Colors, Fonts } from '@/constants/theme';
+import { useHeaderOptions } from '@/hooks/use_header_options';
 import { useThemeName } from '@/hooks/use_theme';
 
 export interface TabDefinition {
@@ -34,13 +35,19 @@ export const ADMIN_TABS: TabDefinition[] = [
   { name: 'admins', title: 'Admins', icon: ShieldCheck },
 ];
 
+// Tab bar on the bottom. Home ('index') uses this header with no title and fills its sides itself;
+// every other tab is a TabStack with its own large, collapsing title.
 export function AppTabs({ tabs }: { tabs: TabDefinition[] }) {
   const palette = Colors[useThemeName()];
+  const headerOptions = useHeaderOptions();
 
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
+        ...headerOptions,
+        animation: 'shift',
+        headerLeftContainerStyle: { paddingLeft: 12 },
+        headerRightContainerStyle: { paddingRight: 12 },
         // Gold, not navy: on the dark canvas only gold clears 3:1 against the bar.
         tabBarActiveTintColor: palette.accentEmphasis,
         tabBarInactiveTintColor: palette.mutedForeground,
@@ -48,7 +55,7 @@ export function AppTabs({ tabs }: { tabs: TabDefinition[] }) {
           backgroundColor: palette.background,
           borderTopColor: palette.border,
         },
-        tabBarLabelStyle: { fontSize: 10, fontFamily: Fonts.medium },
+        tabBarLabelStyle: { fontSize: 11, fontFamily: Fonts.medium },
       }}
     >
       {tabs.map(({ name, title, icon: Icon }) => (
@@ -57,7 +64,9 @@ export function AppTabs({ tabs }: { tabs: TabDefinition[] }) {
           name={name}
           options={{
             title,
-            tabBarIcon: ({ color, size }) => <Icon color={color} size={size - 4} />,
+            headerShown: name === 'index',
+            headerTitle: '',
+            tabBarIcon: ({ color, size }) => <Icon color={color} size={size - 2} />,
           }}
         />
       ))}

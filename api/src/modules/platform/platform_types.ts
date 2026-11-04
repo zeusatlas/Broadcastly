@@ -1,4 +1,7 @@
 import type { PageParams } from '../../common/http/pagination';
+import type { PeriodParams } from '../../common/http/period';
+import type { BroadcastStatus } from '../broadcasts';
+import type { WalletBalanceResponse } from '../credits';
 import type { CreateExecutiveRequest, ExecutiveStatus, PlatformAdminStatus } from '../auth';
 import type { OrganisationStatus } from '../organisation';
 
@@ -48,11 +51,16 @@ export interface OrganisationExecutiveResponse {
   status: ExecutiveStatus;
   // Titles of the positions they hold now, e.g. ["Constituency Organiser"].
   positions: string[];
+  // Their own wallet; 0 until credits are allocated to them.
+  creditBalance: number;
   lastSignInAt: Date | null;
   createdAt: Date;
 }
 
-export interface ChairmanResponse extends Omit<OrganisationExecutiveResponse, 'positions'> {
+export interface ChairmanResponse extends Omit<
+  OrganisationExecutiveResponse,
+  'positions' | 'creditBalance'
+> {
   appointmentId: string;
   appointedAt: Date;
 }
@@ -62,6 +70,8 @@ export interface OrganisationResponse {
   name: string;
   type: string;
   status: OrganisationStatus;
+  logoUrl: string | null;
+  credits: WalletBalanceResponse;
   chairman: ChairmanResponse | null;
   memberCount: number;
   executiveCount: number;
@@ -71,10 +81,38 @@ export interface OrganisationResponse {
 
 export interface PlatformOverviewResponse {
   organisations: number;
+  suspendedOrganisations: number;
   organisationsWithoutChairman: number;
   members: number;
   activeChairmen: number;
   activeExecutives: number;
   suspendedExecutives: number;
   platformAdmins: number;
+  // Completed purchases only, all time; /platform/purchases/summary takes a period.
+  creditsPurchased: number;
+  amountPaidPesewas: number;
+  pendingPurchases: number;
+  failedPurchases: number;
+}
+
+export interface ListBroadcastsRequest extends PageParams, PeriodParams {
+  organisationId?: string;
+  status?: BroadcastStatus;
+  search?: string;
+}
+
+export type ListOrganisationBroadcastsRequest = Omit<ListBroadcastsRequest, 'organisationId'>;
+
+export interface ListPlatformPurchasesRequest extends PageParams, PeriodParams {
+  organisationId?: string;
+  status?: 'pending' | 'completed' | 'failed';
+}
+
+export type ListOrganisationCreditTransactionsRequest = PageParams & PeriodParams;
+
+export interface PurchaseSummaryResponse {
+  creditsPurchased: number;
+  amountPaidPesewas: number;
+  pendingPurchases: number;
+  failedPurchases: number;
 }

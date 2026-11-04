@@ -101,7 +101,7 @@ export const organisationRepository = {
   // Row lock: concurrent appointments to the same organisation wait for each other.
   lockOrganisation(organisationId: string, manager: EntityManager) {
     return manager.getRepository(Organisation).findOne({
-      select: { id: true, status: true },
+      select: { id: true, status: true, logoPath: true },
       where: { id: organisationId },
       lock: { mode: 'pessimistic_write' },
     });

@@ -23,4 +23,8 @@ export class Organisation extends BaseEntity {
     default: 'active',
   })
   status: OrganisationStatus;
+
+  // Relative to UPLOADS_DIR, e.g. "organisation-logos/<uuid>.png"; the API returns a full logoUrl.
+  @Column({ type: 'varchar', length: 255, name: 'logo_path', nullable: true })
+  logoPath: string | null;
 }

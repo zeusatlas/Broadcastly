@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import {
   Bell,
   BriefcaseBusiness,
@@ -12,13 +12,13 @@ import {
 } from 'lucide-react-native';
 import { View } from 'react-native';
 
-import { HeaderButton, HomeHeader } from '@/components/shared';
+import { HeaderButton, ProfileButton } from '@/components/shared';
 import { QueryState, ScrollScreen, StatTile, Text } from '@/components/ui';
 import { GATED_ROUTES } from '@/constants/routes';
 import { useAccess, useCurrentUser, type AccessRule } from '@/features/auth';
 import { useReadOrganisationOverviewQuery } from '@/features/organisation';
 
-import { QuickActions, type QuickAction } from '../components';
+import { CreditBalanceCard, QuickActions, type QuickAction } from '../components';
 
 const QUICK_ACTIONS: (QuickAction & { route: string })[] = [
   {
@@ -74,35 +74,33 @@ export function DashboardScreen() {
   const totals = overview.data;
   const quickActions = QUICK_ACTIONS.filter((a) => isRouteAllowed(a.route, access.check));
   const openOrganisation = () => router.push('/organisation');
-
-  const appointment = user?.appointments[0];
-  const scopeName =
-    appointment?.unitName ?? appointment?.organisationName ?? user?.organisation?.name;
+  const role = user?.appointments[0]?.positionTitle ?? 'Executive';
 
   return (
-    <ScrollScreen className="gap-8 pt-2">
-      <View className="gap-2">
-        <HomeHeader
-          avatarName={user?.fullName ?? ''}
-          trailing={
+    <ScrollScreen className="gap-7 pt-4">
+      <Tabs.Screen
+        options={{
+          headerLeft: () => <ProfileButton name={user?.fullName ?? ''} />,
+          headerRight: () => (
             <HeaderButton
               icon={Bell}
               label="Notifications"
-              isPlain
-              iconSize={20}
               onPress={() => router.push('/notifications')}
             />
-          }
-        />
-        {/* {appointment ? (
-          <Text variant="bodyMuted" numberOfLines={1}>
-            {appointment.positionTitle} · {scopeName}
-          </Text>
-        ) : null} */}
-      </View>
+          ),
+        }}
+      />
+      <CreditBalanceCard
+        organisationName={user?.organisation?.name ?? 'Your organisation'}
+        role={role}
+        onPress={() => router.push('/credits')}
+      />
 
       {canManage ? (
         <View className="gap-3">
+          <Text className="font-sans-semibold text-xs uppercase tracking-widest text-muted-foreground">
+            Organisation overview
+          </Text>
           <View className="flex-row gap-3">
             <StatTile
               label="Members"
@@ -136,7 +134,7 @@ export function DashboardScreen() {
             />
           </View>
           <QueryState
-            isLoading={false}
+            isLoading={overview.isLoading}
             error={overview.error}
             isEmpty={false}
             emptyText=""
@@ -145,7 +143,14 @@ export function DashboardScreen() {
         </View>
       ) : null}
 
-      {quickActions.length > 0 ? <QuickActions actions={quickActions} /> : null}
+      {quickActions.length > 0 ? (
+        <View className="gap-3">
+          <Text className="font-sans-semibold text-xs uppercase tracking-widest text-muted-foreground">
+            Quick actions
+          </Text>
+          <QuickActions actions={quickActions} />
+        </View>
+      ) : null}
     </ScrollScreen>
   );
 }

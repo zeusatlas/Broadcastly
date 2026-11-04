@@ -13,6 +13,7 @@ export const PERMISSIONS = [
   'member.manage',
   'member.import',
   'credit.allocate',
+  'credit.purchase',
   'appointment.manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

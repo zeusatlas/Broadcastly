@@ -3,12 +3,19 @@ import { z } from 'zod';
 import '../../config/openapi';
 
 import { pageQuerySchema } from '../../common/http/pagination';
+import { checkPeriod, periodQueryShape } from '../../common/http/period';
 import { createExecutiveSchema, EXECUTIVE_STATUSES, PLATFORM_ADMIN_STATUSES } from '../auth';
+import { BROADCAST_STATUSES } from '../broadcasts';
+import { CREDIT_PURCHASE_STATUSES, walletBalanceSchema } from '../credits';
 import { ORGANISATION_STATUSES } from '../organisation';
 
 import type {
   AppointChairmanRequest,
   CreateOrganisationRequest,
+  ListBroadcastsRequest,
+  ListOrganisationBroadcastsRequest,
+  ListOrganisationCreditTransactionsRequest,
+  ListPlatformPurchasesRequest,
   ListOrganisationExecutivesRequest,
   ListOrganisationsRequest,
   ListPlatformAdminsRequest,
@@ -57,6 +64,37 @@ export const listOrganisationExecutivesSchema = pageQuerySchema.extend({
   status: z.enum(EXECUTIVE_STATUSES).optional(),
 }) satisfies z.ZodType<ListOrganisationExecutivesRequest>;
 
+export const listBroadcastsSchema = pageQuerySchema
+  .extend({
+    organisationId: z.uuid('Not a valid organisation id.').optional(),
+    status: z.enum(BROADCAST_STATUSES).optional(),
+    search: searchSchema,
+    ...periodQueryShape,
+  })
+  .superRefine(checkPeriod) satisfies z.ZodType<ListBroadcastsRequest>;
+
+export const listOrganisationBroadcastsSchema = pageQuerySchema
+  .extend({
+    status: z.enum(BROADCAST_STATUSES).optional(),
+    search: searchSchema,
+    ...periodQueryShape,
+  })
+  .superRefine(checkPeriod) satisfies z.ZodType<ListOrganisationBroadcastsRequest>;
+
+export const listPlatformPurchasesSchema = pageQuerySchema
+  .extend({
+    organisationId: z.uuid('Not a valid organisation id.').optional(),
+    status: z.enum(CREDIT_PURCHASE_STATUSES).optional(),
+    ...periodQueryShape,
+  })
+  .superRefine(checkPeriod) satisfies z.ZodType<ListPlatformPurchasesRequest>;
+
+export const listOrganisationCreditTransactionsSchema = pageQuerySchema
+  .extend(periodQueryShape)
+  .superRefine(checkPeriod) satisfies z.ZodType<ListOrganisationCreditTransactionsRequest>;
+
+export const periodQuerySchema = z.object(periodQueryShape).superRefine(checkPeriod);
+
 export const appointChairmanSchema = createExecutiveSchema
   .omit({ organisationId: true })
   .openapi('AppointChairmanRequest') satisfies z.ZodType<AppointChairmanRequest>;
@@ -89,6 +127,7 @@ export const organisationExecutiveResponseSchema = z
   .object({
     ...executiveFields,
     positions: z.array(z.string()).openapi({ example: ['Constituency Organiser'] }),
+    creditBalance: z.number().int().openapi({ example: 500 }),
   })
   .openapi('OrganisationExecutiveResponse');
 
@@ -102,6 +141,11 @@ export const organisationResponseSchema = z
     name: z.string().openapi({ example: 'Central Constituency' }),
     type: z.string().openapi({ example: 'constituency' }),
     status: z.enum(ORGANISATION_STATUSES).openapi({ example: 'active' }),
+    logoUrl: z
+      .url()
+      .nullable()
+      .openapi({ example: 'https://api.example.com/uploads/organisation-logos/3f2a.png' }),
+    credits: walletBalanceSchema,
     chairman: chairmanResponseSchema.nullable(),
     memberCount: z.number().int().openapi({ example: 8412 }),
     executiveCount: z.number().int().openapi({ example: 37 }),
@@ -110,14 +154,27 @@ export const organisationResponseSchema = z
   })
   .openapi('OrganisationResponse');
 
+const purchaseSummaryFields = {
+  creditsPurchased: z.number().int().openapi({ example: 250000 }),
+  amountPaidPesewas: z.number().int().openapi({ example: 1000000 }),
+  pendingPurchases: z.number().int().openapi({ example: 2 }),
+  failedPurchases: z.number().int().openapi({ example: 1 }),
+};
+
 export const platformOverviewResponseSchema = z
   .object({
     organisations: z.number().int().openapi({ example: 12 }),
+    suspendedOrganisations: z.number().int().openapi({ example: 1 }),
     organisationsWithoutChairman: z.number().int().openapi({ example: 2 }),
     members: z.number().int().openapi({ example: 96210 }),
     activeChairmen: z.number().int().openapi({ example: 10 }),
     activeExecutives: z.number().int().openapi({ example: 184 }),
     suspendedExecutives: z.number().int().openapi({ example: 3 }),
     platformAdmins: z.number().int().openapi({ example: 2 }),
+    ...purchaseSummaryFields,
   })
   .openapi('PlatformOverviewResponse');
+
+export const purchaseSummaryResponseSchema = z
+  .object(purchaseSummaryFields)
+  .openapi('PurchaseSummaryResponse');
