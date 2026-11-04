@@ -12,15 +12,19 @@ export function AuthSessionGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    void restorePlatformAdminSession().then((isAuthenticated) => {
-      if (!active) return;
-      if (isAuthenticated) {
-        router.replace("/dashboard");
-      } else {
-        setCheckedPath(pathname);
-      }
-    });
-    return () => { active = false; };
+    void restorePlatformAdminSession()
+      .then((isAuthenticated) => {
+        if (!active) return;
+        if (isAuthenticated) router.replace("/dashboard");
+        else setCheckedPath(pathname);
+      })
+      .catch(() => {
+        // Keep the existing local session when the API cannot be reached.
+        if (active) setCheckedPath(pathname);
+      });
+    return () => {
+      active = false;
+    };
   }, [pathname, router]);
 
   if (checkedPath !== pathname) {
@@ -28,7 +32,9 @@ export function AuthSessionGate({ children }: { children: React.ReactNode }) {
       <main className="grid min-h-svh place-items-center bg-[hsl(var(--brand-stone))] p-6 text-foreground">
         <div className="flex flex-col items-center gap-4">
           <BrandMark />
-          <p role="status" className="text-sm text-muted-foreground">Checking your session…</p>
+          <p role="status" className="text-sm text-muted-foreground">
+            Checking your session…
+          </p>
         </div>
       </main>
     );

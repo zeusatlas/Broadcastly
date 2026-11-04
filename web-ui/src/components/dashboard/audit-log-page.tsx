@@ -20,6 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DatePickerWithRange } from "@/components/dashboard/date-range-picker";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   Select,
   SelectContent,
@@ -78,6 +79,7 @@ function makeCsvValue(value: string) {
 
 export default function AuditLogPage() {
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const [actor, setActor] = useState("all");
   const [action, setAction] = useState("all");
   const [organisation, setOrganisation] = useState("all");
@@ -85,7 +87,7 @@ export default function AuditLogPage() {
   const [selectedEvent, setSelectedEvent] = useState<AuditEvent | null>(null);
 
   const filteredEvents = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = debouncedQuery.toLowerCase();
     return events.filter((event) => {
       const eventDate = new Date(event.timestamp);
       const startDate = dateRange?.from
@@ -102,7 +104,7 @@ export default function AuditLogPage() {
         (!startDate || eventDate >= startDate) &&
         (!endDate || eventDate <= endDate);
     });
-  }, [action, actor, dateRange, organisation, query]);
+  }, [action, actor, dateRange, debouncedQuery, organisation]);
 
   function exportCsv() {
     const headings = ["Event ID", "Timestamp", "Administrator", "Role", "Action", "Category", "Organisation", "Summary", "Details", "IP address"];

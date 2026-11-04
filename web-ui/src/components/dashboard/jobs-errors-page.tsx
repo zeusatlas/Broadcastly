@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 type JobState = "Failed" | "Retry queued · preview" | "Processing";
 type Job = {
@@ -82,25 +83,26 @@ function JobStateBadge({ state }: { state: JobState }) {
 export default function JobsErrorsPage() {
   const [jobs, setJobs] = useState(initialJobs);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [retryOpen, setRetryOpen] = useState(false);
   const [notice, setNotice] = useState("");
 
   const visibleJobs = useMemo(() => {
-    const value = query.trim().toLowerCase();
+    const value = debouncedQuery.toLowerCase();
     if (!value) return jobs;
     return jobs.filter((job) =>
       [job.id, job.kind, job.organisation, job.error, job.state].some((field) => field.toLowerCase().includes(value)),
     );
-  }, [jobs, query]);
+  }, [jobs, debouncedQuery]);
 
   const visibleErrors = useMemo(() => {
-    const value = query.trim().toLowerCase();
+    const value = debouncedQuery.toLowerCase();
     if (!value) return integrationErrors;
     return integrationErrors.filter((error) =>
       [error.id, error.service, error.event, error.detail, error.severity].some((field) => field.toLowerCase().includes(value)),
     );
-  }, [query]);
+  }, [debouncedQuery]);
 
   function queueRetryPreview() {
     if (!selectedJob) return;

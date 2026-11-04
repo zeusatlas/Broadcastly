@@ -8,6 +8,7 @@ import { clearTokens, readTokens } from "@/lib/auth-session";
 import { Menu, PanelLeftClose, PanelLeftOpen, X, LogOut } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { platformAdminNavigation } from "@/lib/platform-admin-navigation";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 function AdminNavigation({
   onNavigate,
@@ -75,7 +76,10 @@ function AdminNavigation({
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useLocalStorage(
+    "broadcastly.dashboard.sidebar-collapsed.v1",
+    false,
+  );
   const router = useRouter();
 
   function handleSignOut() {
@@ -191,7 +195,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <AdminNavigation onNavigate={() => setMobileOpen(false)} />
           </div>
         )}
-        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>
       </div>

@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
   Bell,
+  ChevronLeft,
+  ChevronRight,
   FileCog,
   HardDriveUpload,
+  Loader2,
   Mail,
   Plus,
   Save,
   Settings2,
   ShieldCheck,
-  Trash2,
+  TriangleAlert,
   UserRoundPlus,
   UsersRound,
 } from "lucide-react";
@@ -43,23 +47,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useApiResource } from "@/hooks/use-api-resource";
+import { usePagination } from "@/hooks/use-pagination";
+import { ApiError, platformApi } from "@/lib/api";
+import { clearTokens, withAuthenticatedSession } from "@/lib/auth-session";
 
 type AdminRole = "Super Admin" | "Support" | "Finance";
-type TeamMember = {
-  id: string;
-  name: string;
-  email: string;
-  role: AdminRole;
-  status: "Active" | "Invitation pending";
-  self?: boolean;
-};
-
-const initialTeam: TeamMember[] = [
-  { id: "admin-1", name: "Maya Owusu", email: "maya.owusu@example.com", role: "Super Admin", status: "Active", self: true },
-  { id: "admin-2", name: "Daniel Asante", email: "daniel.asante@example.com", role: "Finance", status: "Active" },
-  { id: "admin-3", name: "Leila Mensah", email: "leila.mensah@example.com", role: "Support", status: "Active" },
-  { id: "admin-4", name: "Kwame Badu", email: "kwame.badu@example.com", role: "Support", status: "Invitation pending" },
-];
 
 const initialNotifications = {
   security: true,
@@ -69,18 +62,45 @@ const initialNotifications = {
 };
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [maxFileSize, setMaxFileSize] = useState("25");
   const [maxRows, setMaxRows] = useState("10000");
   const [fileTypes, setFileTypes] = useState({ csv: true, xlsx: true });
   const [notifications, setNotifications] = useState(initialNotifications);
-  const [team, setTeam] = useState(initialTeam);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [removeOpen, setRemoveOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [inviteRole, setInviteRole] = useState<AdminRole>("Support");
   const [notice, setNotice] = useState("");
+  const pagination = usePagination(20);
+  const { page, setPage, updatePageInfo } = pagination;
+  const loadAdmins = useCallback(
+    async () =>
+      (
+        await withAuthenticatedSession((accessToken) =>
+          platformApi.listPlatformAdmins(accessToken, { page, pageSize: 20 }),
+        )
+      ).data,
+    [page],
+  );
+  const handleRequestError = useCallback(
+    (requestError: unknown) => {
+      if (requestError instanceof ApiError && requestError.status === 401) {
+        clearTokens();
+        router.replace("/auth/login");
+        return true;
+      }
+      return false;
+    },
+    [router],
+  );
+  const { data: adminData, error: adminError, isLoading, refresh } = useApiResource(
+    loadAdmins,
+    { errorMessage: "Unable to load platform administrators.", onError: handleRequestError },
+  );
+  const admins = adminData?.items ?? [];
 
-  const superAdminCount = team.filter((member) => member.role === "Super Admin").length;
+  useEffect(() => {
+    if (adminData) updatePageInfo(adminData);
+  }, [adminData, updatePageInfo]);
 
   function savePreview(section: string) {
     setNotice(`${section} saved in this preview. Changes are not connected to a live platform.`);
@@ -92,24 +112,9 @@ export default function SettingsPage() {
     const name = String(formData.get("adminName") ?? "").trim();
     const email = String(formData.get("adminEmail") ?? "").trim();
     if (!name || !email) return;
-    setTeam((current) => [{
-      id: `admin-${Date.now()}`,
-      name,
-      email,
-      role: inviteRole,
-      status: "Invitation pending",
-    }, ...current]);
     event.currentTarget.reset();
     setInviteOpen(false);
-    setNotice(`Invitation prepared for ${email} in this preview. No email was sent.`);
-  }
-
-  function removeAdministrator() {
-    if (!selectedMember) return;
-    setTeam((current) => current.filter((member) => member.id !== selectedMember.id));
-    setNotice(`${selectedMember.name} removed from the preview team. No live access changed.`);
-    setSelectedMember(null);
-    setRemoveOpen(false);
+    setNotice(`Invitation prepared for ${email} as ${inviteRole}. No email was sent.`);
   }
 
   function toggleFileType(type: "csv" | "xlsx", checked: boolean) {
@@ -200,7 +205,7 @@ export default function SettingsPage() {
               <SheetHeader className="border-b border-border p-6 pr-14"><div className="mb-3 grid size-10 place-items-center rounded-xl bg-violet-50 text-violet-700"><UserRoundPlus size={18} /></div><SheetTitle className="text-xl font-bold">Invite a platform administrator</SheetTitle><SheetDescription>Choose an access role and prepare an invitation for the team member.</SheetDescription></SheetHeader>
               <form onSubmit={inviteAdministrator} className="flex flex-1 flex-col">
                 <div className="space-y-5 p-6">
-                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-relaxed text-sky-950">Preview mode: this adds a pending invitation to the list. No email is sent and no access is granted.</div>
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-relaxed text-sky-950">Preview mode: this prepares an invitation message only. No email is sent and no access is granted.</div>
                   <div className="space-y-2"><Label htmlFor="team-admin-name">Full name</Label><Input id="team-admin-name" name="adminName" placeholder="Enter their name" required /></div>
                   <div className="space-y-2"><Label htmlFor="team-admin-email">Email address</Label><Input id="team-admin-email" name="adminEmail" type="email" placeholder="name@example.com" required /></div>
                   <div className="space-y-2"><Label htmlFor="team-admin-role">Role</Label><Select value={inviteRole} onValueChange={(value) => value && setInviteRole(value as AdminRole)}><SelectTrigger id="team-admin-role" className="h-11 w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Super Admin">Super Admin</SelectItem><SelectItem value="Support">Support</SelectItem><SelectItem value="Finance">Finance</SelectItem></SelectContent></Select><p className="text-[10px] leading-relaxed text-muted-foreground">Super Admins can change platform settings and manage the admin team. Support and Finance roles have narrower access.</p></div>
@@ -212,31 +217,59 @@ export default function SettingsPage() {
         </div>
 
         <Card className="overflow-hidden rounded-2xl border-0 bg-card p-0">
+          {adminError ? (
+            <div className="flex flex-col items-start justify-between gap-3 border-b border-destructive/15 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:px-5">
+              <p role="alert" className="flex items-center gap-2 text-sm text-destructive"><TriangleAlert size={16} />{adminError}</p>
+              <Button type="button" size="sm" variant="outline" onClick={refresh}>Try again</Button>
+            </div>
+          ) : null}
           <Table>
-            <TableHeader><TableRow className="bg-[hsl(var(--brand-stone)/.55)] hover:bg-[hsl(var(--brand-stone)/.55)]"><TableHead className="min-w-[240px] pl-5 text-[11px] font-semibold text-muted-foreground">Administrator</TableHead><TableHead className="min-w-[190px] text-[11px] font-semibold text-muted-foreground">Role</TableHead><TableHead className="min-w-[155px] text-[11px] font-semibold text-muted-foreground">Status</TableHead><TableHead className="pr-5 text-right text-[11px] font-semibold text-muted-foreground">Access</TableHead></TableRow></TableHeader>
-            <TableBody>{team.map((member) => {
-              const initials = member.name.split(/\s+/).map((part) => part[0]?.toUpperCase() ?? "").slice(0, 2).join("");
-              const cannotRemove = member.self || (member.role === "Super Admin" && superAdminCount <= 1);
-              return <TableRow key={member.id}>
-                <TableCell className="py-4 pl-5"><div className="flex items-center gap-3"><Avatar className="size-9"><AvatarFallback className="bg-[hsl(var(--brand-stone))] text-[10px] font-bold text-foreground">{initials}</AvatarFallback></Avatar><span className="min-w-0"><span className="block truncate text-xs font-semibold">{member.name}{member.self && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(you)</span>}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{member.email}</span></span></div></TableCell>
-                <TableCell><Badge variant="outline" className={member.role === "Super Admin" ? "border-violet-200 bg-violet-50 text-violet-800" : "border-border bg-background text-foreground/80"}>{member.role}</Badge></TableCell>
-                <TableCell><Badge variant="outline" className={member.status === "Active" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}><span className={`mr-1.5 size-1.5 rounded-full ${member.status === "Active" ? "bg-emerald-500" : "bg-amber-500"}`} />{member.status}</Badge></TableCell>
-                <TableCell className="pr-5 text-right">{cannotRemove ? <span className="text-[10px] text-muted-foreground">Protected</span> : <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-rose-700" onClick={() => { setSelectedMember(member); setRemoveOpen(true); }}><Trash2 size={13} /> Remove</Button>}</TableCell>
-              </TableRow>;
-            })}</TableBody>
+            <TableHeader>
+              <TableRow className="bg-[hsl(var(--brand-stone)/.55)] hover:bg-[hsl(var(--brand-stone)/.55)]">
+                <TableHead className="min-w-[240px] pl-5 text-[11px] font-semibold text-muted-foreground">Administrator</TableHead>
+                <TableHead className="min-w-[170px] text-[11px] font-semibold text-muted-foreground">Role</TableHead>
+                <TableHead className="min-w-[145px] text-[11px] font-semibold text-muted-foreground">Status</TableHead>
+                <TableHead className="min-w-[170px] text-[11px] font-semibold text-muted-foreground">Last sign-in</TableHead>
+                <TableHead className="min-w-[155px] pr-5 text-[11px] font-semibold text-muted-foreground">Added</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && admins.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="h-32 text-center text-xs text-muted-foreground"><span role="status" className="inline-flex items-center gap-2"><Loader2 size={15} className="animate-spin" />Loading platform administrators</span></TableCell></TableRow>
+              ) : admins.map((admin) => {
+                const initials = admin.fullName.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
+                return (
+                  <TableRow key={admin.id}>
+                    <TableCell className="py-4 pl-5">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-9"><AvatarFallback className="bg-[hsl(var(--brand-stone))] text-[10px] font-bold text-foreground">{initials}</AvatarFallback></Avatar>
+                        <span className="min-w-0"><span className="block truncate text-xs font-semibold">{admin.fullName}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{admin.email}</span></span>
+                      </div>
+                    </TableCell>
+                    <TableCell><Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-800">Platform admin</Badge></TableCell>
+                    <TableCell><Badge variant="outline" className={admin.status === "active" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}><span className={`mr-1.5 size-1.5 rounded-full ${admin.status === "active" ? "bg-emerald-500" : "bg-rose-500"}`} />{admin.status === "active" ? "Active" : "Suspended"}</Badge></TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{admin.lastSignInAt ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(admin.lastSignInAt)) : "Never"}</TableCell>
+                    <TableCell className="pr-5 text-xs text-muted-foreground">{new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(admin.createdAt))}</TableCell>
+                  </TableRow>
+                );
+              })}
+              {!isLoading && !adminError && admins.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="h-32 text-center text-xs text-muted-foreground">No platform administrators found.</TableCell></TableRow>
+              ) : null}
+            </TableBody>
           </Table>
-          <div className="flex items-center justify-between border-t border-border px-5 py-3 text-[10px] text-muted-foreground"><span>{team.length} sample team members</span><span>At least one Super Admin must remain</span></div>
+          <div className="flex flex-col gap-3 border-t border-border px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-[10px] text-muted-foreground">Showing {pagination.range.first}–{pagination.range.last} of {pagination.total} platform administrators</span>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={page <= 1 || isLoading} onClick={() => setPage((current) => current - 1)}><ChevronLeft size={14} />Previous</Button>
+              <span aria-live="polite" className="min-w-16 text-center text-[10px] text-muted-foreground">Page {page} of {pagination.totalPages}</span>
+              <Button type="button" size="sm" variant="outline" disabled={!pagination.hasNextPage || isLoading} onClick={() => setPage((current) => current + 1)}>Next<ChevronRight size={14} /></Button>
+            </div>
+          </div>
         </Card>
       </section>
 
-      <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3.5 text-xs leading-relaxed text-sky-950"><FileCog size={16} className="mt-0.5 shrink-0" /><p>Settings and team changes are local preview data. Production role changes, invitations, and configuration updates should be permission-checked and recorded in the audit log.</p></div>
-
-      <Sheet open={removeOpen} onOpenChange={(open) => { setRemoveOpen(open); if (!open) setSelectedMember(null); }}>
-        <SheetContent side="right" className="w-[min(100vw,34rem)] gap-0 p-0">
-          <SheetHeader className="border-b border-border p-6 pr-14"><div className="mb-3 grid size-10 place-items-center rounded-xl bg-rose-50 text-rose-700"><Trash2 size={18} /></div><SheetTitle className="text-xl font-bold">Remove administrator?</SheetTitle><SheetDescription>They will no longer have access to the platform admin workspace.</SheetDescription></SheetHeader>
-          {selectedMember && <div className="space-y-5 p-6"><div className="rounded-xl bg-[hsl(var(--brand-stone))] p-4"><p className="text-sm font-semibold">{selectedMember.name}</p><p className="mt-1 text-xs text-muted-foreground">{selectedMember.email} · {selectedMember.role}</p></div><p className="text-xs leading-relaxed text-muted-foreground">This preview removes the person from the visible team list only. It does not change live access.</p><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => { setRemoveOpen(false); setSelectedMember(null); }}>Cancel</Button><Button variant="destructive" onClick={removeAdministrator} className="gap-2"><Trash2 size={14} /> Remove from preview</Button></div></div>}
-        </SheetContent>
-      </Sheet>
+      <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3.5 text-xs leading-relaxed text-sky-950"><FileCog size={16} className="mt-0.5 shrink-0" /><p>The administrator table is loaded from the platform API. Other settings and invitation controls on this page are local preview data.</p></div>
     </div>
   );
 }

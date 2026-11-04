@@ -1,17 +1,21 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  BadgeCheck,
   Banknote,
   Check,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
   FileClock,
+  Loader2,
   Plus,
   Search,
   ShieldCheck,
+  TriangleAlert,
   WalletCards,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -43,16 +47,12 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { organisations } from "@/lib/organisations";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useApiResource } from "@/hooks/use-api-resource";
+import { usePagination } from "@/hooks/use-pagination";
+import { ApiError, platformApi, type PlatformPurchaseStatus } from "@/lib/api";
+import { clearTokens, withAuthenticatedSession } from "@/lib/auth-session";
 
-type PaymentStatus = "Successful" | "Pending verification" | "Failed" | "Verified · preview";
-type Payment = {
-  id: string;
-  reference: string;
-  organisation: string;
-  amount: number;
-  date: string;
-  status: PaymentStatus;
-};
 type LedgerKind = "Purchase" | "Allocation" | "Reservation" | "Consumption" | "Refund" | "Reversal" | "Adjustment";
 type LedgerEntry = {
   id: string;
@@ -64,15 +64,6 @@ type LedgerEntry = {
   date: string;
   reason?: string;
 };
-
-const initialPayments: Payment[] = [
-  { id: "p-1", reference: "PAY-8F29-1047", organisation: "Northstar Community", amount: 1250, date: "Today, 11:42", status: "Successful" },
-  { id: "p-2", reference: "PAY-8F29-1021", organisation: "BrightPath Foundation", amount: 680, date: "Today, 10:18", status: "Pending verification" },
-  { id: "p-3", reference: "PAY-8F28-9983", organisation: "Riverside Association", amount: 420, date: "Today, 09:06", status: "Successful" },
-  { id: "p-4", reference: "PAY-8F28-9844", organisation: "Open Hands Collective", amount: 250, date: "Yesterday, 17:34", status: "Failed" },
-  { id: "p-5", reference: "PAY-8F28-9701", organisation: "Northstar Community", amount: 940, date: "Yesterday, 15:12", status: "Pending verification" },
-  { id: "p-6", reference: "PAY-8F27-9533", organisation: "BrightPath Foundation", amount: 560, date: "28 Oct 2026, 14:22", status: "Successful" },
-];
 
 const initialLedger: LedgerEntry[] = [
   { id: "l-1", organisation: "Northstar Community", type: "Purchase", description: "Credit bundle purchase", reference: "PAY-8F29-1047", quantity: 12500, date: "Today, 11:43" },
@@ -87,58 +78,101 @@ const initialLedger: LedgerEntry[] = [
 const currency = new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS", maximumFractionDigits: 2 });
 const creditCount = new Intl.NumberFormat("en");
 
-function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
-  const styles: Record<PaymentStatus, string> = {
-    Successful: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    "Pending verification": "border-amber-200 bg-amber-50 text-amber-800",
-    Failed: "border-rose-200 bg-rose-50 text-rose-800",
-    "Verified · preview": "border-sky-200 bg-sky-50 text-sky-800",
+function PurchaseStatusBadge({ status }: { status: PlatformPurchaseStatus }) {
+  const styles: Record<PlatformPurchaseStatus, string> = {
+    completed: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    pending: "border-amber-200 bg-amber-50 text-amber-800",
+    failed: "border-rose-200 bg-rose-50 text-rose-800",
   };
-  return <Badge variant="outline" className={styles[status]}>{status}</Badge>;
+  const label = status === "completed" ? "Completed" : status === "pending" ? "Pending" : "Failed";
+  return <Badge variant="outline" className={styles[status]}>{label}</Badge>;
 }
 
-const summary = [
-  { label: "Purchases today", value: "36", note: `${currency.format(18450)} in sample transactions`, icon: Banknote, tone: "bg-emerald-50 text-emerald-700" },
-  { label: "Pending verification", value: "2", note: "Provider confirmation required", icon: FileClock, tone: "bg-amber-50 text-amber-800" },
-  { label: "Credits issued today", value: "84,260", note: "Across successful purchases", icon: WalletCards, tone: "bg-sky-50 text-sky-700" },
+function formatPurchaseDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Date unavailable"
+    : new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+const summaryCards = [
+  { label: "Purchases today", icon: Banknote, tone: "bg-emerald-50 text-emerald-700" },
+  { label: "Pending purchases", icon: FileClock, tone: "bg-amber-50 text-amber-800" },
+  { label: "Credits purchased today", icon: WalletCards, tone: "bg-sky-50 text-sky-700" },
 ];
 
 export function CreditsPaymentsPage() {
-  const [payments, setPayments] = useState(initialPayments);
+  const router = useRouter();
   const [ledger, setLedger] = useState(initialLedger);
   const [query, setQuery] = useState("");
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
-  const [verifyOpen, setVerifyOpen] = useState(false);
+  const debouncedQuery = useDebouncedValue(query.trim(), 300);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustDirection, setAdjustDirection] = useState("credit");
   const [selectedOrganisation, setSelectedOrganisation] = useState(organisations[0]?.name ?? "");
   const [notice, setNotice] = useState("");
+  const pagination = usePagination(10);
+  const { page, setPage, updatePageInfo } = pagination;
+
+  const loadTodayPurchases = useCallback(
+    async () =>
+      withAuthenticatedSession(async (accessToken) => {
+        const [summaryResponse, purchasesResponse] = await Promise.all([
+          platformApi.getPurchaseSummary(accessToken, "today"),
+          platformApi.listPurchases(accessToken, {
+            page,
+            pageSize: 10,
+            period: "today",
+          }),
+        ]);
+        return {
+          summary: summaryResponse.data,
+          purchases: purchasesResponse.data,
+        };
+      }),
+    [page],
+  );
+  const handleRequestError = useCallback(
+    (requestError: unknown) => {
+      if (requestError instanceof ApiError && requestError.status === 401) {
+        clearTokens();
+        router.replace("/auth/login");
+        return true;
+      }
+      return false;
+    },
+    [router],
+  );
+  const {
+    data: purchaseData,
+    error: purchaseError,
+    isLoading: isPurchasesLoading,
+    refresh: refreshPurchases,
+  } = useApiResource(loadTodayPurchases, {
+    errorMessage: "Unable to load today's purchases.",
+    onError: handleRequestError,
+  });
+  const todayPurchases = purchaseData?.purchases.items;
+
+  useEffect(() => {
+    if (purchaseData) updatePageInfo(purchaseData.purchases);
+  }, [purchaseData, updatePageInfo]);
 
   const visiblePayments = useMemo(() => {
-    const value = query.trim().toLowerCase();
-    if (!value) return payments;
-    return payments.filter((payment) =>
-      [payment.reference, payment.organisation, payment.status].some((field) => field.toLowerCase().includes(value)),
+    const value = debouncedQuery.toLowerCase();
+    const purchases = todayPurchases ?? [];
+    if (!value) return purchases;
+    return purchases.filter((purchase) =>
+      [purchase.reference, purchase.organisationName, purchase.status].some((field) => field.toLowerCase().includes(value)),
     );
-  }, [payments, query]);
+  }, [todayPurchases, debouncedQuery]);
 
   const visibleLedger = useMemo(() => {
-    const value = query.trim().toLowerCase();
+    const value = debouncedQuery.toLowerCase();
     if (!value) return ledger;
     return ledger.filter((entry) =>
       [entry.organisation, entry.type, entry.description, entry.reference, entry.reason ?? ""].some((field) => field.toLowerCase().includes(value)),
     );
-  }, [ledger, query]);
-
-  function previewVerify() {
-    if (!selectedPayment) return;
-    setPayments((current) => current.map((payment) =>
-      payment.id === selectedPayment.id ? { ...payment, status: "Verified · preview" } : payment,
-    ));
-    setSelectedPayment(null);
-    setVerifyOpen(false);
-    setNotice("Preview verification recorded. No live provider was contacted and no credits were issued.");
-  }
+  }, [ledger, debouncedQuery]);
 
   function recordAdjustment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -164,6 +198,26 @@ export function CreditsPaymentsPage() {
     event.currentTarget.reset();
   }
 
+  const purchaseSummary = [
+    {
+      ...summaryCards[0],
+      value: purchaseData ? creditCount.format(purchaseData.purchases.total) : isPurchasesLoading ? "…" : "—",
+      note: purchaseData
+        ? `${currency.format(purchaseData.summary.amountPaidPesewas / 100)} paid from completed purchases`
+        : "All purchase statuses for today",
+    },
+    {
+      ...summaryCards[1],
+      value: purchaseData ? creditCount.format(purchaseData.summary.pendingPurchases) : isPurchasesLoading ? "…" : "—",
+      note: "Awaiting payment completion",
+    },
+    {
+      ...summaryCards[2],
+      value: purchaseData ? creditCount.format(purchaseData.summary.creditsPurchased) : isPurchasesLoading ? "…" : "—",
+      note: "Credits from completed purchases today",
+    },
+  ];
+
   return (
     <div className="mx-auto max-w-[1280px] space-y-7">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -182,8 +236,17 @@ export function CreditsPaymentsPage() {
         </div>
       )}
 
+      {purchaseError ? (
+        <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 sm:flex-row sm:items-center">
+          <p role="alert" className="flex items-center gap-2 text-xs text-destructive">
+            <TriangleAlert size={15} />{purchaseError}
+          </p>
+          <Button type="button" size="sm" variant="outline" onClick={refreshPurchases}>Try again</Button>
+        </div>
+      ) : null}
+
       <section aria-label="Credit and payment summary" className="grid gap-4 md:grid-cols-3">
-        {summary.map(({ label, value, note, icon: Icon, tone }) => (
+        {purchaseSummary.map(({ label, value, note, icon: Icon, tone }) => (
           <Card key={label} className="rounded-2xl border-0 bg-card p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -212,40 +275,43 @@ export function CreditsPaymentsPage() {
 
           <TabsContent value="payments" className="mt-0">
             <div className="border-b border-border px-5 py-3">
-              <p className="text-xs text-muted-foreground">Verify pending purchases with the payment provider before issuing credits.</p>
+              <p className="text-xs text-muted-foreground">Purchases created today, newest first.</p>
             </div>
             <Table>
               <TableHeader>
                 <TableRow className="bg-[hsl(var(--brand-stone)/.55)] hover:bg-[hsl(var(--brand-stone)/.55)]">
                   <TableHead className="min-w-[185px] pl-5 text-[11px] font-semibold text-muted-foreground">Provider reference</TableHead>
                   <TableHead className="min-w-[190px] text-[11px] font-semibold text-muted-foreground">Organisation</TableHead>
+                  <TableHead className="text-right text-[11px] font-semibold text-muted-foreground">Credits</TableHead>
                   <TableHead className="text-right text-[11px] font-semibold text-muted-foreground">Amount</TableHead>
                   <TableHead className="min-w-[155px] text-[11px] font-semibold text-muted-foreground">Status</TableHead>
-                  <TableHead className="min-w-[130px] text-[11px] font-semibold text-muted-foreground">Date</TableHead>
-                  <TableHead className="pr-5 text-right text-[11px] font-semibold text-muted-foreground">Action</TableHead>
+                  <TableHead className="min-w-[170px] pr-5 text-[11px] font-semibold text-muted-foreground">Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visiblePayments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell className="py-4 pl-5 font-mono text-[11px] font-medium">{payment.reference}</TableCell>
-                    <TableCell className="text-xs font-medium">{payment.organisation}</TableCell>
-                    <TableCell className="text-right text-xs font-semibold tabular-nums">{currency.format(payment.amount)}</TableCell>
-                    <TableCell><PaymentStatusBadge status={payment.status} /></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{payment.date}</TableCell>
-                    <TableCell className="pr-5 text-right">
-                      {payment.status === "Pending verification" ? (
-                        <Button size="sm" variant="outline" onClick={() => { setSelectedPayment(payment); setVerifyOpen(true); }}>Verify</Button>
-                      ) : payment.status === "Verified · preview" ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-700"><BadgeCheck size={14} /> Preview</span>
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                    </TableCell>
+                {isPurchasesLoading && visiblePayments.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground"><span role="status" className="inline-flex items-center gap-2"><Loader2 size={15} className="animate-spin" />Loading today’s purchases</span></TableCell></TableRow>
+                ) : visiblePayments.map((purchase) => (
+                  <TableRow key={purchase.id}>
+                    <TableCell className="py-4 pl-5 font-mono text-[11px] font-medium">{purchase.reference}</TableCell>
+                    <TableCell className="text-xs font-medium">{purchase.organisationName}</TableCell>
+                    <TableCell className="text-right text-xs font-semibold tabular-nums">{creditCount.format(purchase.credits)}</TableCell>
+                    <TableCell className="text-right text-xs font-semibold tabular-nums">{currency.format(purchase.amountPesewas / 100)}</TableCell>
+                    <TableCell><PurchaseStatusBadge status={purchase.status} /></TableCell>
+                    <TableCell className="pr-5 text-xs text-muted-foreground">{formatPurchaseDate(purchase.createdAt)}</TableCell>
                   </TableRow>
                 ))}
-                {visiblePayments.length === 0 && <TableRow><TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground">No payment records match this search.</TableCell></TableRow>}
+                {!isPurchasesLoading && visiblePayments.length === 0 && <TableRow><TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground">{query ? "No purchases on this page match the search." : "No purchases have been made today."}</TableCell></TableRow>}
               </TableBody>
             </Table>
-            <div className="border-t border-border px-5 py-3 text-[10px] text-muted-foreground">{visiblePayments.length} sample payment records · provider verification is not connected</div>
+            <div className="flex flex-col gap-3 border-t border-border px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[10px] text-muted-foreground">{pagination.range.first}–{pagination.range.last} of {creditCount.format(pagination.total)} purchases today · API data</p>
+              <div className="flex items-center gap-2">
+                <Button type="button" size="sm" variant="outline" disabled={page <= 1 || isPurchasesLoading} onClick={() => setPage((current) => current - 1)}><ChevronLeft size={14} />Previous</Button>
+                <span aria-live="polite" className="min-w-16 text-center text-[10px] text-muted-foreground">Page {page} of {pagination.totalPages}</span>
+                <Button type="button" size="sm" variant="outline" disabled={!pagination.hasNextPage || isPurchasesLoading} onClick={() => setPage((current) => current + 1)}>Next<ChevronRight size={14} /></Button>
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="ledger" className="mt-0">
@@ -291,25 +357,6 @@ export function CreditsPaymentsPage() {
         <ShieldCheck size={17} className="mt-0.5 shrink-0" />
         <p><span className="font-semibold">Payment safety:</span> a server-side provider confirmation is required before credits are added. Preview actions on this page do not contact the provider or change organisation balances.</p>
       </div>
-
-      <Sheet open={verifyOpen} onOpenChange={setVerifyOpen}>
-        <SheetContent side="right" className="w-[min(100vw,34rem)] gap-0 p-0">
-          <SheetHeader className="border-b border-border p-6 pr-14">
-            <div className="mb-3 grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-800"><ShieldCheck size={19} /></div>
-            <SheetTitle className="text-xl font-bold">Verify payment</SheetTitle>
-            <SheetDescription>Confirm the provider reference and amount before credits are issued.</SheetDescription>
-          </SheetHeader>
-          {selectedPayment && <div className="space-y-4 p-6">
-            <div className="grid grid-cols-2 gap-3 rounded-xl bg-[hsl(var(--brand-stone))] p-4">
-              <div><p className="text-[10px] text-muted-foreground">Provider reference</p><p className="mt-1 font-mono text-xs font-semibold">{selectedPayment.reference}</p></div>
-              <div><p className="text-[10px] text-muted-foreground">Amount</p><p className="mt-1 text-sm font-bold">{currency.format(selectedPayment.amount)}</p></div>
-              <div className="col-span-2"><p className="text-[10px] text-muted-foreground">Organisation</p><p className="mt-1 text-xs font-semibold">{selectedPayment.organisation}</p></div>
-            </div>
-            <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs leading-relaxed text-sky-950">Preview only: this does not call the payment provider. In production, the server must verify the transaction before posting purchased credits to the ledger.</div>
-            <Button className="w-full gap-2" onClick={previewVerify}><Check size={15} /> Simulate verified response</Button>
-          </div>}
-        </SheetContent>
-      </Sheet>
 
       <Sheet open={adjustOpen} onOpenChange={setAdjustOpen}>
         <SheetContent side="right" className="w-[min(100vw,34rem)] gap-0 overflow-y-auto p-0">
