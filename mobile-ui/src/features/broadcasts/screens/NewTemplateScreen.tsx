@@ -1,8 +1,8 @@
-import { Plus, X } from 'lucide-react-native';
-import { Picker } from '@react-native-picker/picker';
+import { Check, ChevronDown, Plus, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Keyboard, Modal, Pressable, View } from 'react-native';
+import { FlatList, Keyboard, Modal, Pressable, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PageScreen } from '@/components/shared';
 import { Button, Chip, Text, TextField } from '@/components/ui';
@@ -21,7 +21,16 @@ interface TemplateField {
   token: string;
 }
 
-const CATEGORIES = ['Notice', 'Meeting', 'Reminder'];
+const CATEGORIES = [
+  'Announcement',
+  'Reminder',
+  'Event or meeting',
+  'Service update',
+  'Policy or compliance',
+  'Emergency',
+  'Internal communication',
+  'Other',
+];
 const FIELD_TYPES: { key: TemplateFieldType; label: string }[] = [
   { key: 'text', label: 'Text' },
   { key: 'number', label: 'Number' },
@@ -35,6 +44,74 @@ const INITIAL_FIELDS: TemplateField[] = [
   { id: 'meeting-time', label: 'Meeting time', type: 'time', token: '{meeting_time}' },
   { id: 'meeting-location', label: 'Meeting location', type: 'text', token: '{meeting_location}' },
 ];
+
+interface CategorySheetProps {
+  visible: boolean;
+  selected: string;
+  onSelect: (category: string) => void;
+  onClose: () => void;
+}
+
+function CategorySheet({ visible, selected, onSelect, onClose }: CategorySheetProps) {
+  const insets = useSafeAreaInsets();
+  const theme = useTheme();
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View className="flex-1 justify-end bg-backdrop/60">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close category selection"
+          onPress={onClose}
+          className="flex-1"
+        />
+        <View
+          className="max-h-[75%] rounded-t-3xl bg-background px-5 pt-5"
+          style={{ paddingBottom: insets.bottom + 16 }}
+        >
+          <View className="mb-4 flex-row items-center justify-between">
+            <View className="gap-0.5">
+              <Text variant="heading">Select category</Text>
+              <Text variant="caption">Choose the category that best describes the message.</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close category selection"
+              onPress={onClose}
+              className="h-11 w-11 items-center justify-center rounded-full bg-muted"
+            >
+              <X size={20} color={theme.foreground} />
+            </Pressable>
+          </View>
+          <FlatList
+            data={CATEGORIES}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => {
+              const isSelected = item === selected;
+              return (
+                <Pressable
+                  accessibilityRole="radio"
+                  accessibilityLabel={item}
+                  accessibilityState={{ checked: isSelected }}
+                  onPress={() => onSelect(item)}
+                  className="flex-row items-center justify-between border-b border-border py-4 active:opacity-60"
+                >
+                  <Text className="font-sans-semibold text-base text-foreground">{item}</Text>
+                  {isSelected ? <Check size={20} color={theme.accentEmphasis} /> : null}
+                </Pressable>
+              );
+            }}
+            ListEmptyComponent={
+              <Text variant="bodyMuted" className="py-12 text-center">
+                No categories available.
+              </Text>
+            }
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 const fieldsFromTemplate = (template?: TemplateItem): TemplateField[] => {
   if (!template) return INITIAL_FIELDS;
@@ -63,6 +140,7 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
   const [category, setCategory] = useState(template?.category ?? '');
   const [message, setMessage] = useState(template?.message ?? '');
   const [fields, setFields] = useState<TemplateField[]>(() => fieldsFromTemplate(template));
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isFieldOpen, setIsFieldOpen] = useState(false);
   const [fieldName, setFieldName] = useState('');
   const [fieldType, setFieldType] = useState<TemplateFieldType>('text');
@@ -122,20 +200,29 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
 
       <View className="mt-7 gap-3">
         <Text variant="overline">Category</Text>
-        <View className="overflow-hidden rounded-2xl border-2 border-input bg-muted/40">
-          <Picker
-            accessibilityLabel="Select template category"
-            selectedValue={category}
-            onValueChange={(value: string) => setCategory(value)}
-            dropdownIconColor={theme.mutedForeground}
-            style={{ color: category ? theme.foreground : theme.mutedForeground }}
-          >
-            <Picker.Item label="Select a category" value="" color={theme.mutedForeground} />
-            {CATEGORIES.map((option) => (
-              <Picker.Item key={option} label={option} value={option} />
-            ))}
-          </Picker>
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={category ? `Category: ${category}` : 'Select category'}
+          onPress={() => {
+            Keyboard.dismiss();
+            setIsCategoryOpen(true);
+          }}
+          className="min-h-14 flex-row items-center justify-between rounded-2xl border-2 border-input bg-muted/40 px-4 active:opacity-70"
+        >
+          <Text className={category ? 'font-sans-medium text-base text-foreground' : 'font-sans-medium text-base text-muted-foreground'}>
+            {category || 'Select a category'}
+          </Text>
+          <ChevronDown size={20} color={theme.mutedForeground} />
+        </Pressable>
+        <CategorySheet
+          visible={isCategoryOpen}
+          selected={category}
+          onSelect={(value) => {
+            setCategory(value);
+            setIsCategoryOpen(false);
+          }}
+          onClose={() => setIsCategoryOpen(false)}
+        />
       </View>
 
       <TextField
