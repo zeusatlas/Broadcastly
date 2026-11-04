@@ -1,2 +1,2 @@
-// Browsable constituency -> electoral area/branch -> polling station tree (FR-ORG-02). Virtualised.
+// Browsable organisation hierarchy with configurable units and sub-units (FR-ORG-02).
 export {};

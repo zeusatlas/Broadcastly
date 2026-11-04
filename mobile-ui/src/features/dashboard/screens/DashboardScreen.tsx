@@ -80,7 +80,13 @@ export function DashboardScreen() {
     <ScrollScreen className="gap-7 pt-4">
       <Tabs.Screen
         options={{
-          headerLeft: () => <ProfileButton name={user?.fullName ?? ''} />,
+          headerLeft: () => (
+            <ProfileButton
+              name={user?.fullName ?? ''}
+              organisationName={user?.organisation?.name}
+              organisationLogoUrl={user?.organisation?.logoUrl}
+            />
+          ),
           headerRight: () => (
             <HeaderButton
               icon={Bell}

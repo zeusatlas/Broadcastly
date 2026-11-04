@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
-import { Avatar, Button, Card, ConfirmDialog, Text } from '@/components/ui';
+import { Avatar, Button, ConfirmDialog, Text } from '@/components/ui';
 import { useAuthStore, useCurrentUser, useIsAuthSubmitting } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
 import { notify } from '@/lib/notify';
@@ -35,7 +35,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <Text accessibilityRole="header" className="px-1 font-sans-bold text-lg text-foreground">
         {title}
       </Text>
-      <Card className="py-0">{children}</Card>
+      <View>{children}</View>
     </View>
   );
 }

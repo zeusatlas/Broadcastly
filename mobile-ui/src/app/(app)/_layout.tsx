@@ -8,9 +8,32 @@ import { useStackHeaderOptions } from '@/hooks/use_header_options';
 
 // Every route in this group requires a session (guarded in app/_layout.tsx). The role picks the
 // app: platform admins get admin/(tabs), everyone else the executive tabs. UX only; the API re-checks.
-const PAGE_OPTIONS: Record<string, { animation: 'slide_from_bottom'; animationDuration: number }> =
+const PAGE_OPTIONS: Record<
+  string,
+  { animation: 'slide_from_bottom'; animationDuration: number; gestureDirection?: 'vertical' }
+> =
   {
     'broadcasts/new': { animation: 'slide_from_bottom', animationDuration: 450 },
+    'executives/search': {
+      animation: 'slide_from_bottom',
+      animationDuration: 450,
+      gestureDirection: 'vertical',
+    },
+    'executives/new': {
+      animation: 'slide_from_bottom',
+      animationDuration: 450,
+      gestureDirection: 'vertical',
+    },
+    'organisation/unit/new': {
+      animation: 'slide_from_bottom',
+      animationDuration: 450,
+      gestureDirection: 'vertical',
+    },
+    'organisation/position/new': {
+      animation: 'slide_from_bottom',
+      animationDuration: 450,
+      gestureDirection: 'vertical',
+    },
   };
 // The tab groups draw their own header (AppTabs), so the stack hides its one there.
 const TABS = { headerShown: false };

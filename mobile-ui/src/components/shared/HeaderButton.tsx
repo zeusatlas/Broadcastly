@@ -42,7 +42,17 @@ export function HeaderButton({ icon: Icon, label, onPress, badgeCount = 0 }: Hea
   );
 }
 
-export function ProfileButton({ name }: { name: string }) {
+interface ProfileButtonProps {
+  name: string;
+  organisationName?: string | null;
+  organisationLogoUrl?: string | null;
+}
+
+export function ProfileButton({
+  name,
+  organisationName,
+  organisationLogoUrl,
+}: ProfileButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -51,7 +61,12 @@ export function ProfileButton({ name }: { name: string }) {
       hitSlop={8}
       className="h-11 w-11 items-center justify-center active:opacity-70"
     >
-      <Avatar name={name} size="sm" className="border-b-2" />
+      <Avatar
+        name={organisationName ?? name}
+        imageUrl={organisationLogoUrl}
+        size="sm"
+        className="border-b-2"
+      />
     </Pressable>
   );
 }

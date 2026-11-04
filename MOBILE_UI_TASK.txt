@@ -1,0 +1,207 @@
+HEADER SUGGESTION:
+Broadcastly Mobile UI — Finalise and Fix All Required Screens
+
+
+OBJECTIVE:
+Finalize the Broadcastly mobile UI by completing all required screens, fixing
+existing UI issues, and ensuring consistent navigation, styling, responsiveness,
+accessibility, and user experience across the application.
+
+This task is limited to the mobile UI. It does not include API integration
+logic, backend development, database work, or real provider connections.
+
+
+KEY GOALS:
+
+- Complete all required mobile UI screens and routes.
+- Replace blank or unfinished screens with usable UI states.
+- Fix layout, spacing, typography, alignment, and responsive issues.
+- Standardise shared headers, buttons, cards, forms, lists, and navigation.
+- Add loading, empty, error, success, confirmation, and placeholder states.
+- Clearly label unfinished functionality instead of showing misleading demo data.
+- Ensure all interactive controls have accessibility labels and suitable touch targets.
+- Test all screens and navigation flows in Expo Go.
+- Run the mobile UI typecheck, lint, and contrast checks.
+
+
+UI AREAS TO FINALISE:
+
+1. Authentication and onboarding
+   - Sign-in screen
+   - OTP verification screen
+   - Onboarding screens
+   - Error, loading, and validation states
+
+2. Dashboard
+   - Executive dashboard layout
+   - Organisation summary tiles
+   - Quick actions
+   - Profile and notification navigation
+   - Empty and loading states
+
+3. Members
+   - Members list screen
+   - Search and filter presentation
+   - Member detail screen
+   - Member import setup screen
+   - Import preview and duplicate review
+   - Import completion summary
+
+4. Organisation and executives
+   - Organisation overview
+   - Unit structure screen
+   - Positions screen
+   - Executive list and detail screens
+   - Appointment and permission UI states
+   - Suspend, reactivate, and confirmation states
+
+5. Broadcasts
+   - Broadcast list screen
+   - Broadcast status filters
+   - New broadcast composer
+   - Message template selection state
+   - Recipient selection UI
+   - Delivery mode and scheduling UI
+   - Cost estimate and review screen
+   - Send, submit-for-approval, and confirmation states
+   - Broadcast detail screen
+
+6. Approvals
+   - Approval list screen
+   - Approval detail screen
+   - Approve and reject states
+   - Rejection reason UI
+   - Empty, loading, and error states
+
+7. Credits
+   - Credit balance screen
+   - Transaction history and filters
+   - Credit allocation screen
+   - Purchase placeholder state
+   - Confirmation and validation states
+
+8. Reports
+   - Reports placeholder replaced with a complete screen layout
+   - Broadcast history presentation
+   - Delivery summary layout
+   - Delivery status states
+   - Export placeholder state
+
+9. Notifications
+   - Notification list
+   - Read and unread states
+   - Filter controls
+   - Mark-as-read and mark-all-as-read UI states
+   - Empty and loading states
+
+10. Settings, profile, and support
+    - Profile screen
+    - Settings screen
+    - Help and support screen
+    - Sign-out confirmation
+    - Placeholder actions clearly labelled
+
+11. Platform administration
+    - Admin dashboard
+    - Organisation list and details
+    - Executive list
+    - Platform admin list
+    - Create organisation UI
+    - Appoint chairman UI
+    - Add administrator UI
+    - Suspend and reactivate confirmation states
+
+
+CURRENTLY COMPLETED OR SUBSTANTIALLY COMPLETED:
+
+- Expo Router mobile application structure.
+- Onboarding flow.
+- Sign-in and OTP verification UI.
+- Session, sign-out, and authentication navigation UI.
+- Role-aware executive and platform-admin navigation.
+- Permission-aware screen visibility.
+- Shared design system and theme tokens.
+- Manrope typography and light/dark theme support.
+- Shared buttons, cards, text fields, list rows, headers, and screen layouts.
+- Collapsing titles and mobile navigation styling.
+- Executive dashboard visual layout.
+- Organisation overview and positions presentation.
+- Platform admin overview and organisation list screens.
+- Basic profile, settings, support, and notification layouts.
+- Accessibility labels on many existing controls.
+- Mobile typecheck and lint currently pass.
+
+
+LEFT TO COMPLETE OR FIX:
+
+- Several screens still use sample or hard-coded data.
+- Members screen needs final UI states and member detail presentation.
+- Member import flow needs final polish across setup, review, duplicate handling,
+  and completion screens.
+- Broadcast screens need a complete review and confirmation experience.
+- Recipient picker and scheduling controls are not fully finished visually.
+- Approval screens are still mostly placeholder or stub screens.
+- Reports screens are still incomplete.
+- Credit screens still contain demo balance and transaction data.
+- Credit allocation form needs final validation and confirmation states.
+- Notifications currently use static sample notifications.
+- Organisation unit, appointment, and executive management screens need completion.
+- Platform admin action buttons need complete UI flows and confirmation states.
+- Templates, opt-outs, executive details, member details, and import history routes
+  need usable screens instead of basic placeholders.
+- Loading, empty, error, success, and confirmation states need to be consistent
+  across every screen.
+- UI spacing, alignment, button behaviour, and responsive layout need a final pass.
+- Accessibility labels, touch targets, and contrast need to be checked throughout.
+- Demo content must either be removed or clearly labelled as placeholder content.
+- All routes and navigation flows must be tested in Expo Go.
+
+
+EXPECTED OUTCOME:
+
+Have a complete, polished, and consistent Broadcastly mobile UI with all required
+screens available, navigable, and visually ready for future API integration.
+All known UI issues should be fixed, unfinished functionality should be clearly
+identified, and the mobile app should provide a stable user experience without
+implementing API integration logic.
+
+
+DEFINITION OF DONE:
+
+- All required mobile routes open without crashes.
+- No important screen is blank or an unstructured stub.
+- Shared components and theme tokens are used consistently.
+- Demo data is removed or clearly identified as placeholder content.
+- Every list has loading, empty, and error UI states.
+- Every important action has the correct visual confirmation state.
+- Permission-based visibility is consistent.
+- Interactive controls have accessibility labels and suitable touch targets.
+- Navigation works correctly across executive and platform-admin flows.
+- The mobile app has been checked in Expo Go.
+- npm run typecheck passes.
+- npm run lint passes.
+- npm run check:contrast passes.
+
+
+SCOPE EXCLUSIONS:
+
+- No new API endpoint implementation.
+- No API integration logic.
+- No backend changes.
+- No database changes.
+- No SMS provider integration.
+- No payment provider integration.
+- No background job implementation.
+
+
+STATUS:
+
+0 of 0 items completed
+0%
+
+APPROVALS:
+No decisions yet.
+Waiting for the assignee to submit the completed mobile UI work for review.
+
+ATTACHMENTS:
+No attachments.

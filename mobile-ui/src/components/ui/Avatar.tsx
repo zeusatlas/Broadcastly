@@ -1,4 +1,4 @@
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Text } from '@/components/ui/Text';
 import { cn } from '@/utils/helpers';
@@ -14,6 +14,7 @@ const SIZE: Record<AvatarSize, { box: string; text: string }> = {
 
 export interface AvatarProps {
   name: string;
+  imageUrl?: string | null;
   size?: AvatarSize;
   className?: string;
   // For an exact size, e.g. to line up with header buttons.
@@ -27,7 +28,7 @@ export const initialsOf = (name: string) => {
   return letters.map((part) => part[0]?.toUpperCase() ?? '').join('');
 };
 
-export function Avatar({ name, size = 'md', className, style }: AvatarProps) {
+export function Avatar({ name, imageUrl, size = 'md', className, style }: AvatarProps) {
   return (
     <View
       accessibilityElementsHidden
@@ -39,9 +40,18 @@ export function Avatar({ name, size = 'md', className, style }: AvatarProps) {
       )}
       style={style}
     >
-      <Text className={cn('font-sans-extrabold text-secondary-foreground', SIZE[size].text)}>
-        {initialsOf(name)}
-      </Text>
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+          style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: 999 }}
+        />
+      ) : (
+        <Text className={cn('font-sans-extrabold text-secondary-foreground', SIZE[size].text)}>
+          {initialsOf(name)}
+        </Text>
+      )}
     </View>
   );
 }

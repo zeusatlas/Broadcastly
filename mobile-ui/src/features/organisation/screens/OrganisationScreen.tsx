@@ -1,8 +1,9 @@
-import { BriefcaseBusiness, MapPinned, UsersRound } from 'lucide-react-native';
+import { BriefcaseBusiness, MapPinned, Plus, UsersRound } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
-import { ListCard, QueryState, StatTile, Text } from '@/components/ui';
+import { Button, QueryState, StatTile, Text } from '@/components/ui';
 import { useAccess } from '@/features/auth';
 
 import {
@@ -63,7 +64,8 @@ export function OrganisationScreen() {
         </View>
 
         {totals?.unitsByType.length ? (
-          <ListCard title="Structure">
+          <View className="gap-1">
+            <Text variant="overline">Structure</Text>
             {totals.unitsByType.map((unit, index) => (
               <View
                 key={unit.type}
@@ -79,10 +81,11 @@ export function OrganisationScreen() {
                 </Text>
               </View>
             ))}
-          </ListCard>
+          </View>
         ) : null}
 
-        <ListCard title="Positions">
+        <View className="gap-1">
+          <Text variant="overline">Positions</Text>
           <QueryState
             isLoading={positions.isLoading}
             error={positions.error ?? overview.error}
@@ -113,7 +116,31 @@ export function OrganisationScreen() {
               </Text>
             </View>
           ))}
-        </ListCard>
+        </View>
+
+        {canManage ? (
+          <View className="gap-3 pt-2">
+            <Text variant="overline">Manage organisation</Text>
+            <View className="flex-row gap-3">
+              <Button
+                label="Add unit"
+                icon={Plus}
+                variant="outline"
+                fullWidth
+                className="flex-1"
+                onPress={() => router.push('/organisation/unit/new')}
+              />
+              <Button
+                label="New position"
+                icon={BriefcaseBusiness}
+                variant="outline"
+                fullWidth
+                className="flex-1"
+                onPress={() => router.push('/organisation/position/new')}
+              />
+            </View>
+          </View>
+        ) : null}
       </View>
     </PageScreen>
   );

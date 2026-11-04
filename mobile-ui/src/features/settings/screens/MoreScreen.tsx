@@ -6,14 +6,17 @@ import {
   FileText,
   History,
   Network,
+  Settings,
+  UserRound,
   UsersRound,
   type LucideIcon,
 } from 'lucide-react-native';
+import { View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
-import { Text } from '@/components/ui';
+import { Avatar, Text } from '@/components/ui';
 import { GATED_ROUTES } from '@/constants/routes';
-import { useAccess } from '@/features/auth';
+import { useAccess, useCurrentUser } from '@/features/auth';
 
 import { SettingsRow } from '../components/SettingsRow';
 import { SettingsSection } from '../components/SettingsSection';
@@ -27,6 +30,11 @@ interface MoreLink {
 }
 
 const href = (path: string) => path as Href;
+
+const ACCOUNT_LINKS = [
+  { label: 'Profile', icon: UserRound, href: '/profile' as Href },
+  { label: 'Settings', icon: Settings, href: '/settings' as Href },
+] as const;
 
 // Grouped from the SRS: structure and people, messaging, then records.
 const SECTIONS: { title: string; links: MoreLink[] }[] = [
@@ -62,6 +70,7 @@ const SECTIONS: { title: string; links: MoreLink[] }[] = [
 // Management tools that aren't tabs, shown by access. Profile, settings and support live on the profile.
 export function MoreScreen() {
   const access = useAccess();
+  const user = useCurrentUser();
   const sections = SECTIONS.map((section) => ({
     ...section,
     links: section.links.filter((link) => {
@@ -72,28 +81,48 @@ export function MoreScreen() {
 
   return (
     <PageScreen title="More" isTabRoot>
-      {sections.length > 0 ? (
-        sections.map((section, index) => (
-          <SettingsSection
-            key={section.title}
-            title={section.title}
-            className={index === 0 ? 'mt-0' : undefined}
-          >
-            {section.links.map((link) => (
-              <SettingsRow
-                key={link.label}
-                icon={link.icon}
-                label={link.label}
-                onPress={() => router.push(link.href)}
-              />
-            ))}
-          </SettingsSection>
-        ))
-      ) : (
-        <Text variant="bodyMuted" className="mt-4">
-          Nothing else to manage with your current access.
-        </Text>
-      )}
+      <View
+        className="mt-0 flex-row items-center gap-4 rounded-2xl border-2 border-b-4 border-border bg-card p-4"
+      >
+        <Avatar
+          name={user?.organisation?.name ?? user?.fullName ?? ''}
+          imageUrl={user?.organisation?.logoUrl}
+          size="md"
+        />
+        <View className="flex-1 gap-0.5">
+          <Text className="font-sans-bold text-lg text-foreground" numberOfLines={1}>
+            {user?.fullName ?? 'Your profile'}
+          </Text>
+          <Text variant="caption" numberOfLines={1}>
+            {user?.appointments[0]?.positionTitle ?? 'Executive'}
+            {user?.organisation?.name ? ` · ${user.organisation.name}` : ''}
+          </Text>
+        </View>
+      </View>
+
+      <SettingsSection title="Account">
+        {ACCOUNT_LINKS.map((link) => (
+          <SettingsRow
+            key={link.label}
+            icon={link.icon}
+            label={link.label}
+            onPress={() => router.push(link.href)}
+          />
+        ))}
+      </SettingsSection>
+
+      {sections.map((section) => (
+        <SettingsSection key={section.title} title={section.title}>
+          {section.links.map((link) => (
+            <SettingsRow
+              key={link.label}
+              icon={link.icon}
+              label={link.label}
+              onPress={() => router.push(link.href)}
+            />
+          ))}
+        </SettingsSection>
+      ))}
     </PageScreen>
   );
 }
