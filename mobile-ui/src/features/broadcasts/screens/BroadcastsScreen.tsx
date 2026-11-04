@@ -103,7 +103,7 @@ export function BroadcastsScreen() {
       {canDraft ? (
         <View pointerEvents="box-none" className="absolute bottom-5 right-5">
           <Button
-            label="New"
+            label="Compose"
             accessibilityLabel="New broadcast"
             icon={SquarePen}
             variant="accent"

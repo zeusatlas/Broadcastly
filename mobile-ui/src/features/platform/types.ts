@@ -2,17 +2,28 @@
 import type { PageParams } from '@/types/api';
 import type { ExecutiveStatus } from '@/types/models';
 
-export type OrganisationStatus = 'active' | 'inactive';
+export type OrganisationStatus = 'active' | 'inactive' | 'suspended';
 export type PlatformAdminStatus = 'active' | 'suspended';
 
 export interface PlatformOverviewResponse {
   organisations: number;
+  suspendedOrganisations: number;
   organisationsWithoutChairman: number;
   members: number;
   activeChairmen: number;
   activeExecutives: number;
   suspendedExecutives: number;
   platformAdmins: number;
+  creditsPurchased: number;
+  amountPaidPesewas: number;
+  pendingPurchases: number;
+  failedPurchases: number;
+}
+
+export interface WalletBalanceResponse {
+  balance: number;
+  reserved: number;
+  available: number;
 }
 
 export interface OrganisationExecutiveResponse {
@@ -25,11 +36,15 @@ export interface OrganisationExecutiveResponse {
   status: ExecutiveStatus;
   // Titles of the positions they hold now, e.g. ["Constituency Organiser"].
   positions: string[];
+  creditBalance: number;
   lastSignInAt: string | null;
   createdAt: string;
 }
 
-export interface ChairmanResponse extends Omit<OrganisationExecutiveResponse, 'positions'> {
+export interface ChairmanResponse extends Omit<
+  OrganisationExecutiveResponse,
+  'positions' | 'creditBalance'
+> {
   appointmentId: string;
   appointedAt: string;
 }
@@ -39,6 +54,8 @@ export interface OrganisationResponse {
   name: string;
   type: string;
   status: OrganisationStatus;
+  logoUrl: string | null;
+  credits: WalletBalanceResponse;
   chairman: ChairmanResponse | null;
   memberCount: number;
   executiveCount: number;
