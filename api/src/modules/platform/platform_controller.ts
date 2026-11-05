@@ -27,11 +27,23 @@ import type {
   PlatformAuditLogRequest,
   ListPlatformCreditTransactionsRequest,
   CreateCreditAdjustmentRequest,
+  UpdatePlatformSettingsRequest,
 } from './platform_types';
 
 const actorOf = (req: Request) => actorFrom(requireAuth(req), getRequestContext(req));
 
 export const platformController = {
+  async getSettings(_req: Request, res: Response) {
+    const data = await platformService.getSettings();
+    return sendSuccess(res, { data, message: 'Platform settings retrieved.' });
+  },
+
+  async updateSettings(req: Request, res: Response) {
+    const body = validated<UpdatePlatformSettingsRequest>(res, 'body');
+    const data = await platformService.updateSettings(body, actorOf(req));
+    return sendSuccess(res, { data, message: 'Platform settings updated.' });
+  },
+
   async getOverview(_req: Request, res: Response) {
     const data = await platformService.getOverview();
     return sendSuccess(res, { data, message: 'Overview retrieved.' });

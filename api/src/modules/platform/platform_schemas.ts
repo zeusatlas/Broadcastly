@@ -22,6 +22,7 @@ import type {
   ListPlatformAdminsRequest,
   ListPlatformCreditTransactionsRequest,
   CreateCreditAdjustmentRequest,
+  UpdatePlatformSettingsRequest,
   PlatformAuditLogRequest,
   OrganisationExecutiveParams,
   OrganisationParams,
@@ -148,6 +149,41 @@ export const createCreditAdjustmentSchema = z
     reason: z.string().trim().min(2).max(255),
   })
   .openapi('CreateCreditAdjustmentRequest') satisfies z.ZodType<CreateCreditAdjustmentRequest>;
+
+const fileTypesSchema = z.object({ csv: z.boolean(), xlsx: z.boolean() });
+const notificationPreferencesSchema = z.object({
+  security: z.boolean(),
+  payments: z.boolean(),
+  service: z.boolean(),
+  digest: z.boolean(),
+});
+
+export const updatePlatformSettingsSchema = z
+  .object({
+    importLimits: z
+      .object({
+        maxFileSizeMb: z.number().int().min(1).max(500).optional(),
+        maxRowsPerFile: z.number().int().min(1).max(1_000_000).optional(),
+        allowedFileTypes: fileTypesSchema.optional(),
+      })
+      .optional(),
+    notificationPreferences: notificationPreferencesSchema.partial().optional(),
+  })
+  .refine((value) => value.importLimits !== undefined || value.notificationPreferences !== undefined, {
+    message: 'Send importLimits or notificationPreferences.',
+  })
+  .openapi('UpdatePlatformSettingsRequest') satisfies z.ZodType<UpdatePlatformSettingsRequest>;
+
+export const platformSettingsResponseSchema = z
+  .object({
+    importLimits: z.object({
+      maxFileSizeMb: z.number().int(),
+      maxRowsPerFile: z.number().int(),
+      allowedFileTypes: fileTypesSchema,
+    }),
+    notificationPreferences: notificationPreferencesSchema,
+  })
+  .openapi('PlatformSettingsResponse');
 
 export const appointChairmanSchema = createExecutiveSchema
   .omit({ organisationId: true })

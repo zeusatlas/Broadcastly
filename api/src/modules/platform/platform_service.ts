@@ -35,7 +35,10 @@ import type {
   OrganisationExecutiveResponse,
   OrganisationResponse,
   PlatformOverviewResponse,
+  PlatformSettingsResponse,
+  UpdatePlatformSettingsRequest,
 } from './platform_types';
+import { PlatformSettings } from './entities/platform_settings_entity';
 
 const ORGANISATION_NOT_FOUND = 'Organisation not found.';
 const EXECUTIVE_NOT_FOUND = 'Executive not found in this organisation.';
@@ -43,6 +46,67 @@ const NAME_TAKEN = 'An organisation with this name already exists.';
 
 // The platform admin is the super admin: every organisation, its executives, and every admin.
 export const platformService = {
+  async getSettings(): Promise<PlatformSettingsResponse> {
+    const [settings] = (await dataSource.query(
+      `SELECT max_file_size_mb AS "maxFileSizeMb", max_rows_per_file AS "maxRowsPerFile",
+              allowed_file_types AS "allowedFileTypes", notification_preferences AS "notificationPreferences"
+         FROM platform_settings ORDER BY created_at LIMIT 1`,
+    )) as Array<{
+      maxFileSizeMb: number;
+      maxRowsPerFile: number;
+      allowedFileTypes: { csv: boolean; xlsx: boolean };
+      notificationPreferences: PlatformSettingsResponse['notificationPreferences'];
+    }>;
+    if (!settings) throw new ConflictError('Platform settings are not configured.');
+    return {
+      importLimits: {
+        maxFileSizeMb: settings.maxFileSizeMb,
+        maxRowsPerFile: settings.maxRowsPerFile,
+        allowedFileTypes: settings.allowedFileTypes,
+      },
+      notificationPreferences: settings.notificationPreferences,
+    };
+  },
+
+  async updateSettings(
+    input: UpdatePlatformSettingsRequest,
+    actor: ActionActor,
+  ): Promise<PlatformSettingsResponse> {
+    await dataSource.transaction(async (manager) => {
+      const [row] = (await manager.query(
+        `SELECT id FROM platform_settings ORDER BY created_at LIMIT 1 FOR UPDATE`,
+      )) as Array<{ id: string }>;
+      if (!row) throw new ConflictError('Platform settings are not configured.');
+      const settings = await manager.getRepository(PlatformSettings).findOneByOrFail({ id: row.id });
+      if (input.importLimits) {
+        if (input.importLimits.maxFileSizeMb !== undefined) settings.maxFileSizeMb = input.importLimits.maxFileSizeMb;
+        if (input.importLimits.maxRowsPerFile !== undefined) settings.maxRowsPerFile = input.importLimits.maxRowsPerFile;
+        if (input.importLimits.allowedFileTypes) settings.allowedFileTypes = input.importLimits.allowedFileTypes;
+      }
+      if (input.notificationPreferences) {
+        settings.notificationPreferences = {
+          ...settings.notificationPreferences,
+          ...input.notificationPreferences,
+        };
+      }
+      await manager.getRepository(PlatformSettings).save(settings);
+      await auditService.record(
+        {
+          action: AUDIT_ACTIONS.platformSettingsUpdated,
+          targetType: 'platform_settings',
+          targetId: settings.id,
+          metadata: {
+            importLimits: Object.keys(input.importLimits ?? {}),
+            notificationPreferences: Object.keys(input.notificationPreferences ?? {}),
+          },
+          ...auditActor(actor),
+        },
+        manager,
+      );
+    });
+    return platformService.getSettings();
+  },
+
   async getOverview(): Promise<PlatformOverviewResponse> {
     const [counts, purchases] = await Promise.all([
       platformRepository.getOverview(),

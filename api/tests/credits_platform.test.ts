@@ -86,6 +86,8 @@ describe('route protection', () => {
     ['get', '/api/v1/platform/broadcasts'],
     ['get', '/api/v1/platform/purchases'],
     ['get', '/api/v1/platform/audit-log'],
+    ['get', '/api/v1/platform/settings'],
+    ['patch', '/api/v1/platform/settings'],
     ['get', '/api/v1/platform/credit-transactions'],
     ['post', '/api/v1/platform/credit-adjustments'],
     ['get', '/api/v1/platform/purchases/summary'],

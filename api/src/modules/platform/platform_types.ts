@@ -124,6 +124,29 @@ export interface CreateCreditAdjustmentRequest {
   reason: string;
 }
 
+export interface PlatformImportLimits {
+  maxFileSizeMb: number;
+  maxRowsPerFile: number;
+  allowedFileTypes: { csv: boolean; xlsx: boolean };
+}
+
+export interface PlatformNotificationPreferences {
+  security: boolean;
+  payments: boolean;
+  service: boolean;
+  digest: boolean;
+}
+
+export interface PlatformSettingsResponse {
+  importLimits: PlatformImportLimits;
+  notificationPreferences: PlatformNotificationPreferences;
+}
+
+export interface UpdatePlatformSettingsRequest {
+  importLimits?: Partial<PlatformImportLimits>;
+  notificationPreferences?: Partial<PlatformNotificationPreferences>;
+}
+
 export type PlatformAuditLogRequest = ListAuditEventsRequest;
 export type PlatformAuditLogResponse = AuditEventResponse;
 

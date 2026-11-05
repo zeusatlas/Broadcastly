@@ -32,6 +32,7 @@ export const AUDIT_ACTIONS = {
   creditPurchaseCompleted: 'credit.purchase_completed',
   creditPurchaseFailed: 'credit.purchase_failed',
   creditAdjusted: 'credit.adjusted',
+  platformSettingsUpdated: 'platform.settings_updated',
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 

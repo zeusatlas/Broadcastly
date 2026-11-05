@@ -41,6 +41,8 @@ import {
   auditEventResponseSchema,
   listPlatformCreditTransactionsSchema,
   platformCreditTransactionResponseSchema,
+  platformSettingsResponseSchema,
+  updatePlatformSettingsSchema,
   createCreditAdjustmentSchema,
   organisationExecutiveParamsSchema,
   organisationExecutiveResponseSchema,
@@ -63,6 +65,8 @@ const ORGANISATION = '/organisations/:organisationId';
 const logoUpload = imageUpload('organisation-logos', 'logo');
 
 platformRouter.get('/overview', c.getOverview);
+platformRouter.get('/settings', c.getSettings);
+platformRouter.patch('/settings', validate({ body: updatePlatformSettingsSchema }), c.updateSettings);
 platformRouter.get('/audit-log', validate({ query: listAuditLogSchema }), c.listAuditLog);
 platformRouter.get(
   '/organisations',
@@ -154,7 +158,7 @@ const NO_EXECUTIVE: [number, string, string] = [
 const NO_ACCOUNT: [number, string, string] = [404, 'No account has this id.', 'Account not found.'];
 
 interface Doc {
-  method: 'get' | 'post' | 'delete';
+  method: 'get' | 'post' | 'patch' | 'delete';
   path: string;
   operationId: string;
   summary: string;
@@ -202,6 +206,32 @@ document({
   request: { query: listAuditLogSchema },
   response: successEnvelope(paginatedSchema(auditEventResponseSchema), 'Audit log retrieved.'),
   message: 'A page of audit events.',
+  errors: [NOT_ADMIN, 422],
+});
+document({
+  method: 'get',
+  path: '/settings',
+  operationId: 'getPlatformSettings',
+  summary: 'Get platform settings',
+  description: 'Read persistent import limits and platform administrator notification preferences.',
+  response: successEnvelope(platformSettingsResponseSchema, 'Platform settings retrieved.'),
+  message: 'Platform settings.',
+  errors: [NOT_ADMIN],
+});
+document({
+  method: 'patch',
+  path: '/settings',
+  operationId: 'updatePlatformSettings',
+  summary: 'Update platform settings',
+  description: 'Update import limits or notification preferences and record the change in the audit log.',
+  request: {
+    body: jsonBody(updatePlatformSettingsSchema, {
+      importLimits: { maxFileSizeMb: 25, maxRowsPerFile: 10000, allowedFileTypes: { csv: true, xlsx: true } },
+      notificationPreferences: { security: true, payments: true, service: true, digest: false },
+    }),
+  },
+  response: successEnvelope(platformSettingsResponseSchema, 'Platform settings updated.'),
+  message: 'Updated platform settings.',
   errors: [NOT_ADMIN, 422],
 });
 document({
