@@ -1,9 +1,11 @@
+import type { ExecutiveStatus } from '@/types/models';
+
 export interface ExecutiveRowData {
   id: string;
   name: string;
   position: string;
   unit: string;
-  status: 'active' | 'suspended';
+  status: ExecutiveStatus;
   email: string;
   phone: string;
   permissions: string[];

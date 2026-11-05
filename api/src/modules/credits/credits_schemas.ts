@@ -37,7 +37,11 @@ export const listPurchasesSchema = pageQuerySchema
   .superRefine(checkPeriod) satisfies z.ZodType<ListPurchasesRequest>;
 
 export const listCreditTransactionsSchema = pageQuerySchema
-  .extend({ wallet: z.enum(['mine', 'organisation']).default('mine'), ...periodQueryShape })
+  .extend({
+    wallet: z.enum(['mine', 'organisation']).default('mine'),
+    type: z.enum(CREDIT_TRANSACTION_TYPES).optional(),
+    ...periodQueryShape,
+  })
   .superRefine(checkPeriod) satisfies z.ZodType<ListCreditTransactionsRequest>;
 
 export const walletBalanceSchema = z

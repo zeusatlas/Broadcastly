@@ -42,6 +42,10 @@ export const organisationService = {
     await manager.getRepository(Organisation).update({ id: organisationId }, { logoPath });
   },
 
+  async setHeadTitle(organisationId: string, headTitle: string, manager: EntityManager) {
+    await manager.getRepository(Organisation).update({ id: organisationId }, { headTitle });
+  },
+
   hasActiveChairman(organisationId: string, manager: EntityManager) {
     return organisationRepository.hasActiveChairman(organisationId, manager);
   },

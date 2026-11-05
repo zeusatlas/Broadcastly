@@ -12,7 +12,7 @@ interface ExecutiveRowProps {
 }
 
 export function ExecutiveRow({ executive, isLast = false }: ExecutiveRowProps) {
-  const isActive = executive.status === 'active';
+  const statusLabel = executive.status === 'active' ? 'Active' : executive.status;
 
   return (
     <Pressable
@@ -38,10 +38,10 @@ export function ExecutiveRow({ executive, isLast = false }: ExecutiveRowProps) {
       <Text
         className={cn(
           'font-sans-semibold text-xs',
-          isActive ? 'text-success' : 'text-muted-foreground',
+          executive.status === 'active' ? 'text-success' : 'text-muted-foreground',
         )}
       >
-        {isActive ? 'Active' : 'Suspended'}
+        {statusLabel}
       </Text>
     </Pressable>
   );

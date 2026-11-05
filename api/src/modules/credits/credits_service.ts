@@ -11,19 +11,28 @@ import { logger } from '../../config/logger';
 import { paymentProvider, type PaymentEvent } from '../../integrations/payments/payment_provider';
 import { AUDIT_ACTIONS, auditService } from '../audit';
 import { auditActor, type AccessContext, type ActionActor } from '../auth';
+import { organisationService } from '../organisation';
 
-import { toPurchaseResponse, toTransactionResponse, toWalletBalance } from './credits_mapper';
+import {
+  toPlatformTransactionResponse,
+  toPurchaseResponse,
+  toTransactionResponse,
+  toWalletBalance,
+} from './credits_mapper';
 import { creditsRepository, type PurchaseTotals } from './credits_repository';
 import type {
   CreatePurchaseRequest,
   CreditBalancesResponse,
   CreditTransactionResponse,
+  CreditTransactionType,
+  PlatformCreditTransactionResponse,
   ListCreditTransactionsRequest,
   ListPurchasesRequest,
   PurchaseResponse,
   WalletBalanceResponse,
 } from './credits_types';
 import { ledgerService } from './ledger_service';
+import { CreditTransaction } from './entities/credit_transaction_entity';
 
 const PURCHASE_NOT_FOUND = 'Purchase not found.';
 const UNIQUE_VIOLATION = '23505';
@@ -170,20 +179,21 @@ export const creditsService = {
 
   async listTransactions(
     auth: AccessContext,
-    { wallet, page, pageSize, ...period }: ListCreditTransactionsRequest,
+    { wallet, type, page, pageSize, ...period }: ListCreditTransactionsRequest,
   ): Promise<Paginated<CreditTransactionResponse>> {
     const { organisationId, executiveId } = executiveOf(auth);
     if (wallet === 'organisation' && !seesOrganisationWallet(auth)) {
       throw new ForbiddenError('You do not have permission to see the organisation’s credits.');
     }
     const owner = wallet === 'organisation' ? { organisationId } : { organisationId, executiveId };
-    return creditsService.listWalletTransactions(owner, period, { page, pageSize });
+    return creditsService.listWalletTransactions(owner, period, { page, pageSize }, type);
   },
 
   async listWalletTransactions(
     owner: { organisationId: string; executiveId?: string },
     period: PeriodParams,
     page: { page: number; pageSize: number },
+    type?: CreditTransactionType,
   ): Promise<Paginated<CreditTransactionResponse>> {
     const wallet = await creditsRepository.findWalletBalance(owner);
     if (!wallet.id) return toPaginated([], 0, page);
@@ -191,8 +201,87 @@ export const creditsService = {
       wallet.id,
       resolvePeriod(period),
       page,
+      type,
     );
     return toPaginated(rows.map(toTransactionResponse), total, page);
+  },
+
+  async listPlatformTransactions(
+    {
+      page,
+      pageSize,
+      period,
+      from,
+      to,
+      organisationId,
+      type,
+    }: {
+      page: number;
+      pageSize: number;
+      period: PeriodParams['period'];
+      from?: string;
+      to?: string;
+      organisationId?: string;
+      type?: CreditTransactionType;
+    },
+  ): Promise<Paginated<PlatformCreditTransactionResponse>> {
+    const { rows, total } = await creditsRepository.listPlatformTransactions(
+      { organisationId, type, range: resolvePeriod({ period, from, to }) },
+      { page, pageSize },
+    );
+    return toPaginated(rows.map(toPlatformTransactionResponse), total, { page, pageSize });
+  },
+
+  async createPlatformAdjustment(
+    input: { organisationId: string; amount: number; reason: string },
+    idempotencyKey: string,
+    actor: ActionActor,
+  ): Promise<CreditTransactionResponse> {
+    const transaction = await dataSource.transaction(async (manager) => {
+      const organisation = await organisationService.lockOrganisation(input.organisationId, manager);
+      if (!organisation) throw new NotFoundError('Organisation not found.');
+      const wallet = await ledgerService.walletFor({ organisationId: input.organisationId }, manager);
+      const existing = await manager.getRepository(CreditTransaction).findOneBy({ idempotencyKey });
+      if (existing) {
+        if (existing.walletId !== wallet.id || existing.amount !== input.amount || existing.reason !== input.reason) {
+          throw new ValidationError({}, 'This Idempotency-Key was already used for another adjustment.');
+        }
+        return existing;
+      }
+      const posted = await ledgerService.post(
+        {
+          walletId: wallet.id,
+          type: 'adjustment',
+          amount: input.amount,
+          idempotencyKey,
+          reason: input.reason,
+          initiatedByPlatformAdminId: actor.platformAdminId ?? null,
+        },
+        manager,
+      );
+      await auditService.record(
+        {
+          action: AUDIT_ACTIONS.creditAdjusted,
+          targetType: 'credit_transaction',
+          targetId: posted.id,
+          metadata: { organisationId: input.organisationId, amount: input.amount },
+          ...auditActor(actor),
+        },
+        manager,
+      );
+      return posted;
+    });
+    return {
+      id: transaction.id,
+      type: transaction.type,
+      amount: transaction.amount,
+      balanceAfter: transaction.balanceAfter,
+      reason: transaction.reason,
+      initiatedBy: null,
+      purchaseId: transaction.purchaseId,
+      broadcastId: transaction.broadcastId,
+      createdAt: transaction.createdAt,
+    };
   },
 
   purchaseTotals(period: PeriodParams): Promise<PurchaseTotals> {

@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { useCollapsingTitle } from '@/components/shared';
-import { Button, Card, Chip, Text } from '@/components/ui';
+import { Button, Card, Chip, QueryState, Text } from '@/components/ui';
 import { enterRow } from '@/constants/motion';
 import { MaxContentWidth } from '@/constants/theme';
 import { useHasPermission } from '@/features/auth';
@@ -14,6 +14,7 @@ import { notify } from '@/lib/notify';
 import { cn } from '@/utils/helpers';
 
 import { TransactionRow } from '../components/TransactionRow';
+import { useReadCreditBalancesQuery, useReadCreditTransactionsQuery } from '../hooks/use_credits_api';
 import type { CreditSummary, CreditTransaction, CreditTransactionType } from '../types';
 
 type HistoryFilter = 'all' | 'added' | 'allocated' | 'used';
@@ -23,64 +24,6 @@ const FILTERS: { key: HistoryFilter; label: string; types?: CreditTransactionTyp
   { key: 'added', label: 'Added', types: ['purchase', 'allocation_in', 'refund'] },
   { key: 'allocated', label: 'Allocated', types: ['allocation_out'] },
   { key: 'used', label: 'Used', types: ['reservation', 'consumption'] },
-];
-
-// TODO(credits API): sample balance and ledger until the credits module is mounted (FR-CR-01, FR-CR-10).
-const DEMO_SUMMARY: CreditSummary = {
-  available: 12450,
-  reserved: 320,
-  spendingLimit: 5000,
-  spentThisPeriod: 3200,
-};
-const DEMO_LEDGER: CreditTransaction[] = [
-  {
-    id: 't1',
-    type: 'reservation',
-    title: 'Youth rally — venue update',
-    amount: -320,
-    occurredAt: 'Today 10:02',
-    initiatedBy: 'You',
-  },
-  {
-    id: 't2',
-    type: 'consumption',
-    title: 'Executive meeting — Saturday 9am',
-    amount: -292,
-    occurredAt: 'Today 08:14',
-    initiatedBy: 'You',
-  },
-  {
-    id: 't3',
-    type: 'allocation_out',
-    title: 'Allocated to North Electoral Area',
-    amount: -1500,
-    occurredAt: 'Yesterday',
-    initiatedBy: 'You',
-  },
-  {
-    id: 't4',
-    type: 'refund',
-    title: 'Unused reservation released',
-    amount: 48,
-    occurredAt: 'Mon',
-    initiatedBy: 'System',
-  },
-  {
-    id: 't5',
-    type: 'purchase',
-    title: 'Credit purchase',
-    amount: 10000,
-    occurredAt: '28 Oct',
-    initiatedBy: 'Kofi Mensah',
-  },
-  {
-    id: 't6',
-    type: 'allocation_in',
-    title: 'From constituency office',
-    amount: 5000,
-    occurredAt: '21 Oct',
-    initiatedBy: 'Abena Ofori',
-  },
 ];
 
 function SpendingLimit({ spent, limit }: { spent: number; limit: number }) {
@@ -110,12 +53,27 @@ export function CreditsScreen() {
   const collapsing = useCollapsingTitle('Credits', { header: 'tab' });
   const canAllocate = useHasPermission('credit.allocate');
   const [filter, setFilter] = useState<HistoryFilter>('all');
-  const summary = DEMO_SUMMARY;
+  const balances = useReadCreditBalancesQuery();
+  const ledger = useReadCreditTransactionsQuery({ page: 1, pageSize: 50, wallet: 'mine' });
+  const summary: CreditSummary = {
+    available: balances.data?.mine.available ?? 0,
+    reserved: balances.data?.mine.reserved ?? 0,
+    spendingLimit: null,
+    spentThisPeriod: 0,
+  };
+  const liveLedger = (ledger.data?.items ?? []).map<CreditTransaction>((transaction) => ({
+    id: transaction.id,
+    type: transaction.type,
+    title: transaction.reason ?? transaction.type.replaceAll('_', ' '),
+    amount: transaction.amount,
+    occurredAt: new Date(transaction.createdAt).toLocaleDateString(),
+    initiatedBy: transaction.initiatedBy ?? 'System',
+  }));
 
   const items = useMemo(() => {
     const types = FILTERS.find((f) => f.key === filter)?.types;
-    return types ? DEMO_LEDGER.filter((t) => types.includes(t.type)) : DEMO_LEDGER;
-  }, [filter]);
+    return types ? liveLedger.filter((t) => types.includes(t.type)) : liveLedger;
+  }, [filter, liveLedger]);
 
   return (
     <>
@@ -206,9 +164,16 @@ export function CreditsScreen() {
           </Animated.View>
         )}
         ListEmptyComponent={
-          <Text variant="bodyMuted" className="py-12 text-center">
-            Nothing here yet.
-          </Text>
+          <QueryState
+            isLoading={ledger.isLoading}
+            error={ledger.error ?? balances.error}
+            isEmpty={!ledger.isLoading && items.length === 0}
+            emptyText="No credit transactions yet."
+            onRetry={() => {
+              balances.refetch();
+              ledger.refetch();
+            }}
+          />
         }
       />
       {collapsing.bar}

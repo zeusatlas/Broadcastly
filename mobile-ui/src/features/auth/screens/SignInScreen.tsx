@@ -60,7 +60,7 @@ export function SignInScreen() {
             adjustsFontSizeToFit
             className="mt-auto pt-8 text-center text-sm"
           >
-            No account? Ask your constituency chairman.
+            No account? Ask your organisation head.
           </Text>
         </View>
       </KeyboardAwareScrollView>

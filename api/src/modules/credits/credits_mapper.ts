@@ -1,9 +1,15 @@
 import type {
   CreditTransactionResponse,
+  PlatformCreditTransactionResponse,
   PurchaseResponse,
   WalletBalanceResponse,
 } from './credits_types';
-import type { PurchaseRow, TransactionRow, WalletBalanceRow } from './credits_repository';
+import type {
+  PlatformTransactionRow,
+  PurchaseRow,
+  TransactionRow,
+  WalletBalanceRow,
+} from './credits_repository';
 
 export const toWalletBalance = ({
   balance,
@@ -20,3 +26,7 @@ export const toPurchaseResponse = (row: PurchaseRow): PurchaseResponse => ({
 });
 
 export const toTransactionResponse = (row: TransactionRow): CreditTransactionResponse => row;
+
+export const toPlatformTransactionResponse = (
+  row: PlatformTransactionRow,
+): PlatformCreditTransactionResponse => row;

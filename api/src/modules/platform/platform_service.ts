@@ -110,7 +110,7 @@ export const platformService = {
         throw new ConflictError('This organisation is inactive.');
       }
       if (await organisationService.hasActiveChairman(organisationId, manager)) {
-        throw new ConflictError('This organisation already has a chairman.');
+         throw new ConflictError('This organisation already has a head.');
       }
 
       const { executiveId, memberId } = await authService.createExecutive(

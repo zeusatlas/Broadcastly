@@ -2,3 +2,4 @@
 // Other modules import from here only.
 export { auditService } from './audit_service';
 export { AUDIT_ACTIONS, type AuditAction, type AuditEventInput } from './audit_types';
+export type { AuditEventResponse, ListAuditEventsRequest } from './audit_types';

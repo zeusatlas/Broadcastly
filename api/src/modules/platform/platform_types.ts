@@ -2,6 +2,8 @@ import type { PageParams } from '../../common/http/pagination';
 import type { PeriodParams } from '../../common/http/period';
 import type { BroadcastStatus } from '../broadcasts';
 import type { WalletBalanceResponse } from '../credits';
+import type { CreditTransactionType } from '../credits';
+import type { AuditEventResponse, ListAuditEventsRequest } from '../audit';
 import type { CreateExecutiveRequest, ExecutiveStatus, PlatformAdminStatus } from '../auth';
 import type { OrganisationStatus } from '../organisation';
 
@@ -57,7 +59,7 @@ export interface OrganisationExecutiveResponse {
   createdAt: Date;
 }
 
-export interface ChairmanResponse extends Omit<
+export interface HeadResponse extends Omit<
   OrganisationExecutiveResponse,
   'positions' | 'creditBalance'
 > {
@@ -72,7 +74,8 @@ export interface OrganisationResponse {
   status: OrganisationStatus;
   logoUrl: string | null;
   credits: WalletBalanceResponse;
-  chairman: ChairmanResponse | null;
+  headTitle: string;
+  head: HeadResponse | null;
   memberCount: number;
   executiveCount: number;
   createdAt: Date;
@@ -82,9 +85,9 @@ export interface OrganisationResponse {
 export interface PlatformOverviewResponse {
   organisations: number;
   suspendedOrganisations: number;
-  organisationsWithoutChairman: number;
+  organisationsWithoutHead: number;
   members: number;
-  activeChairmen: number;
+  activeHeads: number;
   activeExecutives: number;
   suspendedExecutives: number;
   platformAdmins: number;
@@ -109,6 +112,20 @@ export interface ListPlatformPurchasesRequest extends PageParams, PeriodParams {
 }
 
 export type ListOrganisationCreditTransactionsRequest = PageParams & PeriodParams;
+
+export interface ListPlatformCreditTransactionsRequest extends PageParams, PeriodParams {
+  organisationId?: string;
+  type?: CreditTransactionType;
+}
+
+export interface CreateCreditAdjustmentRequest {
+  organisationId: string;
+  amount: number;
+  reason: string;
+}
+
+export type PlatformAuditLogRequest = ListAuditEventsRequest;
+export type PlatformAuditLogResponse = AuditEventResponse;
 
 export interface PurchaseSummaryResponse {
   creditsPurchased: number;

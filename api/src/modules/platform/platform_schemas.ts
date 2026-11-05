@@ -7,6 +7,7 @@ import { checkPeriod, periodQueryShape } from '../../common/http/period';
 import { createExecutiveSchema, EXECUTIVE_STATUSES, PLATFORM_ADMIN_STATUSES } from '../auth';
 import { BROADCAST_STATUSES } from '../broadcasts';
 import { CREDIT_PURCHASE_STATUSES, walletBalanceSchema } from '../credits';
+import { CREDIT_TRANSACTION_TYPES, creditTransactionResponseSchema } from '../credits';
 import { ORGANISATION_STATUSES } from '../organisation';
 
 import type {
@@ -19,6 +20,9 @@ import type {
   ListOrganisationExecutivesRequest,
   ListOrganisationsRequest,
   ListPlatformAdminsRequest,
+  ListPlatformCreditTransactionsRequest,
+  CreateCreditAdjustmentRequest,
+  PlatformAuditLogRequest,
   OrganisationExecutiveParams,
   OrganisationParams,
   PlatformAdminParams,
@@ -95,6 +99,56 @@ export const listOrganisationCreditTransactionsSchema = pageQuerySchema
 
 export const periodQuerySchema = z.object(periodQueryShape).superRefine(checkPeriod);
 
+export const listAuditLogSchema = pageQuerySchema
+  .extend({
+    actor: searchSchema,
+    action: searchSchema,
+    organisationId: z.uuid('Not a valid organisation id.').optional(),
+    ...periodQueryShape,
+  })
+  .superRefine(checkPeriod) satisfies z.ZodType<PlatformAuditLogRequest>;
+
+export const auditEventResponseSchema = z
+  .object({
+    id: z.uuid(),
+    actor: z.string().nullable(),
+    actorRole: z.enum(['executive', 'platform_admin']).nullable(),
+    action: z.string(),
+    outcome: z.enum(['success', 'failure']),
+    organisationId: z.uuid().nullable(),
+    organisationName: z.string().nullable(),
+    targetType: z.string().nullable(),
+    targetId: z.uuid().nullable(),
+    metadata: z.record(z.string(), z.unknown()),
+    createdAt: z.iso.datetime(),
+  })
+  .openapi('AuditEventResponse');
+
+export const listPlatformCreditTransactionsSchema = pageQuerySchema
+  .extend({
+    organisationId: z.uuid('Not a valid organisation id.').optional(),
+    type: z.enum(CREDIT_TRANSACTION_TYPES).optional(),
+    ...periodQueryShape,
+  })
+  .superRefine(checkPeriod) satisfies z.ZodType<ListPlatformCreditTransactionsRequest>;
+
+export const platformCreditTransactionResponseSchema = creditTransactionResponseSchema
+  .extend({
+    organisationId: z.uuid(),
+    organisationName: z.string(),
+  })
+  .openapi('PlatformCreditTransactionResponse');
+
+export const createCreditAdjustmentSchema = z
+  .object({
+    organisationId: z.uuid('Not a valid organisation id.'),
+    amount: z.number().int().min(-1_000_000).max(1_000_000).refine((value) => value !== 0, {
+      message: 'Amount cannot be zero.',
+    }),
+    reason: z.string().trim().min(2).max(255),
+  })
+  .openapi('CreateCreditAdjustmentRequest') satisfies z.ZodType<CreateCreditAdjustmentRequest>;
+
 export const appointChairmanSchema = createExecutiveSchema
   .omit({ organisationId: true })
   .openapi('AppointChairmanRequest') satisfies z.ZodType<AppointChairmanRequest>;
@@ -131,9 +185,9 @@ export const organisationExecutiveResponseSchema = z
   })
   .openapi('OrganisationExecutiveResponse');
 
-const chairmanResponseSchema = z
+const headResponseSchema = z
   .object({ ...executiveFields, appointmentId: z.uuid(), appointedAt: z.iso.datetime() })
-  .openapi('ChairmanResponse');
+  .openapi('HeadResponse');
 
 export const organisationResponseSchema = z
   .object({
@@ -146,7 +200,8 @@ export const organisationResponseSchema = z
       .nullable()
       .openapi({ example: 'https://api.example.com/uploads/organisation-logos/3f2a.png' }),
     credits: walletBalanceSchema,
-    chairman: chairmanResponseSchema.nullable(),
+    headTitle: z.string().openapi({ example: 'Head' }),
+    head: headResponseSchema.nullable(),
     memberCount: z.number().int().openapi({ example: 8412 }),
     executiveCount: z.number().int().openapi({ example: 37 }),
     createdAt: z.iso.datetime(),
@@ -165,9 +220,9 @@ export const platformOverviewResponseSchema = z
   .object({
     organisations: z.number().int().openapi({ example: 12 }),
     suspendedOrganisations: z.number().int().openapi({ example: 1 }),
-    organisationsWithoutChairman: z.number().int().openapi({ example: 2 }),
+    organisationsWithoutHead: z.number().int().openapi({ example: 2 }),
     members: z.number().int().openapi({ example: 96210 }),
-    activeChairmen: z.number().int().openapi({ example: 10 }),
+    activeHeads: z.number().int().openapi({ example: 10 }),
     activeExecutives: z.number().int().openapi({ example: 184 }),
     suspendedExecutives: z.number().int().openapi({ example: 3 }),
     platformAdmins: z.number().int().openapi({ example: 2 }),

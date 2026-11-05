@@ -6,10 +6,25 @@ import { Button, Text, TextField } from '@/components/ui';
 import { useHasPermission } from '@/features/auth';
 import { notify } from '@/lib/notify';
 
+import { useCreatePositionMutation } from '../hooks/use_organisation_api';
+
 export function NewPositionScreen() {
   const canManage = useHasPermission('appointment.manage');
   const [title, setTitle] = useState('');
   const [scope, setScope] = useState('');
+  const createPosition = useCreatePositionMutation();
+
+  const submit = async () => {
+    const response = await createPosition.mutate({
+      title: title.trim(),
+      ...(scope.trim() ? { unitType: scope.trim().toLowerCase().replaceAll(' ', '_') } : {}),
+    });
+    if (!response) {
+      if (createPosition.error) notify.apiError(createPosition.error);
+      return;
+    }
+    notify.success('Position created.');
+  };
 
   return (
     <PageScreen
@@ -18,12 +33,14 @@ export function NewPositionScreen() {
       backLabel="Close new position"
       actions={
         <Button
-          label="Review position"
+          label="Create position"
           variant="accent"
           size="lg"
           fullWidth
           disabled={!canManage || !title.trim()}
-          onPress={() => notify.info('Position review is ready for API wiring')}
+          isLoading={createPosition.isPending}
+          loadingLabel="Creating position…"
+          onPress={submit}
         />
       }
     >

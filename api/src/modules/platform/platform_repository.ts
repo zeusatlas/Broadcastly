@@ -32,6 +32,7 @@ export interface OrganisationRow {
   id: string;
   name: string;
   type: string;
+  headTitle: string;
   status: OrganisationStatus;
   logoPath: string | null;
   creditBalance: number;
@@ -40,7 +41,7 @@ export interface OrganisationRow {
   executiveCount: number;
   createdAt: Date;
   updatedAt: Date;
-  chairman: (ExecutiveRow & { appointmentId: string; appointedAt: string }) | null;
+  head: (ExecutiveRow & { appointmentId: string; appointedAt: string }) | null;
 }
 
 export interface PlatformAdminRow {
@@ -91,13 +92,13 @@ const EXECUTIVE_COLUMNS = `
 
 // $1 = chairman position id.
 const ORGANISATION_SELECT = `
-  SELECT o.id, o.name, o.type, o.status, o.logo_path AS "logoPath",
+  SELECT o.id, o.name, o.type, o.head_title AS "headTitle", o.status, o.logo_path AS "logoPath",
          COALESCE(w.balance, 0) AS "creditBalance", COALESCE(w.reserved, 0) AS "creditReserved",
          o.created_at AS "createdAt", o.updated_at AS "updatedAt",
          (SELECT count(*) FROM members mm WHERE mm.organisation_id = o.id)::int AS "memberCount",
          (SELECT count(*) FROM organisation_executives ee WHERE ee.organisation_id = o.id)::int
            AS "executiveCount",
-         CASE WHEN c.id IS NULL THEN NULL ELSE to_jsonb(c) END AS chairman
+          CASE WHEN c.id IS NULL THEN NULL ELSE to_jsonb(c) END AS head
     FROM organisations o
     LEFT JOIN wallets w ON w.organisation_id = o.id AND w.owner_type = 'organisation'
     LEFT JOIN LATERAL (
@@ -184,11 +185,11 @@ export const platformRepository = {
          (SELECT count(*) FROM organisations o WHERE NOT EXISTS (
             SELECT 1 FROM appointments a
              WHERE a.organisation_id = o.id AND a.position_id = $1 AND a.status = 'active'))::int
-           AS "organisationsWithoutChairman",
+            AS "organisationsWithoutHead",
          (SELECT count(*) FROM members)::int AS "members",
          (SELECT count(*) FROM appointments a JOIN organisation_executives e ON e.member_id = a.member_id
            WHERE a.position_id = $1 AND a.status = 'active' AND e.status = 'active')::int
-           AS "activeChairmen",
+            AS "activeHeads",
          (SELECT count(*) FROM organisation_executives WHERE status = 'active')::int AS "activeExecutives",
          (SELECT count(*) FROM organisation_executives WHERE status = 'suspended')::int
            AS "suspendedExecutives",

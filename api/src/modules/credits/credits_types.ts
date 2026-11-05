@@ -73,8 +73,14 @@ export interface CreditTransactionResponse {
   createdAt: Date;
 }
 
+export interface PlatformCreditTransactionResponse extends CreditTransactionResponse {
+  organisationId: string;
+  organisationName: string;
+}
+
 export interface ListCreditTransactionsRequest extends PageParams, PeriodParams {
   wallet: 'mine' | 'organisation';
+  type?: CreditTransactionType;
 }
 
 // The dev payment driver's webhook body. Real providers post their own format (SRS 6.5).

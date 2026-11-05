@@ -12,8 +12,11 @@ export {
 } from './credits_schemas';
 export {
   CREDIT_PURCHASE_STATUSES,
+  CREDIT_TRANSACTION_TYPES,
   type CreditPurchaseStatus,
+  type CreditTransactionType,
   type CreditTransactionResponse,
+  type PlatformCreditTransactionResponse,
   type ListPurchasesRequest,
   type PurchaseResponse,
   type WalletBalanceResponse,

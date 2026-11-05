@@ -8,9 +8,9 @@ export type PlatformAdminStatus = 'active' | 'suspended';
 export interface PlatformOverviewResponse {
   organisations: number;
   suspendedOrganisations: number;
-  organisationsWithoutChairman: number;
+  organisationsWithoutHead: number;
   members: number;
-  activeChairmen: number;
+  activeHeads: number;
   activeExecutives: number;
   suspendedExecutives: number;
   platformAdmins: number;
@@ -41,7 +41,7 @@ export interface OrganisationExecutiveResponse {
   createdAt: string;
 }
 
-export interface ChairmanResponse extends Omit<
+export interface HeadResponse extends Omit<
   OrganisationExecutiveResponse,
   'positions' | 'creditBalance'
 > {
@@ -56,7 +56,8 @@ export interface OrganisationResponse {
   status: OrganisationStatus;
   logoUrl: string | null;
   credits: WalletBalanceResponse;
-  chairman: ChairmanResponse | null;
+  headTitle: string;
+  head: HeadResponse | null;
   memberCount: number;
   executiveCount: number;
   createdAt: string;

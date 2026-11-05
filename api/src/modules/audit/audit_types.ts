@@ -31,6 +31,7 @@ export const AUDIT_ACTIONS = {
   creditPurchaseStarted: 'credit.purchase_started',
   creditPurchaseCompleted: 'credit.purchase_completed',
   creditPurchaseFailed: 'credit.purchase_failed',
+  creditAdjusted: 'credit.adjusted',
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 
@@ -45,4 +46,27 @@ export interface AuditEventInput {
   ipAddress?: string;
   // Never put names, phone numbers, emails, passwords or tokens in here (NFR-PRIV-01).
   metadata?: Record<string, unknown>;
+}
+
+import type { PageParams } from '../../common/http/pagination';
+import type { PeriodParams } from '../../common/http/period';
+
+export interface ListAuditEventsRequest extends PageParams, PeriodParams {
+  actor?: string;
+  action?: string;
+  organisationId?: string;
+}
+
+export interface AuditEventResponse {
+  id: string;
+  actor: string | null;
+  actorRole: 'executive' | 'platform_admin' | null;
+  action: string;
+  outcome: AuditOutcome;
+  organisationId: string | null;
+  organisationName: string | null;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
 }

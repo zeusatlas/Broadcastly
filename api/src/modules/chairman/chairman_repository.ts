@@ -46,12 +46,16 @@ export type Scope = readonly string[] | null;
 const likePattern = (search: string) => `%${search.replace(/[\\%_]/g, '\\$&')}%`;
 
 const POSITION_SELECT = `
-  SELECT p.id, p.title, p.unit_type AS "unitType", p.is_active AS "isActive",
+  SELECT p.id,
+         CASE WHEN p.id = '${CHAIRMAN_POSITION_ID}' THEN org.head_title ELSE p.title END AS title,
+         CASE WHEN p.id = '${CHAIRMAN_POSITION_ID}' THEN 'organisation' ELSE p.unit_type END AS "unitType",
+         p.is_active AS "isActive",
          (p.organisation_id IS NULL) AS "isBuiltIn",
          (SELECT count(*) FROM appointments a
            WHERE a.position_id = p.id AND a.organisation_id = $1 AND a.status = 'active')::int
            AS "holderCount"
-    FROM positions p
+     FROM positions p
+     LEFT JOIN organisations org ON org.id = $1
    WHERE (p.organisation_id = $1 OR p.organisation_id IS NULL)`;
 
 const EXECUTIVE_SELECT = `
@@ -60,7 +64,10 @@ const EXECUTIVE_SELECT = `
          e.last_sign_in_at AS "lastSignInAt", e.created_at AS "createdAt",
          COALESCE((
            SELECT json_agg(json_build_object(
-                    'id', a.id, 'positionId', p.id, 'positionTitle', p.title,
+                     'id', a.id, 'positionId', p.id, 'positionTitle',
+                     CASE WHEN p.id = '${CHAIRMAN_POSITION_ID}'
+                          THEN (SELECT head_title FROM organisations WHERE id = e.organisation_id)
+                          ELSE p.title END,
                     'unitId', u.id, 'unitName', u.name, 'effectiveFrom', a.effective_from,
                     'permissions', COALESCE((SELECT array_agg(g.permission ORDER BY g.permission)
                                                FROM permission_grants g

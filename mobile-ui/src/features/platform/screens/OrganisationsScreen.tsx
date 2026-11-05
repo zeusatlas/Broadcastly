@@ -10,12 +10,12 @@ import { useReadOrganisationsQuery } from '../hooks/use_platform_api';
 import type { ListOrganisationsParams } from '../types';
 import { PAGE_SIZE, pageFootnote } from '../utils/paging';
 
-const FILTERS = ['All', 'No chairman', 'Inactive'] as const;
+const FILTERS = ['All', 'No head', 'Inactive'] as const;
 type Filter = (typeof FILTERS)[number];
 
 const FILTER_PARAMS: Record<Filter, ListOrganisationsParams> = {
   All: {},
-  'No chairman': { hasChairman: false, status: 'active' },
+  'No head': { hasChairman: false, status: 'active' },
   Inactive: { status: 'inactive' },
 };
 

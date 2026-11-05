@@ -181,21 +181,27 @@ export const chairmanService = {
     await dataSource.transaction(async (manager) => {
       const position = await organisationService.findPosition(organisationId, positionId, manager);
       if (!position) throw new NotFoundError('Position not found.');
-      if (position.organisationId === null) {
-        throw new ForbiddenError('Built-in positions cannot be changed.');
-      }
-      if (
-        changes.title &&
-        (await organisationService.positionTitleExists(
-          organisationId,
-          changes.title,
-          manager,
-          positionId,
-        ))
-      ) {
-        throw new ConflictError('A position with this title already exists.');
-      }
-      await organisationService.updatePosition(positionId, changes, manager);
+       if (position.organisationId === null) {
+         if (positionId !== CHAIRMAN_POSITION_ID || changes.isActive !== undefined) {
+           throw new ForbiddenError('The organisation head position can only be renamed.');
+         }
+         if (changes.title) {
+           await organisationService.setHeadTitle(organisationId, changes.title, manager);
+         }
+       } else {
+         if (
+           changes.title &&
+           (await organisationService.positionTitleExists(
+             organisationId,
+             changes.title,
+             manager,
+             positionId,
+           ))
+         ) {
+           throw new ConflictError('A position with this title already exists.');
+         }
+         await organisationService.updatePosition(positionId, changes, manager);
+       }
       await auditService.record(
         {
           action: AUDIT_ACTIONS.positionUpdated,

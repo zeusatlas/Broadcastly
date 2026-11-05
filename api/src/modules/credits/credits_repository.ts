@@ -43,6 +43,11 @@ export interface TransactionRow {
   createdAt: Date;
 }
 
+export interface PlatformTransactionRow extends TransactionRow {
+  organisationId: string;
+  organisationName: string;
+}
+
 export interface PurchaseFilters {
   organisationId?: string;
   status?: CreditPurchaseStatus;
@@ -141,10 +146,16 @@ export const creditsRepository = {
     return paged<PurchaseRow>(`${PURCHASE_SELECT} ${where}`, params, page);
   },
 
-  listTransactions(walletId: string, range: DateRange, page: PageParams) {
+  listTransactions(
+    walletId: string,
+    range: DateRange,
+    page: PageParams,
+    type?: CreditTransactionType,
+  ) {
     const params: unknown[] = [walletId];
     const param = (value: unknown) => `$${params.push(value)}`;
     const clauses = ['t.wallet_id = $1', ...rangeClauses('t.created_at', range, param)];
+    if (type) clauses.push(`t.type = ${param(type)}`);
     const select = `
       SELECT t.id, t.type, t.amount, t.balance_after AS "balanceAfter", t.reason,
              COALESCE(${executiveName('t.initiated_by_executive_id')},
@@ -154,6 +165,33 @@ export const creditsRepository = {
              t.created_at AS "createdAt"
         FROM credit_transactions t`;
     return paged<TransactionRow>(`${select} WHERE ${clauses.join(' AND ')}`, params, page);
+  },
+
+  listPlatformTransactions(
+    { organisationId, type, range }: { organisationId?: string; type?: CreditTransactionType; range: DateRange },
+    page: PageParams,
+  ) {
+    const params: unknown[] = [];
+    const param = (value: unknown) => `$${params.push(value)}`;
+    const clauses = ['w.owner_type = \'organisation\''];
+    if (organisationId) clauses.push(`w.organisation_id = ${param(organisationId)}`);
+    if (type) clauses.push(`t.type = ${param(type)}`);
+    clauses.push(...rangeClauses('t.created_at', range, param));
+    const where = clauses.join(' AND ');
+    const select = `
+      SELECT t.id, t.type, t.amount, t.balance_after AS "balanceAfter", t.reason,
+             COALESCE(
+               (SELECT a.first_name || ' ' || a.last_name FROM platform_admins a
+                 WHERE a.id = t.initiated_by_platform_admin_id),
+               ${executiveName('t.initiated_by_executive_id')}
+             ) AS "initiatedBy",
+             t.purchase_id AS "purchaseId", t.broadcast_id AS "broadcastId",
+             t.created_at AS "createdAt", w.organisation_id AS "organisationId",
+             o.name AS "organisationName"
+        FROM credit_transactions t
+        JOIN wallets w ON w.id = t.wallet_id
+        JOIN organisations o ON o.id = w.organisation_id`;
+    return paged<PlatformTransactionRow>(`${select} WHERE ${where}`, params, page);
   },
 
   async purchaseTotals(range: DateRange): Promise<PurchaseTotals> {

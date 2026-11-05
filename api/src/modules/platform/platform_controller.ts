@@ -1,11 +1,14 @@
 import type { Request, Response } from 'express';
 
+import { ValidationError } from '../../common/errors/app_error';
 import { getRequestContext } from '../../common/http/request_context';
 import type { PeriodParams } from '../../common/http/period';
 import { sendCreated, sendSuccess } from '../../common/http/respond';
 import { toStoredPath } from '../../common/uploads/image_upload';
 import { validated } from '../../common/middleware/validate';
 import { actorFrom, requireAuth, type CreatePlatformAdminRequest } from '../auth';
+import { auditService } from '../audit';
+import { creditsService } from '../credits';
 
 import { platformService } from './platform_service';
 import type {
@@ -21,6 +24,9 @@ import type {
   OrganisationExecutiveParams,
   OrganisationParams,
   PlatformAdminParams,
+  PlatformAuditLogRequest,
+  ListPlatformCreditTransactionsRequest,
+  CreateCreditAdjustmentRequest,
 } from './platform_types';
 
 const actorOf = (req: Request) => actorFrom(requireAuth(req), getRequestContext(req));
@@ -29,6 +35,11 @@ export const platformController = {
   async getOverview(_req: Request, res: Response) {
     const data = await platformService.getOverview();
     return sendSuccess(res, { data, message: 'Overview retrieved.' });
+  },
+
+  async listAuditLog(_req: Request, res: Response) {
+    const data = await auditService.list(validated<PlatformAuditLogRequest>(res, 'query'));
+    return sendSuccess(res, { data, message: 'Audit log retrieved.' });
   },
 
   async listOrganisations(_req: Request, res: Response) {
@@ -54,7 +65,7 @@ export const platformController = {
     const { organisationId } = validated<OrganisationParams>(res, 'params');
     const body = validated<AppointChairmanRequest>(res, 'body');
     const data = await platformService.appointChairman(organisationId, body, actorOf(req));
-    return sendCreated(res, data, 'Chairman appointed.');
+    return sendCreated(res, data, 'Organisation head appointed.');
   },
 
   async listOrganisationExecutives(_req: Request, res: Response) {
@@ -166,6 +177,21 @@ export const platformController = {
     const query = validated<ListOrganisationCreditTransactionsRequest>(res, 'query');
     const data = await platformService.listOrganisationCreditTransactions(organisationId, query);
     return sendSuccess(res, { data, message: 'Credit history retrieved.' });
+  },
+
+  async listPlatformCreditTransactions(_req: Request, res: Response) {
+    const data = await creditsService.listPlatformTransactions(
+      validated<ListPlatformCreditTransactionsRequest>(res, 'query'),
+    );
+    return sendSuccess(res, { data, message: 'Credit ledger retrieved.' });
+  },
+
+  async createCreditAdjustment(req: Request, res: Response) {
+    const body = validated<CreateCreditAdjustmentRequest>(res, 'body');
+    const idempotencyKey = req.get('Idempotency-Key');
+    if (!idempotencyKey) throw new ValidationError({}, 'Idempotency-Key is required.');
+    const data = await creditsService.createPlatformAdjustment(body, idempotencyKey, actorOf(req));
+    return sendCreated(res, data, 'Credit adjustment recorded.');
   },
 
   async listPlatformAdmins(_req: Request, res: Response) {

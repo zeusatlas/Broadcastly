@@ -50,10 +50,10 @@ async function seedOrganisation() {
       SEEDER,
     ));
 
-  if (!organisation.chairman) {
+  if (!organisation.head) {
     await platformService.appointChairman(organisation.id, CHAIRMAN, SEEDER);
   }
-  print(`  Chairman: ${organisation.chairman ? 'exists' : 'appointed'}`);
+  print(`  Head: ${organisation.head ? 'exists' : 'appointed'}`);
 }
 
 async function main() {

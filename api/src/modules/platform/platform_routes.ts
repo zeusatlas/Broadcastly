@@ -37,6 +37,11 @@ import {
   purchaseSummaryResponseSchema,
   listOrganisationsSchema,
   listPlatformAdminsSchema,
+  listAuditLogSchema,
+  auditEventResponseSchema,
+  listPlatformCreditTransactionsSchema,
+  platformCreditTransactionResponseSchema,
+  createCreditAdjustmentSchema,
   organisationExecutiveParamsSchema,
   organisationExecutiveResponseSchema,
   organisationParamsSchema,
@@ -58,6 +63,7 @@ const ORGANISATION = '/organisations/:organisationId';
 const logoUpload = imageUpload('organisation-logos', 'logo');
 
 platformRouter.get('/overview', c.getOverview);
+platformRouter.get('/audit-log', validate({ query: listAuditLogSchema }), c.listAuditLog);
 platformRouter.get(
   '/organisations',
   validate({ query: listOrganisationsSchema }),
@@ -100,6 +106,16 @@ platformRouter.get(
   `${ORGANISATION}/credit-transactions`,
   validate({ params: organisationParamsSchema, query: listOrganisationCreditTransactionsSchema }),
   c.listOrganisationCreditTransactions,
+);
+platformRouter.get(
+  '/credit-transactions',
+  validate({ query: listPlatformCreditTransactionsSchema }),
+  c.listPlatformCreditTransactions,
+);
+platformRouter.post(
+  '/credit-adjustments',
+  validate({ body: createCreditAdjustmentSchema }),
+  c.createCreditAdjustment,
 );
 platformRouter.get('/broadcasts', validate({ query: listBroadcastsSchema }), c.listBroadcasts);
 platformRouter.get('/purchases', validate({ query: listPlatformPurchasesSchema }), c.listPurchases);
@@ -179,11 +195,22 @@ document({
 });
 document({
   method: 'get',
+  path: '/audit-log',
+  operationId: 'listPlatformAuditLog',
+  summary: 'List audit events',
+  description: 'Review immutable administrative activity with actor, action, organisation and period filters.',
+  request: { query: listAuditLogSchema },
+  response: successEnvelope(paginatedSchema(auditEventResponseSchema), 'Audit log retrieved.'),
+  message: 'A page of audit events.',
+  errors: [NOT_ADMIN, 422],
+});
+document({
+  method: 'get',
   path: '/organisations',
   operationId: 'listOrganisations',
   summary: 'List organisations',
   description:
-    'Organisations by name, each with its chairman (or `null`) and counts. Filter by `status` and `hasChairman`.',
+    'Organisations by name, each with its head (or `null`) and counts. Filter by `status` and `hasChairman`.',
   request: { query: listOrganisationsSchema },
   response: successEnvelope(
     paginatedSchema(organisationResponseSchema),
@@ -198,7 +225,7 @@ document({
   operationId: 'createOrganisation',
   summary: 'Create an organisation',
   description:
-    'Create a constituency or other organisation, then appoint its chairman. Names are unique, ignoring case.',
+    'Create a constituency or other organisation. The organisation starts without a head.',
   request: {
     body: jsonBody(createOrganisationSchema, {
       name: 'Central Constituency',
@@ -219,7 +246,7 @@ document({
   path: '/organisations/{organisationId}',
   operationId: 'getOrganisation',
   summary: 'Get an organisation',
-  description: 'One organisation with its chairman and counts.',
+  description: 'One organisation with its head and counts.',
   request: { params: organisationParamsSchema },
   response: successEnvelope(organisationResponseSchema, 'Organisation retrieved.'),
   message: 'The organisation.',
@@ -229,12 +256,12 @@ document({
   method: 'post',
   path: '/organisations/{organisationId}/chairman',
   operationId: 'appointChairman',
-  summary: 'Appoint the chairman',
+  summary: 'Appoint the organisation head',
   description: `
-Promote a member of this organisation to executive and appoint them chairman, in one step.
+  Promote a member of this organisation to executive and appoint them as its head, in one step.
 
 - If \`partyId\` matches a member of this organisation, that member is promoted; otherwise one is created.
-- One chairman per organisation. They sign in on the mobile app, create positions and appoint executives.
+  - One head per organisation. They sign in on the mobile app, create positions and appoint executives.
 `,
   request: {
     params: organisationParamsSchema,
@@ -248,15 +275,15 @@ Promote a member of this organisation to executive and appoint them chairman, in
     }),
   },
   status: 201,
-  response: successEnvelope(organisationResponseSchema, 'Chairman appointed.', 201),
-  message: 'The organisation with its chairman.',
+  response: successEnvelope(organisationResponseSchema, 'Organisation head appointed.', 201),
+  message: 'The organisation with its head.',
   errors: [
     NOT_ADMIN,
     NO_ORGANISATION,
     [
       409,
-      'Already has a chairman, is inactive, or the email or member has an account.',
-      'This organisation already has a chairman.',
+      'Already has a head, is inactive, or the email or member has an account.',
+      'This organisation already has a head.',
     ],
     422,
   ],
@@ -488,4 +515,36 @@ document({
   ),
   message: 'A page of ledger entries.',
   errors: [NOT_ADMIN, NO_ORGANISATION, 422],
+});
+document({
+  method: 'get',
+  path: '/credit-transactions',
+  operationId: 'listPlatformCreditTransactions',
+  summary: 'List the platform credit ledger',
+  description: 'Review organisation wallet movements with organisation, type and period filters.',
+  request: { query: listPlatformCreditTransactionsSchema },
+  response: successEnvelope(
+    paginatedSchema(platformCreditTransactionResponseSchema),
+    'Credit ledger retrieved.',
+  ),
+  message: 'A page of credit transactions.',
+  errors: [NOT_ADMIN, 422],
+});
+document({
+  method: 'post',
+  path: '/credit-adjustments',
+  operationId: 'createPlatformCreditAdjustment',
+  summary: 'Record a credit adjustment',
+  description: 'Post a signed, reasoned adjustment to an organisation wallet. Requires an Idempotency-Key header.',
+  request: {
+    body: jsonBody(createCreditAdjustmentSchema, {
+      organisationId: '11111111-1111-4111-8111-111111111111',
+      amount: 300,
+      reason: 'Corrected a confirmed delivery discrepancy.',
+    }),
+  },
+  status: 201,
+  response: successEnvelope(creditTransactionResponseSchema, 'Credit adjustment recorded.', 201),
+  message: 'The adjustment ledger entry.',
+  errors: [NOT_ADMIN, 409, 422],
 });

@@ -6,11 +6,27 @@ import { Button, Text, TextField } from '@/components/ui';
 import { useHasPermission } from '@/features/auth';
 import { notify } from '@/lib/notify';
 
+import { useCreateUnitMutation } from '../hooks/use_organisation_api';
+
 export function AddUnitScreen() {
   const canManage = useHasPermission('appointment.manage');
   const [name, setName] = useState('');
   const [unitType, setUnitType] = useState('');
   const [parentUnit, setParentUnit] = useState('');
+  const createUnit = useCreateUnitMutation();
+
+  const submit = async () => {
+    const response = await createUnit.mutate({
+      name: name.trim(),
+      type: unitType.trim() || 'unit',
+      ...(parentUnit.trim() ? { parentId: parentUnit.trim() } : {}),
+    });
+    if (!response) {
+      if (createUnit.error) notify.apiError(createUnit.error);
+      return;
+    }
+    notify.success('Unit created.');
+  };
 
   return (
     <PageScreen
@@ -19,12 +35,14 @@ export function AddUnitScreen() {
       backLabel="Close add unit"
       actions={
         <Button
-          label="Review unit"
+          label="Create unit"
           variant="accent"
           size="lg"
           fullWidth
           disabled={!canManage || !name.trim()}
-          onPress={() => notify.info('Unit review is ready for API wiring')}
+          isLoading={createUnit.isPending}
+          loadingLabel="Creating unit…"
+          onPress={submit}
         />
       }
     >

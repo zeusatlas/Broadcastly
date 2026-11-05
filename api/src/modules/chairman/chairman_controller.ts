@@ -36,7 +36,7 @@ async function setOwnLogo(req: Request, logoPath: string | null) {
 export const chairmanController = {
   async uploadLogo(req: Request, res: Response) {
     const data = await setOwnLogo(req, toStoredPath(req.file!.path));
-    return sendSuccess(res, { data, message: 'Logo updated.' });
+    return sendSuccess(res, { data, message: 'Organisation logo updated.' });
   },
 
   async removeLogo(req: Request, res: Response) {

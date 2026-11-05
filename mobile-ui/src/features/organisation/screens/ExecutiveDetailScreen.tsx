@@ -7,14 +7,30 @@ import { Avatar, Button, Text } from '@/components/ui';
 import { useHasPermission } from '@/features/auth';
 import { notify } from '@/lib/notify';
 
-import { DEMO_EXECUTIVES } from '../demo_data';
+import {
+  useReadExecutiveQuery,
+  useReactivateExecutiveMutation,
+  useSuspendExecutiveMutation,
+} from '../hooks/use_organisation_api';
 
 export function ExecutiveDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const canManage = useHasPermission('appointment.manage');
-  const executive = DEMO_EXECUTIVES.find((item) => item.id === id);
+  const executiveId = typeof id === 'string' ? id : '';
+  const query = useReadExecutiveQuery(executiveId, { enabled: canManage && executiveId.length > 0 });
+  const suspend = useSuspendExecutiveMutation();
+  const reactivate = useReactivateExecutiveMutation();
+  const executive = query.data;
 
-  if (!executive) {
+  if (query.isLoading) {
+    return (
+      <PageScreen title="Executive">
+        <Text variant="bodyMuted">Loading executive details…</Text>
+      </PageScreen>
+    );
+  }
+
+  if (!executive || query.error) {
     return (
       <PageScreen title="Executive">
         <Text variant="bodyMuted">This executive could not be found.</Text>
@@ -26,12 +42,13 @@ export function ExecutiveDetailScreen() {
     <PageScreen title="Executive details">
       <View className="gap-8">
         <View className="items-center gap-3">
-          <Avatar name={executive.name} size="xl" />
+           <Avatar name={executive.fullName} size="xl" />
           <Text accessibilityRole="header" className="font-sans-extrabold text-3xl text-foreground">
-            {executive.name}
+             {executive.fullName}
           </Text>
-          <Text variant="bodyMuted" className="text-center">
-            {executive.position} · {executive.unit}
+            <Text variant="bodyMuted" className="text-center">
+            {executive.appointments[0]?.positionTitle ?? 'No appointment'} ·{' '}
+            {executive.appointments[0]?.unitName ?? 'Organisation-wide'}
           </Text>
           <Text className="font-sans-semibold text-sm text-success">
             {executive.status === 'active' ? 'Active account' : 'Suspended account'}
@@ -46,13 +63,13 @@ export function ExecutiveDetailScreen() {
           </View>
           <View className="border-b border-border py-3">
             <Text variant="caption">Phone</Text>
-            <Text variant="label">{executive.phone}</Text>
+            <Text variant="label">{executive.phone ?? 'No phone number'}</Text>
           </View>
         </View>
 
         <View className="gap-1">
           <Text variant="overline">Permissions</Text>
-          {executive.permissions.map((permission) => (
+          {executive.appointments.flatMap((appointment) => appointment.permissions).map((permission) => (
             <Text key={permission} variant="label" className="border-b border-border py-3">
               {permission}
             </Text>
@@ -66,13 +83,23 @@ export function ExecutiveDetailScreen() {
               icon={UserRoundCheck}
               variant="outline"
               fullWidth
-              onPress={() => notify.info('Appointment management is ready for API wiring')}
+              onPress={() => notify.info('Appointment management is available from the executive tools.')}
             />
             <Button
               label={executive.status === 'active' ? 'Suspend access' : 'Reactivate access'}
               variant="ghost"
               fullWidth
-              onPress={() => notify.info('Account status changes are ready for API wiring')}
+              isLoading={suspend.isPending || reactivate.isPending}
+              onPress={async () => {
+                const mutation = executive.status === 'active' ? suspend : reactivate;
+                const response = await mutation.mutate({ executiveId });
+                if (!response) {
+                  if (mutation.error) notify.apiError(mutation.error);
+                  return;
+                }
+                notify.success(executive.status === 'active' ? 'Account suspended.' : 'Account reactivated.');
+                query.refetch();
+              }}
             />
           </View>
         ) : null}

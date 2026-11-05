@@ -23,7 +23,7 @@ const FILTER_STATUS: Record<Filter, ExecutiveStatus | undefined> = {
   Suspended: 'suspended',
 };
 
-// One organisation for the platform admin: its chairman, totals and executives.
+// One organisation for the platform admin: its head, totals and executives.
 export function OrganisationScreen({ organisationId }: { organisationId: string }) {
   const [filter, setFilter] = useState<Filter>('All');
   const [search, setSearch] = useState('');
@@ -51,30 +51,30 @@ export function OrganisationScreen({ organisationId }: { organisationId: string 
     );
   }
 
-  const { chairman } = organisation;
+  const { head } = organisation;
 
   return (
     <PageScreen title={organisation.name} contentClassName="gap-6">
       <Card className="flex-row items-center gap-3">
-        {chairman ? (
+        {head ? (
           <>
-            <Avatar name={chairman.fullName} size="md" />
+            <Avatar name={head.fullName} size="md" />
             <View className="flex-1 gap-0.5">
-              <Text variant="caption">Chairman</Text>
+              <Text variant="caption">{organisation.headTitle}</Text>
               <Text className="font-sans-bold text-base text-foreground" numberOfLines={1}>
-                {chairman.fullName}
+                {head.fullName}
               </Text>
               <Text variant="caption" numberOfLines={1}>
-                {chairman.email}
+                {head.email}
               </Text>
             </View>
           </>
         ) : (
           <View className="flex-1 gap-3">
             <Text variant="bodyMuted">
-              No chairman yet. Appoint one so they can set up executives.
+              No head appointed yet. Appoint one so they can set up executives.
             </Text>
-            <Button label="Appoint chairman" icon={UserRoundPlus} variant="accent" />
+          <Button label={`Appoint ${organisation.headTitle.toLowerCase()}`} icon={UserRoundPlus} variant="accent" />
           </View>
         )}
       </Card>
@@ -89,7 +89,7 @@ export function OrganisationScreen({ organisationId }: { organisationId: string 
         <StatTile
           label="Executives"
           value={organisation.executiveCount.toLocaleString()}
-          caption="Set by the chairman"
+          caption={`Set by the ${organisation.headTitle.toLowerCase()}`}
           icon={UsersRound}
         />
       </View>

@@ -1,4 +1,5 @@
-// Mirrors api/src/modules/chairman/chairman_types.ts. Change both together.
+import type { PageParams, Paginated } from '@/types/api';
+import type { Permission, ExecutiveStatus } from '@/types/models';
 
 export interface UnitTypeCount {
   type: string;
@@ -24,3 +25,84 @@ export interface PositionResponse {
   isBuiltIn: boolean;
   holderCount: number;
 }
+
+export interface UnitResponse {
+  id: string;
+  name: string;
+  type: string;
+  parentId: string | null;
+  status: 'active' | 'inactive';
+  childCount: number;
+}
+
+export interface ExecutiveAppointmentResponse {
+  id: string;
+  positionId: string;
+  positionTitle: string;
+  unitId: string | null;
+  unitName: string | null;
+  permissions: Permission[];
+  effectiveFrom: string;
+}
+
+export interface ExecutiveResponse {
+  id: string;
+  memberId: string;
+  partyId: string | null;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  status: ExecutiveStatus;
+  appointments: ExecutiveAppointmentResponse[];
+  lastSignInAt: string | null;
+  createdAt: string;
+}
+
+export interface ListUnitsParams extends PageParams {
+  parentId?: string;
+  search?: string;
+}
+
+export interface ListExecutivesParams extends PageParams {
+  search?: string;
+  status?: ExecutiveStatus;
+}
+
+export interface CreatePositionRequest {
+  title: string;
+  unitType?: string;
+}
+
+export interface UpdatePositionRequest {
+  title?: string;
+  isActive?: boolean;
+}
+
+export interface CreateUnitRequest {
+  name: string;
+  type: string;
+  parentId?: string;
+}
+
+export interface AppointmentRequest {
+  positionId: string;
+  unitId?: string;
+  permissions: Permission[];
+}
+
+export interface CreateExecutiveRequest extends AppointmentRequest {
+  partyId?: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+}
+
+export interface EndAppointmentRequest {
+  reason?: string;
+}
+
+export type OrganisationUnitsResponse = Paginated<UnitResponse>;
+export type OrganisationExecutivesResponse = Paginated<ExecutiveResponse>;

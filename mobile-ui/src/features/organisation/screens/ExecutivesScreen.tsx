@@ -4,12 +4,12 @@ import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
-import { Button, Chip, Text } from '@/components/ui';
+import { Button, Chip, QueryState, Text } from '@/components/ui';
 import { useHasPermission } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
 
 import { ExecutiveRow } from '../components/ExecutiveRow';
-import { DEMO_EXECUTIVES } from '../demo_data';
+import { useReadExecutivesQuery } from '../hooks/use_organisation_api';
 
 type ExecutiveFilter = 'all' | 'active' | 'suspended';
 
@@ -23,13 +23,23 @@ export function ExecutivesScreen() {
   const theme = useTheme();
   const canManage = useHasPermission('appointment.manage');
   const [filter, setFilter] = useState<ExecutiveFilter>('all');
-
+  const query = useReadExecutivesQuery(
+    { page: 1, pageSize: 50, ...(filter === 'all' ? {} : { status: filter }) },
+    { enabled: canManage },
+  );
   const executives = useMemo(
     () =>
-      DEMO_EXECUTIVES.filter(
-        (executive) => filter === 'all' || executive.status === filter,
-      ),
-    [filter],
+      (query.data?.items ?? []).map((executive) => ({
+        id: executive.id,
+        name: executive.fullName,
+        position: executive.appointments[0]?.positionTitle ?? 'No appointment',
+        unit: executive.appointments[0]?.unitName ?? 'Organisation-wide',
+        status: executive.status,
+        email: executive.email,
+        phone: executive.phone ?? 'No phone number',
+        permissions: executive.appointments.flatMap((appointment) => appointment.permissions),
+      })),
+    [query.data],
   );
 
   return (
@@ -73,6 +83,13 @@ export function ExecutivesScreen() {
           ))}
         </View>
 
+        <QueryState
+          isLoading={query.isLoading}
+          error={query.error}
+          isEmpty={!query.isLoading && executives.length === 0}
+          emptyText="There are no executives in this view."
+          onRetry={query.refetch}
+        />
         <Text variant="caption">
           {executives.length} {executives.length === 1 ? 'executive' : 'executives'}
         </Text>
@@ -86,14 +103,7 @@ export function ExecutivesScreen() {
                 isLast={index === executives.length - 1}
               />
             ))
-          ) : (
-            <View className="items-center gap-2 py-16">
-              <Text variant="heading">No executives found</Text>
-              <Text variant="bodyMuted" className="text-center">
-                There are no executives in this view.
-              </Text>
-            </View>
-          )}
+          ) : null}
         </View>
       </View>
     </PageScreen>

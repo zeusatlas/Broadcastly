@@ -2,7 +2,7 @@ import type { UserRole } from '@/types/models';
 
 const ROLE_LABELS: Record<UserRole, string> = {
   platform_admin: 'Platform Administrator',
-  chairman: 'Chairman',
+  chairman: 'Head',
   executive: 'Executive',
 };
 

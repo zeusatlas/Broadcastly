@@ -36,15 +36,15 @@ export function AdminHomeScreen() {
           <StatTile
             label="Executives"
             value={count(totals?.activeExecutives)}
-            caption={`${count(totals?.activeChairmen)} chairmen`}
+            caption={`${count(totals?.activeHeads)} organisation heads`}
             icon={UsersRound}
             onPress={openOrganisations}
           />
         </View>
         <View className="flex-row gap-3">
           <StatTile
-            label="No chairman"
-            value={count(totals?.organisationsWithoutChairman)}
+            label="No head"
+            value={count(totals?.organisationsWithoutHead)}
             caption="Appoint one to start"
             icon={UserRoundPlus}
             onPress={openOrganisations}

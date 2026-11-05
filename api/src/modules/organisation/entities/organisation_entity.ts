@@ -16,6 +16,9 @@ export class Organisation extends BaseEntity {
   @Column({ type: 'varchar', length: 40, default: 'constituency' })
   type: string;
 
+  @Column({ type: 'varchar', length: 120, name: 'head_title', default: 'Head' })
+  headTitle: string;
+
   @Column({
     type: 'enum',
     enum: ORGANISATION_STATUSES,

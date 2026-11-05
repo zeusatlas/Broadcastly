@@ -3,7 +3,7 @@ import type { PlatformAdminResponse } from '../auth';
 
 import type { ExecutiveRow, OrganisationRow, PlatformAdminRow } from './platform_repository';
 import type {
-  ChairmanResponse,
+  HeadResponse,
   OrganisationExecutiveResponse,
   OrganisationResponse,
 } from './platform_types';
@@ -34,16 +34,17 @@ export function toOrganisationExecutive(row: ExecutiveRow): OrganisationExecutiv
 }
 
 export function toOrganisationResponse(row: OrganisationRow): OrganisationResponse {
-  const chairman: ChairmanResponse | null = row.chairman && {
-    ...executiveBase(row.chairman),
-    appointmentId: row.chairman.appointmentId,
-    appointedAt: toDate(row.chairman.appointedAt),
+  const head: HeadResponse | null = row.head && {
+    ...executiveBase(row.head),
+    appointmentId: row.head.appointmentId,
+    appointedAt: toDate(row.head.appointedAt),
   };
 
   return {
     id: row.id,
     name: row.name,
     type: row.type,
+    headTitle: row.headTitle,
     status: row.status,
     logoUrl: publicUploadUrl(row.logoPath),
     credits: {
@@ -51,7 +52,7 @@ export function toOrganisationResponse(row: OrganisationRow): OrganisationRespon
       reserved: row.creditReserved,
       available: row.creditBalance - row.creditReserved,
     },
-    chairman,
+    head,
     memberCount: row.memberCount,
     executiveCount: row.executiveCount,
     createdAt: row.createdAt,

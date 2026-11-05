@@ -16,14 +16,14 @@ interface OrganisationRowProps {
 // The icon tile's colour carries the state; the text says it too, so colour is never alone.
 export function OrganisationRow({ organisation, onPress, isLast = false }: OrganisationRowProps) {
   const theme = useTheme();
-  const { name, chairman, memberCount, executiveCount, status } = organisation;
+  const { name, head, headTitle, memberCount, executiveCount, status } = organisation;
   const isInactive = status === 'inactive';
-  const needsChairman = !chairman && !isInactive;
+  const needsHead = !head && !isInactive;
   const subtitle = isInactive
     ? 'Inactive'
-    : chairman
-      ? `Chairman · ${chairman.fullName}`
-      : 'No chairman yet';
+    : head
+      ? `${headTitle} · ${head.fullName}`
+      : `No ${headTitle.toLowerCase()} yet`;
 
   return (
     <Pressable
@@ -38,7 +38,7 @@ export function OrganisationRow({ organisation, onPress, isLast = false }: Organ
       <View
         className={cn(
           'h-11 w-11 items-center justify-center rounded-xl',
-          isInactive ? 'bg-muted' : needsChairman ? 'bg-warning' : 'bg-success',
+           isInactive ? 'bg-muted' : needsHead ? 'bg-warning' : 'bg-success',
         )}
       >
         <Building2
@@ -46,7 +46,7 @@ export function OrganisationRow({ organisation, onPress, isLast = false }: Organ
           color={
             isInactive
               ? theme.mutedForeground
-              : needsChairman
+                : needsHead
                 ? theme.warningForeground
                 : theme.successForeground
           }
@@ -59,7 +59,7 @@ export function OrganisationRow({ organisation, onPress, isLast = false }: Organ
         <Text
           className={cn(
             'font-sans-medium text-xs',
-            needsChairman ? 'text-accent-emphasis' : 'text-muted-foreground',
+            needsHead ? 'text-accent-emphasis' : 'text-muted-foreground',
           )}
           numberOfLines={1}
         >
