@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Plus, Send, Wallet } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
@@ -8,13 +8,16 @@ import { useCollapsingTitle } from '@/components/shared';
 import { Button, Card, Chip, QueryState, Text } from '@/components/ui';
 import { enterRow } from '@/constants/motion';
 import { MaxContentWidth } from '@/constants/theme';
-import { useHasPermission } from '@/features/auth';
+import { useHasPermission, useHasRole } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
-import { notify } from '@/lib/notify';
 import { cn } from '@/utils/helpers';
 
 import { TransactionRow } from '../components/TransactionRow';
-import { useReadCreditBalancesQuery, useReadCreditTransactionsQuery } from '../hooks/use_credits_api';
+import {
+  useReadAllocationsQuery,
+  useReadCreditBalancesQuery,
+  useReadCreditTransactionsQuery,
+} from '../hooks/use_credits_api';
 import type { CreditSummary, CreditTransaction, CreditTransactionType } from '../types';
 
 type HistoryFilter = 'all' | 'added' | 'allocated' | 'used';
@@ -52,12 +55,42 @@ export function CreditsScreen() {
   const theme = useTheme();
   const collapsing = useCollapsingTitle('Credits', { header: 'tab' });
   const canAllocate = useHasPermission('credit.allocate');
+  const canPurchase = useHasPermission('credit.purchase');
+  // Hybrid policy: the chairman spends the organisation wallet, everyone else their own.
+  const wallet = useHasRole('chairman') ? 'organisation' : 'mine';
   const [filter, setFilter] = useState<HistoryFilter>('all');
   const balances = useReadCreditBalancesQuery();
-  const ledger = useReadCreditTransactionsQuery({ page: 1, pageSize: 50, wallet: 'mine' });
+  const ledger = useReadCreditTransactionsQuery({ page: 1, pageSize: 50, wallet });
+  const showsAllocations = canAllocate && filter === 'allocated';
+  const allocations = useReadAllocationsQuery(
+    { page: 1, pageSize: 50 },
+    { enabled: showsAllocations },
+  );
+  const reload = useRef(() => {});
+  const hasFocusedOnce = useRef(false);
+
+  useEffect(() => {
+    reload.current = () => {
+      balances.refetch();
+      ledger.refetch();
+      if (showsAllocations) allocations.refetch();
+    };
+  });
+
+  // Coming back from allocating shows the new balance and history.
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocusedOnce.current) reload.current();
+      hasFocusedOnce.current = true;
+    }, []),
+  );
   const summary: CreditSummary = {
-    available: balances.data?.mine.available ?? 0,
-    reserved: balances.data?.mine.reserved ?? 0,
+    available:
+      (wallet === 'organisation' ? balances.data?.organisation : balances.data?.mine)?.available ??
+      0,
+    reserved:
+      (wallet === 'organisation' ? balances.data?.organisation : balances.data?.mine)?.reserved ??
+      0,
     spendingLimit: null,
     spentThisPeriod: 0,
   };
@@ -70,10 +103,23 @@ export function CreditsScreen() {
     initiatedBy: transaction.initiatedBy ?? 'System',
   }));
 
+  const allocationRows = (allocations.data?.items ?? []).map<CreditTransaction>((allocation) => ({
+    id: allocation.id,
+    type: 'allocation_out',
+    title: allocation.reason
+      ? `To ${allocation.executiveName} · ${allocation.reason}`
+      : `To ${allocation.executiveName}`,
+    amount: -allocation.credits,
+    occurredAt: new Date(allocation.createdAt).toLocaleDateString(),
+    initiatedBy: allocation.initiatedBy ?? 'System',
+  }));
+  const listQuery = showsAllocations ? allocations : ledger;
+
   const items = useMemo(() => {
+    if (showsAllocations) return allocationRows;
     const types = FILTERS.find((f) => f.key === filter)?.types;
     return types ? liveLedger.filter((t) => types.includes(t.type)) : liveLedger;
-  }, [filter, liveLedger]);
+  }, [filter, liveLedger, allocationRows, showsAllocations]);
 
   return (
     <>
@@ -117,17 +163,19 @@ export function CreditsScreen() {
             </Card>
 
             <View className="mt-4 flex-row gap-3">
-              <View className="flex-1">
-                <Button
-                  label="Buy"
-                  accessibilityLabel="Buy credits"
-                  icon={Plus}
-                  variant="accent"
-                  shape="pill"
-                  fullWidth
-                  onPress={() => notify.info('Buying credits is coming soon')}
-                />
-              </View>
+              {canPurchase ? (
+                <View className="flex-1">
+                  <Button
+                    label="Buy"
+                    accessibilityLabel="Buy credits"
+                    icon={Plus}
+                    variant="accent"
+                    shape="pill"
+                    fullWidth
+                    onPress={() => router.push('/credits/buy')}
+                  />
+                </View>
+              ) : null}
               {canAllocate ? (
                 <View className="flex-1">
                   <Button
@@ -165,13 +213,13 @@ export function CreditsScreen() {
         )}
         ListEmptyComponent={
           <QueryState
-            isLoading={ledger.isLoading}
-            error={ledger.error ?? balances.error}
-            isEmpty={!ledger.isLoading && items.length === 0}
+            isLoading={listQuery.isLoading}
+            error={listQuery.error ?? balances.error}
+            isEmpty={!listQuery.isLoading && items.length === 0}
             emptyText="No credit transactions yet."
             onRetry={() => {
               balances.refetch();
-              ledger.refetch();
+              listQuery.refetch();
             }}
           />
         }

@@ -19,9 +19,11 @@ export {
   useSessionStatus,
 } from './hooks/use_session';
 export { useSessionExpiry } from './hooks/use_session_expiry';
+export { useReadSessionsQuery, useRevokeSessionMutation } from './hooks/use_sessions';
 export { useAuthStore } from './store/auth_store';
 export type {
   AuthTokensResponse,
+  SessionResponse,
   OtpChallengeResponse,
   PendingChallenge,
   SessionStatus,

@@ -8,6 +8,7 @@ import type {
   ResendOtpRequest,
   SignInRequest,
   SignInResponse,
+  SessionResponse,
   SignOutRequest,
   VerifyOtpRequest,
 } from '../types';
@@ -19,6 +20,7 @@ const ENDPOINTS = {
   signOut: '/auth/logout',
   refresh: '/auth/refresh',
   me: '/auth/me',
+  sessions: '/auth/sessions',
 } as const;
 
 // skipAuthRefresh on the sign-in calls: their 401 means "wrong details or code", not an expired
@@ -46,4 +48,10 @@ export const authEndpoints = {
     http.post<AuthTokensResponse, RefreshTokenRequest>(ENDPOINTS.refresh, credentials, PUBLIC),
 
   getCurrentUser: (options?: RequestOptions) => http.get<User>(ENDPOINTS.me, options),
+
+  readSessions: (options?: RequestOptions) =>
+    http.get<SessionResponse[]>(ENDPOINTS.sessions, options),
+
+  revokeSession: ({ sessionId }: { sessionId: string }) =>
+    http.delete(`${ENDPOINTS.sessions}/${sessionId}`),
 };

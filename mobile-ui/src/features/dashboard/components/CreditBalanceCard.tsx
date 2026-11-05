@@ -7,12 +7,18 @@ import { useTheme } from '@/hooks/use_theme';
 interface CreditBalanceCardProps {
   organisationName: string;
   role: string;
+  balance?: number;
+  isLoading?: boolean;
   onPress: () => void;
 }
 
-const DEMO_CREDIT_BALANCE = '12,450';
-
-export function CreditBalanceCard({ organisationName, role, onPress }: CreditBalanceCardProps) {
+export function CreditBalanceCard({
+  organisationName,
+  role,
+  balance,
+  isLoading = false,
+  onPress,
+}: CreditBalanceCardProps) {
   const theme = useTheme();
 
   return (
@@ -41,7 +47,7 @@ export function CreditBalanceCard({ organisationName, role, onPress }: CreditBal
             Credit balance
           </Text>
           <Text className="font-sans-extrabold text-4xl leading-tight text-primary-foreground">
-            {DEMO_CREDIT_BALANCE}
+            {isLoading || balance === undefined ? '—' : balance.toLocaleString()}
           </Text>
         </View>
         <View className="absolute bottom-5 right-5">

@@ -368,9 +368,19 @@ small gold icon chip), then `ListCard`
 sections (titled card + "View all") holding plain rows. `StatTile` and `ListCard` live in `components/ui`.
 **Keep screens minimal** (owner's rule): one job per block, no repeated information, no placeholder or
 empty-state sections for features the API does not serve yet. The dashboard is header → position · scope line →
-four tiles (Members, Executives, Units, Positions from `GET /organisation/overview`, enabled only for
-`appointment.manage` holders) → one row of quick actions. Credits, approvals and broadcasts tiles return when those API modules are mounted.
+the credit balance card (the chairman sees the organisation wallet, others their own: hybrid policy) →
+organisation overview tiles from `GET /organisation/overview` → one row of quick actions. The bell shows
+`GET /notifications/unread-count`, refreshed on focus.
 `QueryState` (loading / retryable error / empty) is in `components/ui`.
+
+**Owner's interaction rules (2026-11-05).** After an action that completes a task succeeds, go back first
+(`router.back()` / close the sheet), then toast. The keyboard must never cover an input: pages use
+`PageScreen` (keyboard-aware); bottom sheets in a `<Modal>` wrap their backdrop in `KeyboardAvoidingView`
+(`behavior` padding on iOS) because a modal is its own window. A mutation's `error` is state, so it is
+stale right after `await mutate()`: render it (e.g. under the button), never read it in the same handler.
+Infinite lists use `usePages` + `useDebouncedValue` from `src/hooks/use_pages.ts`. Sending or submitting a
+broadcast always goes through `useSendBroadcast` (confirm dialog + idempotency key). Images the server
+links to (logos) go through `deviceUrl()` from `@/config/env`, like API calls, so `localhost` works on a phone.
 
 **Top and bottom bars match** (owner's rule): the tab bar is `background`, the same colour the status bar
 sits on, with a hairline `border` top. Sign-in has no back button and verify has no close button; leaving
@@ -652,7 +662,7 @@ travel with the custom slide animation (owner's choice over a sheet). It always 
 `signOut` is deliberately *not* `skipAuthRefresh`: an expired access token is refreshed first, so
 the server really revokes the session. The device is signed out even if the call fails.
 
-**Feedback is toasts** (sonner-native, styled in `components/shared/AppToaster.tsx`). Show them
+**Feedback is toasts** (our own, no library: `lib/toast_store.ts` + `components/shared/AppToaster.tsx`, a banner under the status bar, one at a time, 3.5 s, tap to dismiss; success green, error red, warning yellow, info navy). Show them
 only through `notify` from `@/lib/notify` (lint-enforced): `success`, `error`, `warning`, `info`,
 `apiError(err)` (rate limits become warnings). Each comes with its haptic. Field validation stays
 inline under its field. Buttons that fetch pass `isLoading` and a `loadingLabel` ("Sending code…").

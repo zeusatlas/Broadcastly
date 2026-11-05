@@ -1,17 +1,18 @@
 import { Pencil, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { useState, type ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
 import { Avatar, Button, ConfirmDialog, Text } from '@/components/ui';
-import { useAuthStore, useCurrentUser, useIsAuthSubmitting } from '@/features/auth';
+import { useAuthStore, useCurrentUser, useHasRole, useIsAuthSubmitting } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
 import { notify } from '@/lib/notify';
 import { cn, formatGhanaPhone } from '@/utils/helpers';
 
 import { AppointmentRow } from '../components/AppointmentRow';
 import { DetailRow } from '../components/DetailRow';
+import { useOrganisationLogo } from '../hooks/use_organisation_logo';
 import { formatCalendarDate, formatShortDate } from '../utils/format';
 
 type SignOutScope = 'this_device' | 'all_devices';
@@ -47,6 +48,15 @@ export function ProfileScreen() {
   const signOut = useAuthStore((s) => s.signOut);
   const isSigningOut = useIsAuthSubmitting();
   const [scope, setScope] = useState<SignOutScope | null>(null);
+  const [isRemovingLogo, setIsRemovingLogo] = useState(false);
+  const canChangeLogo = useHasRole('chairman');
+  const logo = useOrganisationLogo();
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+
+  // Opening the profile shows the latest details, appointments and logo from the server.
+  useEffect(() => {
+    void refreshUser();
+  }, [refreshUser]);
 
   // Null for a moment while signing out, before the root guard leaves this screen.
   if (!user) return null;
@@ -86,14 +96,34 @@ export function ProfileScreen() {
     >
       <View className="items-center pt-4">
         <View className="h-36 w-36 items-center justify-center rounded-full bg-accent/15">
-          <Avatar name={user.fullName} size="xl" />
-          <View
-            // TODO(profile photo): decorative until photo upload is specified.
-            className="absolute bottom-2 right-2 h-9 w-9 items-center justify-center rounded-full border-4 border-background bg-accent"
-          >
-            <Pencil size={14} color={theme.accentForeground} />
-          </View>
+          <Avatar name={user.fullName} imageUrl={user.organisation?.logoUrl} size="xl" />
+          {canChangeLogo ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change organisation logo"
+              disabled={logo.isUploading}
+              onPress={logo.pickAndUpload}
+              hitSlop={8}
+              className="absolute bottom-2 right-2 h-9 w-9 items-center justify-center rounded-full border-4 border-background bg-accent active:opacity-70"
+            >
+              {logo.isUploading ? (
+                <ActivityIndicator size="small" color={theme.accentForeground} />
+              ) : (
+                <Pencil size={14} color={theme.accentForeground} />
+              )}
+            </Pressable>
+          ) : null}
         </View>
+        {canChangeLogo && user.organisation?.logoUrl ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Remove organisation logo"
+            onPress={() => setIsRemovingLogo(true)}
+            className="mt-2 h-11 items-center justify-center px-3"
+          >
+            <Text className="font-sans-semibold text-sm text-destructive">Remove logo</Text>
+          </Pressable>
+        ) : null}
 
         <Text
           accessibilityRole="header"
@@ -188,6 +218,19 @@ export function ProfileScreen() {
         isConfirming={isSigningOut}
         onConfirm={confirmSignOut}
         onCancel={() => setScope(null)}
+      />
+
+      <ConfirmDialog
+        isVisible={isRemovingLogo}
+        title="Remove the logo?"
+        message="Everyone in your organisation will see their initials instead."
+        confirmLabel="Remove logo"
+        confirmingLabel="Removing…"
+        isConfirming={logo.isRemoving}
+        onConfirm={async () => {
+          if (await logo.removeLogo()) setIsRemovingLogo(false);
+        }}
+        onCancel={() => setIsRemovingLogo(false)}
       />
     </PageScreen>
   );

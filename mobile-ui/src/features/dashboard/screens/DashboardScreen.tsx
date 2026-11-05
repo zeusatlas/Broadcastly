@@ -1,4 +1,4 @@
-import { router, Tabs } from 'expo-router';
+import { router, Tabs, useFocusEffect } from 'expo-router';
 import {
   Bell,
   BriefcaseBusiness,
@@ -10,12 +10,15 @@ import {
   UsersRound,
   Wallet,
 } from 'lucide-react-native';
-import { View } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { RefreshControl, View } from 'react-native';
 
 import { HeaderButton, ProfileButton } from '@/components/shared';
 import { QueryState, ScrollScreen, StatTile, Text } from '@/components/ui';
 import { GATED_ROUTES } from '@/constants/routes';
 import { useAccess, useCurrentUser, type AccessRule } from '@/features/auth';
+import { useReadCreditBalancesQuery } from '@/features/credits';
+import { useReadUnreadCountQuery } from '@/features/notifications';
 import { useReadOrganisationOverviewQuery } from '@/features/organisation';
 
 import { CreditBalanceCard, QuickActions, type QuickAction } from '../components';
@@ -69,14 +72,31 @@ const count = (value: number | null | undefined) =>
 export function DashboardScreen() {
   const user = useCurrentUser();
   const access = useAccess();
-  const canManage = isRouteAllowed('organisation/index', access.check);
-  const overview = useReadOrganisationOverviewQuery({ enabled: canManage });
+  const canViewOverview = Boolean(user?.organisation);
+  const overview = useReadOrganisationOverviewQuery({ enabled: canViewOverview });
+  const balances = useReadCreditBalancesQuery();
+  const unread = useReadUnreadCountQuery();
+  const refetchUnread = useRef(unread.refetch);
+  useEffect(() => {
+    refetchUnread.current = unread.refetch;
+  });
+  // Coming back from the notifications screen should clear the badge for what was read there.
+  useFocusEffect(useCallback(() => refetchUnread.current(), []));
   const totals = overview.data;
   const quickActions = QUICK_ACTIONS.filter((a) => isRouteAllowed(a.route, access.check));
-  const role = user?.appointments[0]?.positionTitle ?? 'Executive';
+  const role =
+    user?.appointments.map((appointment) => appointment.positionTitle).join(' · ') || 'Executive';
+  const isRefreshing = overview.isFetching || balances.isFetching;
+  const refresh = () => {
+    overview.refetch();
+    balances.refetch();
+  };
 
   return (
-    <ScrollScreen className="gap-7 pt-4">
+    <ScrollScreen
+      className="gap-7 pt-4"
+      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
+    >
       <Tabs.Screen
         options={{
           headerLeft: () => (
@@ -90,6 +110,7 @@ export function DashboardScreen() {
             <HeaderButton
               icon={Bell}
               label="Notifications"
+              badgeCount={unread.data?.unread ?? 0}
               onPress={() => router.push('/notifications')}
             />
           ),
@@ -98,10 +119,19 @@ export function DashboardScreen() {
       <CreditBalanceCard
         organisationName={user?.organisation?.name ?? 'Your organisation'}
         role={role}
+        balance={balances.data?.mine.available}
+        isLoading={balances.isLoading}
         onPress={() => router.push('/credits')}
       />
+      <QueryState
+        isLoading={balances.isLoading}
+        error={balances.error}
+        isEmpty={false}
+        emptyText=""
+        onRetry={balances.refetch}
+      />
 
-      {canManage ? (
+      {canViewOverview ? (
         <View className="gap-3">
           <Text className="font-sans-semibold text-xs uppercase tracking-widest text-muted-foreground">
             Organisation overview
@@ -130,7 +160,7 @@ export function DashboardScreen() {
             <StatTile
               label="Positions"
               value={count(totals?.positions)}
-              caption="Offices you created"
+              caption="In your reachable structure"
               icon={BriefcaseBusiness}
             />
           </View>

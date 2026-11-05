@@ -101,3 +101,45 @@ export interface CreditPurchaseResponse {
 
 export type CreditTransactionsResponse = Paginated<CreditTransactionResponse>;
 export type CreditPurchasesResponse = Paginated<CreditPurchaseResponse>;
+
+export interface CreateAllocationRequest {
+  executiveId: string;
+  credits: number;
+  reason?: string;
+}
+
+export interface AllocationResponse {
+  id: string;
+  executiveId: string;
+  executiveName: string;
+  credits: number;
+  reason: string | null;
+  initiatedBy: string | null;
+  createdAt: string;
+}
+
+export interface AllocationRecipientPosition {
+  title: string;
+  unitName: string | null;
+}
+
+export interface AllocationRecipientResponse {
+  id: string;
+  name: string;
+  positions: AllocationRecipientPosition[];
+  wallet: CreditWalletResponse;
+}
+
+export interface ListAllocationRecipientsParams extends PageParams {
+  search?: string;
+}
+
+export interface ListAllocationsParams extends PageParams, CreditPeriodParams {}
+
+export type AllocationsResponse = Paginated<AllocationResponse>;
+export type AllocationRecipientsResponse = Paginated<AllocationRecipientResponse>;
+
+export interface CreditPricingResponse {
+  pricePesewasPerCredit: number;
+  currency: 'GHS';
+}

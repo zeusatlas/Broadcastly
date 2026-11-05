@@ -59,3 +59,12 @@ export interface PendingChallenge {
   codeExpiresAt: number;
   resendAvailableAt: number;
 }
+
+export interface SessionResponse {
+  id: string;
+  userAgent: string | null;
+  signedInAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string;
+  isCurrent: boolean;
+}

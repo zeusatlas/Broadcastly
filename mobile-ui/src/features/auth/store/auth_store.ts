@@ -40,6 +40,7 @@ interface AuthActions {
   signOut: (body?: SignOutRequest) => Promise<boolean>;
   restore: () => Promise<void>;
   clearError: () => void;
+  refreshUser: () => Promise<boolean>;
   // Ends the session locally if its 24 hours are up. Called on resume and by the expiry timer.
   expireIfDue: () => Promise<void>;
   clearEndReason: () => void;
@@ -209,6 +210,16 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
 
   clearEndReason: () => set({ endReason: null }),
   clearError: () => set({ error: null }),
+
+  refreshUser: async () => {
+    try {
+      const { data: user } = await api.auth.getCurrentUser();
+      if (get().status === 'signed_in') set({ user });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 }));
 
 async function endSession(reason: SessionEndReason | null = null): Promise<void> {
