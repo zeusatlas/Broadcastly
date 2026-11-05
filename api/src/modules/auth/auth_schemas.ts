@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import '../../config/openapi';
 
-import { normaliseGhanaPhone } from '../members';
+import { phoneSchema } from '../members';
 
 import {
   EXECUTIVE_STATUSES,
@@ -15,6 +15,7 @@ import {
   type RefreshTokenRequest,
   type ResendOtpRequest,
   type SignInRequest,
+  type SessionParams,
   type SignOutRequest,
   type VerifyOtpRequest,
 } from './auth_types';
@@ -26,20 +27,6 @@ export const emailSchema = z
   .toLowerCase()
   .max(254)
   .pipe(z.email('Enter a valid email address.'));
-
-// Stored and compared in E.164, however the user typed it.
-export const phoneSchema = z
-  .string()
-  .trim()
-  .max(20)
-  .transform((value, ctx) => {
-    const phone = normaliseGhanaPhone(value);
-    if (!phone) {
-      ctx.addIssue({ code: 'custom', message: 'Enter a valid Ghanaian phone number.' });
-      return z.NEVER;
-    }
-    return phone;
-  });
 
 const dateOfBirthSchema = z.iso
   .date('Enter the date as YYYY-MM-DD.')
@@ -178,3 +165,18 @@ export const platformAdminResponseSchema = z
     createdAt: z.iso.datetime(),
   })
   .openapi('PlatformAdminResponse');
+
+export const sessionParamsSchema = z.object({
+  sessionId: z.uuid(),
+}) satisfies z.ZodType<SessionParams>;
+
+export const sessionResponseSchema = z
+  .object({
+    id: z.uuid(),
+    userAgent: z.string().nullable().openapi({ example: 'okhttp/4.12.0' }),
+    signedInAt: z.iso.datetime(),
+    lastUsedAt: z.iso.datetime().nullable(),
+    expiresAt: z.iso.datetime(),
+    isCurrent: z.boolean(),
+  })
+  .openapi('SessionResponse');

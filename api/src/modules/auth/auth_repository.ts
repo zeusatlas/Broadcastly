@@ -54,6 +54,14 @@ export const ownerOf = (row: { executiveId: string | null; platformAdminId: stri
     ? { kind: 'executive' as const, id: row.executiveId }
     : { kind: 'platform_admin' as const, id: row.platformAdminId! };
 
+export interface SessionRow {
+  id: string;
+  userAgent: string | null;
+  signedInAt: Date;
+  lastUsedAt: Date | null;
+  expiresAt: Date;
+}
+
 export const ownerFields = (kind: AccountKind, id: string) => ({
   executiveId: kind === 'executive' ? id : null,
   platformAdminId: kind === 'platform_admin' ? id : null,
@@ -200,6 +208,34 @@ export const authRepository = {
     return manager
       .getRepository(Session)
       .update({ id: sessionId }, { refreshTokenHash, lastUsedAt: new Date() });
+  },
+
+  // An account's live sessions, most recently used first. The column is chosen by a code constant.
+  listActiveSessions(kind: AccountKind, accountId: string) {
+    const column = kind === 'executive' ? 'executive_id' : 'platform_admin_id';
+    return dataSource.query(
+      `SELECT id, user_agent AS "userAgent", created_at AS "signedInAt", last_used_at AS "lastUsedAt",
+              expires_at AS "expiresAt"
+         FROM sessions
+        WHERE ${column} = $1 AND revoked_at IS NULL AND expires_at > now()
+        ORDER BY COALESCE(last_used_at, created_at) DESC`,
+      [accountId],
+    ) as Promise<SessionRow[]>;
+  },
+
+  async revokeOwnSession(
+    kind: AccountKind,
+    accountId: string,
+    sessionId: string,
+    manager: EntityManager,
+  ) {
+    const column = kind === 'executive' ? 'executive_id' : 'platform_admin_id';
+    const [, affected] = (await manager.query(
+      `UPDATE sessions SET revoked_at = now(), revoked_reason = 'sign_out', updated_at = now()
+        WHERE id = $1 AND ${column} = $2 AND revoked_at IS NULL`,
+      [sessionId, accountId],
+    )) as [unknown, number];
+    return affected > 0;
   },
 
   revokeSession(sessionId: string, reason: SessionRevokeReason, manager: EntityManager) {

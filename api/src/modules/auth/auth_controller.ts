@@ -9,6 +9,7 @@ import { authService } from './auth_service';
 import type {
   RefreshTokenRequest,
   ResendOtpRequest,
+  SessionParams,
   SignInRequest,
   SignOutRequest,
   VerifyOtpRequest,
@@ -49,6 +50,17 @@ export const authController = {
     const body = validated<SignOutRequest>(res, 'body');
     await authService.signOut(requireAuth(req), body.allDevices ?? false, getRequestContext(req));
     return sendNoData(res, 'Signed out successfully.');
+  },
+
+  async listSessions(req: Request, res: Response) {
+    const data = await authService.listSessions(requireAuth(req));
+    return sendSuccess(res, { data, message: 'Sessions retrieved.' });
+  },
+
+  async revokeSession(req: Request, res: Response) {
+    const { sessionId } = validated<SessionParams>(res, 'params');
+    await authService.revokeOtherSession(requireAuth(req), sessionId, getRequestContext(req));
+    return sendNoData(res, 'That device has been signed out.');
   },
 
   async me(req: Request, res: Response) {

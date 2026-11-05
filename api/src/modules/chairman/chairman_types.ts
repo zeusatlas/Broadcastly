@@ -37,6 +37,22 @@ export interface EndAppointmentRequest {
   reason?: string;
 }
 
+export interface OrganisationNotificationPreferencesResponse {
+  security: boolean;
+  approvals: boolean;
+  broadcasts: boolean;
+  imports: boolean;
+  digest: boolean;
+}
+
+export interface UpdateOrganisationNotificationPreferencesRequest {
+  security?: boolean;
+  approvals?: boolean;
+  broadcasts?: boolean;
+  imports?: boolean;
+  digest?: boolean;
+}
+
 export interface ListExecutivesRequest extends PageParams {
   search?: string;
   status?: ExecutiveStatus;

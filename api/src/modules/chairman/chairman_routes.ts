@@ -31,6 +31,8 @@ import {
   positionResponseSchema,
   unitResponseSchema,
   updatePositionSchema,
+  notificationPreferencesResponseSchema,
+  updateNotificationPreferencesSchema,
 } from './chairman_schemas';
 
 export const chairmanRouter = Router();
@@ -39,11 +41,23 @@ export const chairmanRouter = Router();
 // limited to the units the caller reaches (checked in the service).
 const chairman = authorize({ roles: ['chairman'] });
 const manager = authorize({ permission: 'appointment.manage' });
-const executive = validate({ params: executiveParamsSchema });
+const unitReader = authorize({
+  anyOf: ['appointment.manage', 'broadcast.select_recipients', 'member.manage', 'member.import'],
+});
+const executiveParams = validate({ params: executiveParamsSchema });
+const executiveAccess = authorize({ roles: ['chairman', 'executive'] });
 
 chairmanRouter.use(authenticate);
 
-chairmanRouter.get('/overview', manager, c.getOverview);
+chairmanRouter.get('/notification-preferences', executiveAccess, c.getNotificationPreferences);
+chairmanRouter.patch(
+  '/notification-preferences',
+  chairman,
+  validate({ body: updateNotificationPreferencesSchema }),
+  c.updateNotificationPreferences,
+);
+
+chairmanRouter.get('/overview', executiveAccess, c.getOverview);
 chairmanRouter.post('/logo', chairman, imageUpload('organisation-logos', 'logo'), c.uploadLogo);
 chairmanRouter.delete('/logo', chairman, c.removeLogo);
 chairmanRouter.get('/positions', manager, c.listPositions);
@@ -59,7 +73,7 @@ chairmanRouter.patch(
   validate({ params: positionParamsSchema, body: updatePositionSchema }),
   c.updatePosition,
 );
-chairmanRouter.get('/units', manager, validate({ query: listUnitsSchema }), c.listUnits);
+chairmanRouter.get('/units', unitReader, validate({ query: listUnitsSchema }), c.listUnits);
 chairmanRouter.post('/units', chairman, validate({ body: createUnitSchema }), c.createUnit);
 chairmanRouter.get(
   '/executives',
@@ -73,18 +87,23 @@ chairmanRouter.post(
   validate({ body: createOrganisationExecutiveSchema }),
   c.createExecutive,
 );
-chairmanRouter.get('/executives/:executiveId', manager, executive, c.getExecutive);
+chairmanRouter.get('/executives/:executiveId', manager, executiveParams, c.getExecutive);
 chairmanRouter.post(
   '/executives/:executiveId/appointments',
   manager,
   validate({ params: executiveParamsSchema, body: appointmentSchema }),
   c.addAppointment,
 );
-chairmanRouter.post('/executives/:executiveId/suspend', manager, executive, c.suspendExecutive);
+chairmanRouter.post(
+  '/executives/:executiveId/suspend',
+  manager,
+  executiveParams,
+  c.suspendExecutive,
+);
 chairmanRouter.post(
   '/executives/:executiveId/reactivate',
   manager,
-  executive,
+  executiveParams,
   c.reactivateExecutive,
 );
 chairmanRouter.post(
@@ -101,6 +120,7 @@ const NOT_MANAGER: [number, string] = [
   403,
   'No appointment.manage permission, outside the units you manage, or a chairman/self target.',
 ];
+const NOT_EXECUTIVE: [number, string] = [403, 'Not an executive of an organisation.'];
 const NO_EXECUTIVE: [number, string, string] = [
   404,
   'No such executive you can see.',
@@ -145,6 +165,42 @@ const APPOINTMENT_EXAMPLE = {
 
 document({
   method: 'get',
+  path: '/notification-preferences',
+  operationId: 'getOrganisationNotificationPreferences',
+  summary: 'Get organisation notification preferences',
+  description:
+    'The organisation’s notification preferences. Any executive can read them; only the chairman changes them.',
+  response: successEnvelope(
+    notificationPreferencesResponseSchema,
+    'Notification preferences retrieved.',
+  ),
+  message: 'The organisation notification preferences.',
+  errors: [NOT_EXECUTIVE],
+});
+document({
+  method: 'patch',
+  path: '/notification-preferences',
+  operationId: 'updateOrganisationNotificationPreferences',
+  summary: 'Update organisation notification preferences',
+  description:
+    'Update notification preferences for approvals, broadcasts, imports, security and digest delivery.',
+  request: {
+    body: jsonBody(updateNotificationPreferencesSchema, {
+      approvals: true,
+      broadcasts: true,
+      digest: false,
+    }),
+  },
+  response: successEnvelope(
+    notificationPreferencesResponseSchema,
+    'Notification preferences updated.',
+  ),
+  message: 'Updated organisation notification preferences.',
+  errors: [NOT_CHAIRMAN, 422],
+});
+
+document({
+  method: 'get',
   path: '/overview',
   operationId: 'getOrganisationOverview',
   summary: 'Organisation overview',
@@ -156,7 +212,7 @@ Counts for the home screen, limited to the units you reach.
 `,
   response: successEnvelope(organisationOverviewResponseSchema, 'Overview retrieved.'),
   message: 'The overview.',
-  errors: [NOT_MANAGER],
+  errors: [NOT_EXECUTIVE],
 });
 document({
   method: 'get',

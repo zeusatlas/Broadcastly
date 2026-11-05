@@ -20,6 +20,7 @@ import type {
   ListUnitsRequest,
   PositionParams,
   UpdatePositionRequest,
+  UpdateOrganisationNotificationPreferencesRequest,
 } from './chairman_types';
 
 // The chairman's own organisation only; the same logo rules as the platform admin's.
@@ -34,6 +35,21 @@ async function setOwnLogo(req: Request, logoPath: string | null) {
 }
 
 export const chairmanController = {
+  async getNotificationPreferences(req: Request, res: Response) {
+    const data = await chairmanService.getNotificationPreferences(requireAuth(req));
+    return sendSuccess(res, { data, message: 'Notification preferences retrieved.' });
+  },
+
+  async updateNotificationPreferences(req: Request, res: Response) {
+    const body = validated<UpdateOrganisationNotificationPreferencesRequest>(res, 'body');
+    const data = await chairmanService.updateNotificationPreferences(
+      requireAuth(req),
+      body,
+      getRequestContext(req),
+    );
+    return sendSuccess(res, { data, message: 'Notification preferences updated.' });
+  },
+
   async uploadLogo(req: Request, res: Response) {
     const data = await setOwnLogo(req, toStoredPath(req.file!.path));
     return sendSuccess(res, { data, message: 'Organisation logo updated.' });

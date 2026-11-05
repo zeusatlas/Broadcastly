@@ -17,7 +17,11 @@ import {
   type AccessContext,
   type ManageableStatus,
 } from '../auth';
-import { CHAIRMAN_POSITION_ID, organisationService } from '../organisation';
+import {
+  CHAIRMAN_POSITION_ID,
+  OrganisationNotificationPreferences,
+  organisationService,
+} from '../organisation';
 
 import { toExecutiveResponse } from './chairman_mapper';
 import { chairmanRepository, type ManagedExecutive, type Scope } from './chairman_repository';
@@ -33,9 +37,18 @@ import type {
   PositionResponse,
   UnitResponse,
   UpdatePositionRequest,
+  OrganisationNotificationPreferencesResponse,
+  UpdateOrganisationNotificationPreferencesRequest,
 } from './chairman_types';
 
 const ORGANISATION_WIDE = 'organisation';
+const DEFAULT_NOTIFICATION_PREFERENCES: OrganisationNotificationPreferencesResponse = {
+  security: true,
+  approvals: true,
+  broadcasts: true,
+  imports: true,
+  digest: false,
+};
 const OUT_OF_REACH = 'That is outside the units you manage.';
 const EXECUTIVE_NOT_FOUND = 'Executive not found.';
 
@@ -136,6 +149,46 @@ async function appoint(
 
 // The chairman's (or a granted manager's) tools for their own organisation.
 export const chairmanService = {
+  async getNotificationPreferences(
+    auth: AccessContext,
+  ): Promise<OrganisationNotificationPreferencesResponse> {
+    const row = await dataSource
+      .getRepository(OrganisationNotificationPreferences)
+      .findOne({ where: { organisationId: organisationOf(auth) }, select: { preferences: true } });
+    return { ...DEFAULT_NOTIFICATION_PREFERENCES, ...row?.preferences };
+  },
+
+  async updateNotificationPreferences(
+    auth: AccessContext,
+    changes: UpdateOrganisationNotificationPreferencesRequest,
+    context: RequestContext,
+  ): Promise<OrganisationNotificationPreferencesResponse> {
+    const organisationId = organisationOf(auth);
+    return dataSource.transaction(async (manager) => {
+      // One atomic upsert, so two first-time saves cannot race into a unique violation.
+      const [row] = (await manager.query(
+        `INSERT INTO organisation_notification_preferences (organisation_id, preferences)
+         VALUES ($1, $2::jsonb || $3::jsonb)
+         ON CONFLICT (organisation_id)
+         DO UPDATE SET preferences = organisation_notification_preferences.preferences || $3::jsonb,
+                       updated_at = now()
+         RETURNING id, preferences`,
+        [organisationId, JSON.stringify(DEFAULT_NOTIFICATION_PREFERENCES), JSON.stringify(changes)],
+      )) as { id: string; preferences: OrganisationNotificationPreferencesResponse }[];
+      await auditService.record(
+        {
+          action: AUDIT_ACTIONS.organisationNotificationPreferencesUpdated,
+          targetType: 'organisation',
+          targetId: organisationId,
+          metadata: { changed: Object.keys(changes) },
+          ...auditActor(actorFrom(auth, context)),
+        },
+        manager,
+      );
+      return { ...DEFAULT_NOTIFICATION_PREFERENCES, ...row!.preferences };
+    });
+  },
+
   getOverview(auth: AccessContext): Promise<OrganisationOverviewResponse> {
     return chairmanRepository.getOverview(organisationOf(auth), scopeOf(auth));
   },
@@ -181,27 +234,27 @@ export const chairmanService = {
     await dataSource.transaction(async (manager) => {
       const position = await organisationService.findPosition(organisationId, positionId, manager);
       if (!position) throw new NotFoundError('Position not found.');
-       if (position.organisationId === null) {
-         if (positionId !== CHAIRMAN_POSITION_ID || changes.isActive !== undefined) {
-           throw new ForbiddenError('The organisation head position can only be renamed.');
-         }
-         if (changes.title) {
-           await organisationService.setHeadTitle(organisationId, changes.title, manager);
-         }
-       } else {
-         if (
-           changes.title &&
-           (await organisationService.positionTitleExists(
-             organisationId,
-             changes.title,
-             manager,
-             positionId,
-           ))
-         ) {
-           throw new ConflictError('A position with this title already exists.');
-         }
-         await organisationService.updatePosition(positionId, changes, manager);
-       }
+      if (position.organisationId === null) {
+        if (positionId !== CHAIRMAN_POSITION_ID || changes.isActive !== undefined) {
+          throw new ForbiddenError('The organisation head position can only be renamed.');
+        }
+        if (changes.title) {
+          await organisationService.setHeadTitle(organisationId, changes.title, manager);
+        }
+      } else {
+        if (
+          changes.title &&
+          (await organisationService.positionTitleExists(
+            organisationId,
+            changes.title,
+            manager,
+            positionId,
+          ))
+        ) {
+          throw new ConflictError('A position with this title already exists.');
+        }
+        await organisationService.updatePosition(positionId, changes, manager);
+      }
       await auditService.record(
         {
           action: AUDIT_ACTIONS.positionUpdated,

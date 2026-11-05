@@ -122,6 +122,19 @@ export interface AuthTokensResponse {
 }
 
 // One shape for every signed-in user. Platform admins have no member, organisation or appointments.
+export interface SessionResponse {
+  id: string;
+  userAgent: string | null;
+  signedInAt: Date;
+  lastUsedAt: Date | null;
+  expiresAt: Date;
+  isCurrent: boolean;
+}
+
+export interface SessionParams {
+  sessionId: string;
+}
+
 export interface UserResponse {
   id: string;
   role: UserRole;

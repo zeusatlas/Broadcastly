@@ -1,6 +1,7 @@
 // Public API of the organisation module — organisations (tenants), their units, positions,
 // appointments and grants (FR-ORG-01..08, FR-IAM-04). Other modules import from here only.
 export { Organisation } from './entities/organisation_entity';
+export { OrganisationNotificationPreferences } from './entities/organisation_notification_preferences_entity';
 export { organisationService } from './organisation_service';
 export {
   CHAIRMAN_POSITION_ID,

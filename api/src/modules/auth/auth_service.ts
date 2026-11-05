@@ -35,6 +35,7 @@ import type {
   ResendOtpRequest,
   SignInRequest,
   SignInResponse,
+  SessionResponse,
   UserResponse,
   VerifyOtpRequest,
 } from './auth_types';
@@ -447,6 +448,36 @@ export const authService = {
           action: allDevices ? AUDIT_ACTIONS.signOutAll : AUDIT_ACTIONS.signOut,
           ...asActor(auth.kind, auth.accountId),
           ...toAuditContext(context),
+        },
+        manager,
+      );
+    });
+  },
+
+  async listSessions(auth: AccessContext): Promise<SessionResponse[]> {
+    const rows = await authRepository.listActiveSessions(auth.kind, auth.accountId);
+    return rows.map((row) => ({ ...row, isCurrent: row.id === auth.sessionId }));
+  },
+
+  // Signs out another device. This device uses /logout, so its tokens are cleared too.
+  async revokeOtherSession(auth: AccessContext, sessionId: string, context: RequestContext) {
+    if (sessionId === auth.sessionId) {
+      throw new ValidationError({ sessionId: ['Use Log out to sign out of this device.'] });
+    }
+    await dataSource.transaction(async (manager) => {
+      const isRevoked = await authRepository.revokeOwnSession(
+        auth.kind,
+        auth.accountId,
+        sessionId,
+        manager,
+      );
+      if (!isRevoked) throw new NotFoundError('That session has already ended.');
+      await auditService.record(
+        {
+          action: AUDIT_ACTIONS.signOut,
+          ...asActor(auth.kind, auth.accountId),
+          ...toAuditContext(context),
+          metadata: { sessionId, remote: true },
         },
         manager,
       );

@@ -146,6 +146,14 @@ export const chairmanRepository = {
     const executives = executiveWhere(organisationId, scope, {});
     const unitParams: unknown[] = scope ? [organisationId, scope] : [organisationId];
     const unitScope = scope ? 'AND u.id = ANY($2::uuid[])' : '';
+    const positionParams = scope ? [organisationId, scope] : [organisationId];
+    const positionScope = scope
+      ? `AND (p.unit_type = 'organisation' OR EXISTS (
+            SELECT 1 FROM organisation_units pu
+             WHERE pu.organisation_id = $1 AND pu.type = p.unit_type
+               AND pu.id = ANY($2::uuid[])
+          ))`
+      : '';
     const [[people], unitRows, [counts]] = await Promise.all([
       dataSource.query(
         `SELECT count(*) FILTER (WHERE e.status = 'active')::int AS "activeExecutives",
@@ -161,10 +169,10 @@ export const chairmanRepository = {
         unitParams,
       ) as Promise<{ type: string; count: number }[]>,
       dataSource.query(
-        `SELECT (SELECT count(*) FROM positions
-                  WHERE organisation_id = $1 AND is_active)::int AS positions,
-                (SELECT count(*) FROM members WHERE organisation_id = $1)::int AS members`,
-        [organisationId],
+        `SELECT (SELECT count(*) FROM positions p
+                   WHERE p.organisation_id = $1 AND p.is_active ${positionScope})::int AS positions,
+                 (SELECT count(*) FROM members WHERE organisation_id = $1)::int AS members`,
+        positionParams,
       ) as Promise<{ positions: number; members: number }[]>,
     ]);
 

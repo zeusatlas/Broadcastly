@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 
 import {
   errorResponses,
@@ -18,6 +19,8 @@ import {
   otpChallengeResponseSchema,
   refreshTokenSchema,
   resendOtpSchema,
+  sessionParamsSchema,
+  sessionResponseSchema,
   signInResponseSchema,
   signInSchema,
   signOutSchema,
@@ -49,6 +52,13 @@ authRouter.post(
 );
 authRouter.post('/logout', authenticate, validate({ body: signOutSchema }), authController.signOut);
 authRouter.get('/me', authenticate, authController.me);
+authRouter.get('/sessions', authenticate, authController.listSessions);
+authRouter.delete(
+  '/sessions/:sessionId',
+  authenticate,
+  validate({ params: sessionParamsSchema }),
+  authController.revokeSession,
+);
 
 const tags = ['Auth'];
 const secured = [{ [bearerAuth.name]: [] }];
@@ -251,5 +261,42 @@ Get the signed-in user: role, organisation, permissions and active appointments.
       401,
       'Not signed in, the session has ended, or the account is no longer active.',
     ]),
+  },
+});
+
+openApiRegistry.registerPath({
+  method: 'get',
+  path: '/auth/sessions',
+  operationId: 'listSessions',
+  tags,
+  summary: 'List signed-in devices',
+  description: 'Your live sessions, most recently used first; `isCurrent` marks this device.',
+  security: secured,
+  responses: {
+    200: jsonResponse(
+      'Your sessions.',
+      successEnvelope(z.array(sessionResponseSchema), 'Sessions retrieved.'),
+    ),
+    ...errorResponses(401),
+  },
+});
+
+openApiRegistry.registerPath({
+  method: 'delete',
+  path: '/auth/sessions/{sessionId}',
+  operationId: 'revokeSession',
+  tags,
+  summary: 'Sign out another device',
+  description:
+    'Ends one of your other sessions at once. This device signs out with `/auth/logout`.',
+  security: secured,
+  request: { params: sessionParamsSchema },
+  responses: {
+    200: jsonResponse('Signed out.', messageEnvelope('That device has been signed out.')),
+    ...errorResponses(
+      401,
+      [404, 'Not one of your live sessions.', 'That session has already ended.'],
+      [422, 'It is this device.', 'Some details need fixing.'],
+    ),
   },
 });

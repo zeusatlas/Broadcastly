@@ -18,6 +18,7 @@ import type {
   ListUnitsRequest,
   PositionParams,
   UpdatePositionRequest,
+  UpdateOrganisationNotificationPreferencesRequest,
 } from './chairman_types';
 
 // Inner whitespace collapsed, so "Branch  Chairman" and "Branch Chairman" count as the same name.
@@ -90,6 +91,29 @@ export const endAppointmentSchema = z
   .object({ reason: z.string().trim().max(255).optional() })
   .default({})
   .openapi('EndAppointmentRequest') satisfies z.ZodType<EndAppointmentRequest>;
+
+export const updateNotificationPreferencesSchema = z
+  .object({
+    security: z.boolean().optional(),
+    approvals: z.boolean().optional(),
+    broadcasts: z.boolean().optional(),
+    imports: z.boolean().optional(),
+    digest: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: 'Send at least one preference.' })
+  .openapi(
+    'UpdateOrganisationNotificationPreferencesRequest',
+  ) satisfies z.ZodType<UpdateOrganisationNotificationPreferencesRequest>;
+
+export const notificationPreferencesResponseSchema = z
+  .object({
+    security: z.boolean(),
+    approvals: z.boolean(),
+    broadcasts: z.boolean(),
+    imports: z.boolean(),
+    digest: z.boolean(),
+  })
+  .openapi('OrganisationNotificationPreferencesResponse');
 
 export const listExecutivesSchema = pageQuerySchema.extend({
   search: searchSchema,
