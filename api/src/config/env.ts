@@ -54,9 +54,18 @@ const envSchema = z
     // 'log' writes messages (sign-in codes included) to the console. Testing stand-in until a real
     // provider is connected (SRS §6.2); startup warns while it is in use (config/startup.ts).
     SMS_DRIVER: z.enum(['log']).default('log'),
+    SMS_SEND_RATE_PER_SECOND: z.coerce.number().int().min(1).max(1_000).default(50),
 
     PUBLIC_BASE_URL: z.url().default('http://localhost:8000'),
     UPLOADS_DIR: z.string().min(1).default('uploads'),
+    MEMBER_IMPORT_DIR: z.string().min(1).default('storage/member-imports'),
+    MEMBER_IMPORT_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(50 * 1024 * 1024)
+      .default(5 * 1024 * 1024),
+    MEMBER_IMPORT_MAX_ROWS: z.coerce.number().int().min(1).max(100_000).default(10_000),
 
     PAYMENT_DRIVER: z.enum(['simulate']).default('simulate'),
     CREDIT_PRICE_PESEWAS: z.coerce.number().int().positive().default(4),
