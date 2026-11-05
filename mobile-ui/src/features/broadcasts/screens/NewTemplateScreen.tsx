@@ -1,54 +1,35 @@
-import { Check, ChevronDown, Plus, X } from 'lucide-react-native';
-import { useState } from 'react';
-import { FlatList, Keyboard, Modal, Pressable, View } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { router } from 'expo-router';
+import { Check, ChevronDown, Plus, Trash2, X } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { Keyboard, Modal, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PageScreen } from '@/components/shared';
-import { Button, Chip, Text, TextField } from '@/components/ui';
+import { Button, Chip, ConfirmDialog, Text, TextField } from '@/components/ui';
 import { useHasPermission } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
+import type { ApiError } from '@/lib/api';
 import { notify } from '@/lib/notify';
 
-import type { TemplateItem } from '../templates_data';
+import {
+  useArchiveTemplateMutation,
+  useCreateTemplateMutation,
+  useUpdateTemplateMutation,
+} from '../hooks/use_templates';
+import type { TemplateCategory, TemplateResponse, UpdateTemplateRequest } from '../types';
+import {
+  appendToken,
+  categoryLabel,
+  TEMPLATE_CATEGORIES,
+  TEMPLATE_FIELDS,
+} from '../utils/templates';
 
-type TemplateFieldType = 'text' | 'number' | 'date' | 'time';
-
-interface TemplateField {
-  id: string;
-  label: string;
-  type: TemplateFieldType;
-  token: string;
-}
-
-const CATEGORIES = [
-  'Announcement',
-  'Reminder',
-  'Event or meeting',
-  'Service update',
-  'Policy or compliance',
-  'Emergency',
-  'Internal communication',
-  'Other',
-];
-const FIELD_TYPES: { key: TemplateFieldType; label: string }[] = [
-  { key: 'text', label: 'Text' },
-  { key: 'number', label: 'Number' },
-  { key: 'date', label: 'Date' },
-  { key: 'time', label: 'Time' },
-];
-
-const INITIAL_FIELDS: TemplateField[] = [
-  { id: 'first-name', label: 'First name', type: 'text', token: '{first_name}' },
-  { id: 'meeting-date', label: 'Meeting date', type: 'date', token: '{meeting_date}' },
-  { id: 'meeting-time', label: 'Meeting time', type: 'time', token: '{meeting_time}' },
-  { id: 'meeting-location', label: 'Meeting location', type: 'text', token: '{meeting_location}' },
-];
+const FORM_FIELDS = ['name', 'category', 'body'];
 
 interface CategorySheetProps {
   visible: boolean;
-  selected: string;
-  onSelect: (category: string) => void;
+  selected: TemplateCategory | null;
+  onSelect: (category: TemplateCategory) => void;
   onClose: () => void;
 }
 
@@ -66,7 +47,7 @@ function CategorySheet({ visible, selected, onSelect, onClose }: CategorySheetPr
           className="flex-1"
         />
         <View
-          className="max-h-[75%] rounded-t-3xl bg-background px-5 pt-5"
+          className="rounded-t-3xl bg-background px-5 pt-5"
           style={{ paddingBottom: insets.bottom + 16 }}
         >
           <View className="mb-4 flex-row items-center justify-between">
@@ -83,130 +64,120 @@ function CategorySheet({ visible, selected, onSelect, onClose }: CategorySheetPr
               <X size={20} color={theme.foreground} />
             </Pressable>
           </View>
-          <FlatList
-            data={CATEGORIES}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => {
-              const isSelected = item === selected;
-              return (
-                <Pressable
-                  accessibilityRole="radio"
-                  accessibilityLabel={item}
-                  accessibilityState={{ checked: isSelected }}
-                  onPress={() => onSelect(item)}
-                  className="flex-row items-center justify-between border-b border-border py-4 active:opacity-60"
-                >
-                  <Text className="font-sans-semibold text-base text-foreground">{item}</Text>
-                  {isSelected ? <Check size={20} color={theme.accentEmphasis} /> : null}
-                </Pressable>
-              );
-            }}
-            ListEmptyComponent={
-              <Text variant="bodyMuted" className="py-12 text-center">
-                No categories available.
-              </Text>
-            }
-          />
+          {TEMPLATE_CATEGORIES.map((item) => {
+            const isSelected = item.key === selected;
+            return (
+              <Pressable
+                key={item.key}
+                accessibilityRole="radio"
+                accessibilityLabel={item.label}
+                accessibilityState={{ checked: isSelected }}
+                onPress={() => onSelect(item.key)}
+                className="flex-row items-center justify-between border-b border-border py-4 active:opacity-60"
+              >
+                <Text className="font-sans-semibold text-base text-foreground">{item.label}</Text>
+                {isSelected ? <Check size={20} color={theme.accentEmphasis} /> : null}
+              </Pressable>
+            );
+          })}
         </View>
       </View>
     </Modal>
   );
 }
 
-const fieldsFromTemplate = (template?: TemplateItem): TemplateField[] => {
-  if (!template) return INITIAL_FIELDS;
-
-  return template.variables.map((label) => {
-    const tokenName = label
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_|_$/g, '');
-    const lowerLabel = label.toLowerCase();
-    const type: TemplateFieldType = lowerLabel.includes('date')
-      ? 'date'
-      : lowerLabel.includes('time')
-        ? 'time'
-        : 'text';
-    return { id: tokenName, label, type, token: `{${tokenName}}` };
-  });
-};
+const hasFormFieldError = (error: ApiError) =>
+  FORM_FIELDS.some((field) => error.fieldError(field) !== undefined);
 
 interface NewTemplateScreenProps {
-  template?: TemplateItem;
+  template?: TemplateResponse;
 }
 
 export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
   const theme = useTheme();
   const canDraft = useHasPermission('broadcast.draft');
-  const isEditing = Boolean(template);
+  const create = useCreateTemplateMutation();
+  const update = useUpdateTemplateMutation();
+  const archive = useArchiveTemplateMutation();
+  const save = template ? update : create;
   const [name, setName] = useState(template?.name ?? '');
-  const [category, setCategory] = useState(template?.category ?? '');
-  const [message, setMessage] = useState(template?.message ?? '');
-  const [fields, setFields] = useState<TemplateField[]>(() => fieldsFromTemplate(template));
+  const [category, setCategory] = useState<TemplateCategory | null>(template?.category ?? null);
+  const [body, setBody] = useState(template?.body ?? '');
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-  const [isFieldOpen, setIsFieldOpen] = useState(false);
-  const [fieldName, setFieldName] = useState('');
-  const [fieldType, setFieldType] = useState<TemplateFieldType>('text');
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
-  const addField = () => {
-    const label = fieldName.trim();
-    if (!label) return;
-    const tokenName = label
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_|_$/g, '');
-    const field: TemplateField = {
-      id: `${tokenName}-${Date.now()}`,
-      label,
-      type: fieldType,
-      token: `{${tokenName}}`,
-    };
-    setFields((current) => [...current, field]);
-    setFieldName('');
-    setFieldType('text');
-    setIsFieldOpen(false);
+  const changes: UpdateTemplateRequest = {
+    name: name.trim() !== template?.name ? name.trim() : undefined,
+    category: category !== template?.category ? (category ?? undefined) : undefined,
+    body: body.trim() !== template?.body ? body.trim() : undefined,
+  };
+  const isChanged = Object.values(changes).some((value) => value !== undefined);
+  const canSave = canDraft && name.trim() !== '' && category !== null && body.trim() !== '';
+
+  // Field problems show under their inputs; anything else (network, permission) is a toast.
+  useEffect(() => {
+    if (save.error && !hasFormFieldError(save.error)) notify.apiError(save.error);
+  }, [save.error]);
+  useEffect(() => {
+    if (archive.error) notify.apiError(archive.error);
+  }, [archive.error]);
+
+  const submit = async () => {
+    if (!canSave || !category) return;
+    const response = template
+      ? await update.mutate({ templateId: template.id, credentials: changes })
+      : await create.mutate({ name: name.trim(), category, body: body.trim() });
+    if (!response) return;
+    notify.success(template ? 'Template updated' : 'Template saved');
+    router.back();
   };
 
-  const insertField = (field: TemplateField) => {
-    setMessage(
-      (current) => `${current}${current && !current.endsWith(' ') ? ' ' : ''}${field.token}`,
-    );
+  const confirmArchive = async () => {
+    if (!template) return;
+    const response = await archive.mutate({ templateId: template.id });
+    setIsArchiveOpen(false);
+    if (!response) return;
+    notify.success('Template archived');
+    router.back();
   };
 
   return (
     <PageScreen
-      title={isEditing ? 'Edit template' : 'New template'}
+      title={template ? 'Edit template' : 'New template'}
       backIcon={X}
-      backLabel={isEditing ? 'Close edit template' : 'Close new template'}
+      backLabel={template ? 'Close edit template' : 'Close new template'}
+      headerRight={
+        template && canDraft
+          ? { icon: Trash2, label: 'Archive template', onPress: () => setIsArchiveOpen(true) }
+          : undefined
+      }
       actions={
         <Button
-          label={isEditing ? 'Save changes' : 'Save template'}
+          label={template ? 'Save changes' : 'Save template'}
           variant="accent"
           size="lg"
           fullWidth
-          disabled={!canDraft || !name.trim() || !category || !message.trim()}
-          onPress={() =>
-            notify.info(
-              isEditing
-                ? 'Template update is ready for API wiring'
-                : 'Template save is ready for API wiring',
-            )
-          }
+          disabled={!canSave || (template !== undefined && !isChanged)}
+          isLoading={save.isPending}
+          loadingLabel="Saving…"
+          onPress={submit}
         />
       }
     >
       <Text variant="bodyMuted" className="mt-0">
-        {isEditing
-          ? 'Update this reusable message and customise its personalisation fields.'
-          : 'Create a reusable message and customise the fields your organisation needs.'}
+        {template
+          ? 'Update this reusable message and its personalisation fields.'
+          : 'Create a reusable message for your organisation’s broadcasts.'}
       </Text>
 
       <TextField
         label="Template name"
         value={name}
         onChangeText={setName}
-        placeholder="e.g. Service update"
+        placeholder="e.g. Monthly meeting"
         autoCapitalize="sentences"
+        maxLength={120}
+        error={save.error?.fieldError('name')}
         className="mt-6"
       />
 
@@ -214,7 +185,7 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
         <Text variant="overline">Category</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={category ? `Category: ${category}` : 'Select category'}
+          accessibilityLabel={category ? `Category: ${categoryLabel(category)}` : 'Select category'}
           onPress={() => {
             Keyboard.dismiss();
             setIsCategoryOpen(true);
@@ -228,10 +199,15 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
                 : 'font-sans-medium text-base text-muted-foreground'
             }
           >
-            {category || 'Select a category'}
+            {category ? categoryLabel(category) : 'Select a category'}
           </Text>
           <ChevronDown size={20} color={theme.mutedForeground} />
         </Pressable>
+        {save.error?.fieldError('category') ? (
+          <Text variant="caption" className="text-destructive">
+            {save.error.fieldError('category')}
+          </Text>
+        ) : null}
         <CategorySheet
           visible={isCategoryOpen}
           selected={category}
@@ -245,112 +221,44 @@ export function NewTemplateScreen({ template }: NewTemplateScreenProps) {
 
       <TextField
         label="Message"
-        value={message}
-        onChangeText={setMessage}
+        value={body}
+        onChangeText={setBody}
         placeholder="Write the reusable message"
         multiline
         numberOfLines={6}
+        maxLength={1600}
         textAlignVertical="top"
+        error={save.error?.fieldError('body')}
         className="mt-7"
       />
 
       <View className="mt-7 gap-3">
-        <View className="flex-row items-center justify-between gap-3">
-          <View className="flex-1 gap-1">
-            <Text variant="overline">Personalisation fields</Text>
-            <Text variant="caption">Tap a field to add it to the message.</Text>
-          </View>
-          <Button
-            label="Add field"
-            icon={Plus}
-            variant="outline"
-            size="sm"
-            onPress={() => {
-              Keyboard.dismiss();
-              setIsFieldOpen(true);
-            }}
-          />
+        <View className="gap-1">
+          <Text variant="overline">Personalisation fields</Text>
+          <Text variant="caption">Tap a field to add it to the message.</Text>
         </View>
         <View className="flex-row flex-wrap gap-2">
-          {fields.map((field) => (
+          {TEMPLATE_FIELDS.map((field) => (
             <Chip
-              key={field.id}
+              key={field.key}
               label={field.label}
               icon={Plus}
-              onPress={() => insertField(field)}
+              onPress={() => setBody((current) => appendToken(current, field.token))}
             />
           ))}
         </View>
       </View>
 
-      <Modal
-        visible={isFieldOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsFieldOpen(false)}
-      >
-        <View className="flex-1 bg-backdrop/60">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close add field"
-            onPress={() => setIsFieldOpen(false)}
-            className="absolute inset-0"
-          />
-          <KeyboardAwareScrollView
-            bottomOffset={24}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}
-          >
-            <View className="w-full max-w-sm gap-5 self-center rounded-xl border border-border bg-card p-6">
-              <View className="flex-row items-center justify-between gap-4">
-                <View className="flex-1 gap-0.5">
-                  <Text variant="heading">Add personalisation field</Text>
-                  <Text variant="caption">
-                    Create a field that matches your organisation’s needs.
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close add field"
-                  onPress={() => setIsFieldOpen(false)}
-                  className="h-11 w-11 items-center justify-center rounded-full bg-muted"
-                >
-                  <X size={20} color={theme.foreground} />
-                </Pressable>
-              </View>
-              <TextField
-                label="Field name"
-                value={fieldName}
-                onChangeText={setFieldName}
-                placeholder="e.g. Account number or appointment time"
-                autoCapitalize="words"
-              />
-              <View className="gap-3">
-                <Text variant="overline">Field type</Text>
-                <View className="flex-row flex-wrap gap-2">
-                  {FIELD_TYPES.map((type) => (
-                    <Chip
-                      key={type.key}
-                      label={type.label}
-                      isSelected={fieldType === type.key}
-                      onPress={() => setFieldType(type.key)}
-                    />
-                  ))}
-                </View>
-              </View>
-              <Button
-                label="Add field"
-                variant="accent"
-                size="lg"
-                fullWidth
-                disabled={!fieldName.trim()}
-                onPress={addField}
-              />
-            </View>
-          </KeyboardAwareScrollView>
-        </View>
-      </Modal>
+      <ConfirmDialog
+        isVisible={isArchiveOpen}
+        title="Archive this template?"
+        message="It will no longer be listed or available to use. Broadcasts already sent are not affected."
+        confirmLabel="Archive template"
+        confirmingLabel="Archiving…"
+        isConfirming={archive.isPending}
+        onConfirm={confirmArchive}
+        onCancel={() => setIsArchiveOpen(false)}
+      />
     </PageScreen>
   );
 }

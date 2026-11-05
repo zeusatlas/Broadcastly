@@ -1,28 +1,25 @@
+import { useLocalSearchParams } from 'expo-router';
 import { X } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
 import { SearchField, Text } from '@/components/ui';
+import { useDebouncedValue } from '@/hooks/use_pages';
 
-import { ApprovalRow } from '../components/ApprovalRow';
-import { DEMO_APPROVALS, type ApprovalItem } from '../demo_data';
+import { ApprovalList } from '../components/ApprovalList';
+import { useApprovalPages } from '../hooks/use_approvals';
+import type { ApprovalFilter } from '../types';
 import { ApprovalDetailSheet } from './ApprovalDetailSheet';
 
 export function ApprovalSearchScreen() {
   const [search, setSearch] = useState('');
-  const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
-  const query = search.trim().toLowerCase();
-  const approvals = useMemo(
-    () =>
-      DEMO_APPROVALS.filter(
-        (approval) =>
-          approval.title.toLowerCase().includes(query) ||
-          approval.audience.toLowerCase().includes(query) ||
-          approval.creator.toLowerCase().includes(query),
-      ),
-    [query],
-  );
+  // Searches the queue the list screen was showing: the API has no combined pending + decided search.
+  const params = useLocalSearchParams<{ status?: string }>();
+  const filter: ApprovalFilter = params.status === 'decided' ? 'decided' : 'pending';
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const query = useDebouncedValue(search.trim());
+  const pages = useApprovalPages(filter, query);
 
   return (
     <PageScreen backIcon={X} backLabel="Close search">
@@ -31,35 +28,26 @@ export function ApprovalSearchScreen() {
           autoFocus
           value={search}
           onChangeText={setSearch}
-          placeholder="Search approvals"
+          placeholder={
+            filter === 'pending' ? 'Search pending approvals' : 'Search decided approvals'
+          }
           className="h-14"
         />
-        <Text variant="caption">
-          {approvals.length} {approvals.length === 1 ? 'approval' : 'approvals'} found
-        </Text>
-        <View>
-          {approvals.length > 0 ? (
-            approvals.map((approval, index) => (
-              <ApprovalRow
-                key={approval.id}
-                approval={approval}
-                isLast={index === approvals.length - 1}
-                onPress={() => setSelectedApproval(approval)}
-              />
-            ))
-          ) : (
-            <View className="items-center gap-2 py-16">
-              <Text variant="heading">No approvals found</Text>
-              <Text variant="bodyMuted" className="text-center">
-                Try a different title, audience or creator.
-              </Text>
-            </View>
-          )}
-        </View>
+        {query && !pages.isLoading && !pages.error ? (
+          <Text variant="caption">
+            {pages.total.toLocaleString()} {pages.total === 1 ? 'approval' : 'approvals'} found
+          </Text>
+        ) : null}
+        <ApprovalList
+          pages={pages}
+          emptyText={query ? 'No approvals match your search.' : 'Nothing here yet.'}
+          onSelect={(approval) => setSelectedId(approval.id)}
+        />
       </View>
       <ApprovalDetailSheet
-        approval={selectedApproval}
-        onClose={() => setSelectedApproval(null)}
+        broadcastId={selectedId}
+        onClose={() => setSelectedId(null)}
+        onDecided={pages.reload}
       />
     </PageScreen>
   );

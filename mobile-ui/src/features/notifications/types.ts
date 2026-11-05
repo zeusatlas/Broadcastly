@@ -1,18 +1,33 @@
+import type { PageParams } from '@/types/api';
+
 // The kinds of in-app notification the SRS names (FR-NOT-01).
 export type NotificationType =
   | 'approval_request'
   | 'approval_decision'
   | 'import_completed'
   | 'broadcast_delivered'
-  | 'broadcast_partially_failed';
+  | 'broadcast_partially_failed'
+  | 'broadcast_failed';
 
-export interface NotificationItemData {
+export type NotificationFilter = 'all' | 'unread' | 'read';
+
+export interface NotificationResponse {
   id: string;
   type: NotificationType;
   title: string;
   body: string;
-  time: string;
-  isUnread: boolean;
+  broadcastId: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface ListNotificationsParams extends PageParams {
+  status?: 'unread' | 'read';
+  search?: string;
+}
+
+export interface UnreadCountResponse {
+  unread: number;
 }
 
 export interface OrganisationNotificationPreferences {

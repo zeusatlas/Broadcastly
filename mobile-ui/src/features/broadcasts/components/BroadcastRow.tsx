@@ -7,7 +7,6 @@ import { cn } from '@/utils/helpers';
 
 import type { BroadcastStatus, BroadcastSummary } from '../types';
 import { BROADCAST_STATUS_LABEL, BroadcastStatusBadge } from './BroadcastStatusBadge';
-import { DeliveryBar } from './DeliveryBar';
 
 const HAS_OUTCOME: BroadcastStatus[] = ['processing', 'submitted', 'completed', 'partially_failed'];
 
@@ -17,11 +16,13 @@ interface BroadcastRowProps {
   isLast?: boolean;
 }
 
-// Plain divided row: lists stay light; cards are kept for the few things that need weight.
 export function BroadcastRow({ broadcast, onPress, isLast = false }: BroadcastRowProps) {
   const theme = useTheme();
   const { title, audience, sentAt, status, delivered, recipients } = broadcast;
   const hasOutcome = HAS_OUTCOME.includes(status) && recipients > 0;
+  const audienceText = hasOutcome
+    ? `${delivered.toLocaleString()}/${recipients.toLocaleString()} delivered`
+    : `${recipients.toLocaleString()} recipients`;
 
   return (
     <Pressable
@@ -29,35 +30,30 @@ export function BroadcastRow({ broadcast, onPress, isLast = false }: BroadcastRo
       accessibilityLabel={`${title}, ${BROADCAST_STATUS_LABEL[status]}, ${audience}, ${sentAt}`}
       onPress={onPress}
       className={cn(
-        'flex-row items-center gap-3 py-4 active:opacity-60',
+        'flex-row items-center gap-3 py-3.5 active:opacity-60',
         !isLast && 'border-b border-border',
       )}
     >
-      <View className="flex-1 gap-2">
-        <View className="gap-1">
-          <View className="flex-row items-center gap-2">
-            <Text
-              className="flex-1 font-sans-bold text-base leading-6 text-foreground"
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            <Text variant="caption">{sentAt}</Text>
-          </View>
-          <Text variant="bodyMuted" className="text-sm" numberOfLines={1}>
-            {audience} · {recipients.toLocaleString()} recipients
+      <View className="flex-1 gap-1.5">
+        <View className="flex-row items-center gap-2">
+          <Text
+            className="flex-1 font-sans-semibold text-[15px] leading-5 text-foreground"
+            numberOfLines={1}
+          >
+            {title}
+          </Text>
+          <Text variant="caption" className="shrink-0">
+            {sentAt}
           </Text>
         </View>
-        <View className="flex-row items-center gap-3">
+        <View className="flex-row items-center gap-2">
           <BroadcastStatusBadge status={status} />
-          {hasOutcome ? (
-            <View className="flex-1">
-              <DeliveryBar delivered={delivered} total={recipients} status={status} />
-            </View>
-          ) : null}
+          <Text variant="caption" numberOfLines={1}>
+            {audience} · {audienceText}
+          </Text>
         </View>
       </View>
-      <ChevronRight size={18} color={theme.mutedForeground} />
+      <ChevronRight size={17} color={theme.mutedForeground} />
     </Pressable>
   );
 }

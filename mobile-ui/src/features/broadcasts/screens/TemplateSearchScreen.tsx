@@ -1,62 +1,45 @@
+import { router, Stack } from 'expo-router';
 import { X } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PageScreen } from '@/components/shared';
-import { SearchField, Text } from '@/components/ui';
+import { GLASS_BUTTON_SIZE, GlassHeaderButton } from '@/components/shared/HeaderButton';
+import { SearchField } from '@/components/ui';
 
-import { TemplateRow } from '../components/TemplateRow';
-import { DEMO_TEMPLATES, type TemplateItem } from '../templates_data';
-import { TemplatePreviewSheet } from './TemplatePreviewSheet';
+import { TemplateList } from '../components/TemplateList';
+import { useDebouncedValue } from '../hooks/use_templates';
 
 export function TemplateSearchScreen() {
+  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateItem | null>(null);
-  const query = search.trim().toLowerCase();
-  const templates = useMemo(
-    () =>
-      DEMO_TEMPLATES.filter(
-        (template) =>
-          template.name.toLowerCase().includes(query) ||
-          template.category.toLowerCase().includes(query) ||
-          template.message.toLowerCase().includes(query),
-      ),
-    [query],
-  );
+  const debouncedSearch = useDebouncedValue(search.trim());
 
   return (
-    <PageScreen backIcon={X} backLabel="Close search">
-      <View className="gap-4">
-        <SearchField
-          autoFocus
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search templates"
-          className="h-14"
-        />
-        <Text variant="caption">
-          {templates.length} {templates.length === 1 ? 'template' : 'templates'} found
-        </Text>
-        <View>
-          {templates.map((template, index) => (
-            <TemplateRow
-              key={template.id}
-              template={template}
-              isLast={index === templates.length - 1}
-              onPress={() => setSelectedTemplate(template)}
-            />
-          ))}
-        </View>
-        {templates.length === 0 ? (
-          <Text variant="bodyMuted" className="py-16 text-center">
-            No templates match your search.
-          </Text>
-        ) : null}
-      </View>
-      <TemplatePreviewSheet
-        template={selectedTemplate}
-        onClose={() => setSelectedTemplate(null)}
+    <>
+      <Stack.Screen options={{ headerShown: false, title: 'Search templates' }} />
+      <TemplateList
+        filters={{ search: debouncedSearch || undefined }}
+        paddingTop={insets.top + GLASS_BUTTON_SIZE + 16}
+        paddingBottom={insets.bottom + 24}
+        emptyText={debouncedSearch ? 'No templates match your search.' : 'No templates yet.'}
+        header={
+          <SearchField
+            autoFocus
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search templates"
+            className="h-14"
+          />
+        }
       />
-    </PageScreen>
+      <View
+        pointerEvents="box-none"
+        className="absolute left-0 right-0 top-0 flex-row items-center px-4"
+        style={{ paddingTop: insets.top + 4 }}
+      >
+        <GlassHeaderButton icon={X} label="Close search" onPress={() => router.back()} />
+      </View>
+    </>
   );
 }

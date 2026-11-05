@@ -1,16 +1,23 @@
-import { CheckCheck, ChevronDown, ListFilter, Search } from 'lucide-react-native';
+import { router, type Href } from 'expo-router';
+import { BellOff, CheckCheck, ChevronDown, ListFilter, Search, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
-import { Text } from '@/components/ui';
+import { Button, SearchField, Skeleton, Text } from '@/components/ui';
+import { useDebouncedValue } from '@/hooks/use_pages';
 import { useTheme } from '@/hooks/use_theme';
+import { notify } from '@/lib/notify';
 import { cn } from '@/utils/helpers';
 
 import { NotificationItem } from '../components/NotificationItem';
-import type { NotificationItemData } from '../types';
-
-type NotificationFilter = 'all' | 'unread' | 'read';
+import {
+  useMarkAllNotificationsReadMutation,
+  useMarkNotificationReadMutation,
+  useNotificationPages,
+} from '../hooks/use_notifications';
+import type { NotificationFilter, NotificationResponse } from '../types';
+import { isToday } from '../utils/notification_time';
 
 const FILTERS: { key: NotificationFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -18,93 +25,162 @@ const FILTERS: { key: NotificationFilter; label: string }[] = [
   { key: 'read', label: 'Read' },
 ];
 
-// TODO(notifications API): static sample data; becomes a paginated FlatList once FR-NOT-01 is wired.
-const GROUPS: { title: string; items: NotificationItemData[] }[] = [
-  {
-    title: 'Today',
-    items: [
-      {
-        id: '1',
-        type: 'approval_request',
-        title: 'Approval needed',
-        body: 'Membership dues reminder (8,412 recipients) is waiting for your approval.',
-        time: '09:12',
-        isUnread: true,
-      },
-      {
-        id: '2',
-        type: 'broadcast_delivered',
-        title: 'Broadcast delivered',
-        body: 'Executive meeting — Saturday 9am reached 142 of 146 recipients.',
-        time: '08:20',
-        isUnread: true,
-      },
-    ],
-  },
-  {
-    title: 'Earlier',
-    items: [
-      {
-        id: '3',
-        type: 'broadcast_partially_failed',
-        title: 'Some messages failed',
-        body: 'Polling station verification notice: 124 messages could not be delivered.',
-        time: 'Yesterday',
-        isUnread: false,
-      },
-      {
-        id: '4',
-        type: 'import_completed',
-        title: 'Member import finished',
-        body: '1,204 members imported, 12 rows need attention.',
-        time: 'Mon',
-        isUnread: false,
-      },
-      {
-        id: '5',
-        type: 'approval_decision',
-        title: 'Broadcast approved',
-        body: 'Youth rally reminder was approved by the Constituency Secretary.',
-        time: '28 Oct',
-        isUnread: false,
-      },
-    ],
-  },
-];
+const EMPTY_TEXT: Record<NotificationFilter, string> = {
+  all: 'No notifications yet.',
+  unread: 'You are all caught up.',
+  read: 'No read notifications.',
+};
+
+// Where a notification leads: the approval queue, the import history, or the broadcast itself.
+function destinationOf(notification: NotificationResponse): Href | null {
+  if (notification.type === 'approval_request') return '/approvals';
+  if (notification.type === 'import_completed') return '/members/imports';
+  if (notification.broadcastId) {
+    return { pathname: '/broadcasts/[id]', params: { id: notification.broadcastId } };
+  }
+  return null;
+}
+
+function NotificationSkeleton() {
+  return (
+    <View accessibilityLabel="Loading notifications">
+      {Array.from({ length: 6 }, (_, index) => (
+        <View key={index} className="flex-row gap-3 border-b border-border py-4">
+          <Skeleton className="h-11 w-11 rounded-full" />
+          <View className="flex-1 gap-2">
+            <Skeleton className="h-4 w-44 rounded-md" />
+            <Skeleton className="h-3 w-full rounded-md" />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 // Opens from the home bell, sliding in from the right.
 export function NotificationsScreen() {
+  const theme = useTheme();
   const [filter, setFilter] = useState<NotificationFilter>('all');
-  const groups = GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) =>
-      filter === 'all' ? true : filter === 'unread' ? item.isUnread : !item.isUnread,
-    ),
-  })).filter((group) => group.items.length > 0);
+  const [isSearching, setIsSearching] = useState(false);
+  const [search, setSearch] = useState('');
+  const query = useDebouncedValue(search.trim());
+  const pages = useNotificationPages(filter, query);
+  const markRead = useMarkNotificationReadMutation();
+  const markAll = useMarkAllNotificationsReadMutation();
+
+  const groups = [
+    { title: 'Today', items: pages.items.filter((item) => isToday(item.createdAt)) },
+    { title: 'Earlier', items: pages.items.filter((item) => !isToday(item.createdAt)) },
+  ].filter((group) => group.items.length > 0);
+
+  const open = async (notification: NotificationResponse) => {
+    if (!notification.isRead) {
+      const response = await markRead.mutate({ notificationId: notification.id });
+      if (response) pages.reload();
+    }
+    const destination = destinationOf(notification);
+    if (destination) router.push(destination);
+  };
+
+  const markAllRead = async () => {
+    const response = await markAll.mutate(undefined);
+    if (response) {
+      notify.success('All caught up', 'Every notification is marked as read.');
+      pages.reload();
+    } else {
+      notify.error('Could not mark them as read', 'Check your connection and try again.');
+    }
+  };
 
   return (
     <PageScreen
       title="Notifications"
-      headerRight={{ icon: CheckCheck, label: 'Mark all as read' }}
-      footer={<NotificationFilterBar filter={filter} onChange={setFilter} />}
+      headerRight={{ icon: CheckCheck, label: 'Mark all as read', onPress: markAllRead }}
+      footer={
+        <NotificationFilterBar
+          filter={filter}
+          onChange={setFilter}
+          onSearch={() => {
+            if (isSearching) setSearch('');
+            setIsSearching((current) => !current);
+          }}
+          isSearching={isSearching}
+        />
+      }
     >
-      {groups.map((group, index) => (
-        <View key={group.title} className={index === 0 ? undefined : 'mt-6'}>
-          <Text
-            accessibilityRole="header"
-            className="font-sans-bold text-xs uppercase tracking-widest text-muted-foreground"
-          >
-            {group.title}
-          </Text>
-          {group.items.map((item, index) => (
-            <NotificationItem
-              key={item.id}
-              notification={item}
-              isLast={index === group.items.length - 1}
+      {isSearching ? (
+        <View className="mb-4 flex-row items-center gap-2">
+          <View className="flex-1">
+            <SearchField
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search notifications"
+              autoFocus
             />
-          ))}
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close search"
+            onPress={() => {
+              setSearch('');
+              setIsSearching(false);
+            }}
+            className="h-12 w-12 items-center justify-center rounded-full bg-card active:opacity-70"
+          >
+            <X size={20} color={theme.foreground} />
+          </Pressable>
         </View>
-      ))}
+      ) : null}
+      {pages.isLoading ? (
+        <NotificationSkeleton />
+      ) : pages.error && pages.items.length === 0 ? (
+        <View className="items-center gap-3 py-16">
+          <Text variant="bodyMuted" className="text-center">
+            {pages.error.message}
+          </Text>
+          {pages.error.isRetryable ? (
+            <Button label="Try again" variant="outline" onPress={pages.reload} />
+          ) : null}
+        </View>
+      ) : groups.length === 0 ? (
+        <View className="items-center gap-3 py-16">
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <BellOff size={24} color={theme.mutedForeground} />
+          </View>
+          <Text variant="bodyMuted">
+            {query ? 'No notifications match your search.' : EMPTY_TEXT[filter]}
+          </Text>
+        </View>
+      ) : (
+        groups.map((group, groupIndex) => (
+          <View key={group.title} className={groupIndex === 0 ? undefined : 'mt-6'}>
+            <Text
+              accessibilityRole="header"
+              className="font-sans-bold text-xs uppercase tracking-widest text-muted-foreground"
+            >
+              {group.title}
+            </Text>
+            {group.items.map((item, index) => (
+              <NotificationItem
+                key={item.id}
+                notification={item}
+                isLast={index === group.items.length - 1}
+                onPress={() => open(item)}
+              />
+            ))}
+          </View>
+        ))
+      )}
+      {pages.hasNextPage ? (
+        <Button
+          label="Show older"
+          variant="outline"
+          className="mt-4"
+          isLoading={pages.isFetching}
+          loadingLabel="Loading…"
+          onPress={pages.loadMore}
+        />
+      ) : null}
     </PageScreen>
   );
 }
@@ -112,9 +188,16 @@ export function NotificationsScreen() {
 interface NotificationFilterBarProps {
   filter: NotificationFilter;
   onChange: (filter: NotificationFilter) => void;
+  onSearch: () => void;
+  isSearching: boolean;
 }
 
-function NotificationFilterBar({ filter, onChange }: NotificationFilterBarProps) {
+function NotificationFilterBar({
+  filter,
+  onChange,
+  onSearch,
+  isSearching,
+}: NotificationFilterBarProps) {
   const theme = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const selectedLabel = FILTERS.find((item) => item.key === filter)?.label ?? 'All';
@@ -129,6 +212,7 @@ function NotificationFilterBar({ filter, onChange }: NotificationFilterBarProps)
               <Pressable
                 key={item.key}
                 accessibilityRole="button"
+                accessibilityLabel={`Show ${item.label.toLowerCase()} notifications`}
                 accessibilityState={{ selected: isSelected }}
                 onPress={() => {
                   onChange(item.key);
@@ -164,7 +248,7 @@ function NotificationFilterBar({ filter, onChange }: NotificationFilterBarProps)
             accessibilityRole="button"
             accessibilityLabel="Open notification filters"
             accessibilityState={{ selected: filter !== 'all' }}
-            onPress={() => setIsOpen((open) => !open)}
+            onPress={() => setIsOpen((current) => !current)}
             className={cn(
               'h-14 w-14 items-center justify-center rounded-full active:opacity-70',
               filter !== 'all' ? 'bg-primary' : 'bg-card',
@@ -179,7 +263,7 @@ function NotificationFilterBar({ filter, onChange }: NotificationFilterBarProps)
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Current filter: ${selectedLabel}`}
-              onPress={() => setIsOpen((open) => !open)}
+              onPress={() => setIsOpen((current) => !current)}
               className="flex-row items-center gap-1 px-1 active:opacity-70"
             >
               <Text className="font-sans-semibold text-base text-foreground">{selectedLabel}</Text>
@@ -189,10 +273,15 @@ function NotificationFilterBar({ filter, onChange }: NotificationFilterBarProps)
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Search notifications"
-          className="h-14 w-14 items-center justify-center rounded-full bg-card active:opacity-70"
+          accessibilityLabel={isSearching ? 'Hide search' : 'Search notifications'}
+          accessibilityState={{ selected: isSearching }}
+          onPress={onSearch}
+          className={cn(
+            'h-14 w-14 items-center justify-center rounded-full active:opacity-70',
+            isSearching ? 'bg-primary' : 'bg-card',
+          )}
         >
-          <Search size={21} color={theme.foreground} />
+          <Search size={21} color={isSearching ? theme.primaryForeground : theme.foreground} />
         </Pressable>
       </View>
     </View>

@@ -1,6 +1,7 @@
 import {
   CheckCheck,
   CircleAlert,
+  CircleX,
   FileSpreadsheet,
   Send,
   ShieldCheck,
@@ -12,9 +13,10 @@ import { Text } from '@/components/ui';
 import { useTheme } from '@/hooks/use_theme';
 import { cn } from '@/utils/helpers';
 
-import type { NotificationItemData, NotificationType } from '../types';
+import type { NotificationResponse, NotificationType } from '../types';
+import { notificationTime } from '../utils/notification_time';
 
-type Tone = 'accent' | 'success' | 'warning' | 'primary';
+type Tone = 'accent' | 'success' | 'warning' | 'primary' | 'destructive';
 
 const TYPE_STYLE: Record<NotificationType, { icon: LucideIcon; tone: Tone }> = {
   approval_request: { icon: ShieldCheck, tone: 'accent' },
@@ -22,6 +24,7 @@ const TYPE_STYLE: Record<NotificationType, { icon: LucideIcon; tone: Tone }> = {
   import_completed: { icon: FileSpreadsheet, tone: 'primary' },
   broadcast_delivered: { icon: Send, tone: 'success' },
   broadcast_partially_failed: { icon: CircleAlert, tone: 'warning' },
+  broadcast_failed: { icon: CircleX, tone: 'destructive' },
 };
 
 // Static strings so NativeWind can see every class at build time.
@@ -30,14 +33,16 @@ const TILE: Record<Tone, string> = {
   success: 'bg-success/15',
   warning: 'bg-warning/20',
   primary: 'bg-primary/10',
+  destructive: 'bg-destructive/10',
 };
 
 interface NotificationItemProps {
-  notification: NotificationItemData;
+  notification: NotificationResponse;
   isLast?: boolean;
+  onPress?: () => void;
 }
 
-export function NotificationItem({ notification, isLast = false }: NotificationItemProps) {
+export function NotificationItem({ notification, isLast = false, onPress }: NotificationItemProps) {
   const theme = useTheme();
   const { icon: Icon, tone } = TYPE_STYLE[notification.type];
   const iconColor: Record<Tone, string> = {
@@ -45,12 +50,16 @@ export function NotificationItem({ notification, isLast = false }: NotificationI
     success: theme.success,
     warning: theme.accentEmphasis,
     primary: theme.primary,
+    destructive: theme.destructive,
   };
-  const { title, body, time, isUnread } = notification;
+  const { title, body } = notification;
+  const isUnread = !notification.isRead;
+  const time = notificationTime(notification.createdAt);
 
   return (
     <Pressable
       accessibilityRole="button"
+      onPress={onPress}
       accessibilityLabel={`${isUnread ? 'Unread. ' : ''}${title}. ${body}. ${time}`}
       className={cn('flex-row gap-3 py-4 active:opacity-60', !isLast && 'border-b border-border')}
     >

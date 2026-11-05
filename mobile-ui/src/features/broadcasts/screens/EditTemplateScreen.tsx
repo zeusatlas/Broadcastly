@@ -1,15 +1,27 @@
 import { useLocalSearchParams } from 'expo-router';
+import { X } from 'lucide-react-native';
 
-import { Text } from '@/components/ui';
+import { PageScreen } from '@/components/shared';
+import { QueryState } from '@/components/ui';
 
-import { DEMO_TEMPLATES } from '../templates_data';
+import { useReadTemplateQuery } from '../hooks/use_templates';
 import { NewTemplateScreen } from './NewTemplateScreen';
 
 export function EditTemplateScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const template = DEMO_TEMPLATES.find((item) => item.id === id);
+  const template = useReadTemplateQuery(id ?? '');
 
-  if (!template) return <Text variant="bodyMuted">This template could not be found.</Text>;
+  if (template.data) return <NewTemplateScreen key={template.data.id} template={template.data} />;
 
-  return <NewTemplateScreen template={template} />;
+  return (
+    <PageScreen title="Edit template" backIcon={X} backLabel="Close edit template">
+      <QueryState
+        isLoading={template.isLoading || (!template.error && !template.data)}
+        error={template.error}
+        isEmpty={false}
+        emptyText=""
+        onRetry={template.refetch}
+      />
+    </PageScreen>
+  );
 }

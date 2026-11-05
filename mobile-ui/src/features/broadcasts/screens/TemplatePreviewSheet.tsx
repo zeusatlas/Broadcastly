@@ -1,22 +1,24 @@
 import { Pencil, X } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { Modal, Pressable, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chip, Text } from '@/components/ui';
+import { useHasPermission } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
-import { notify } from '@/lib/notify';
 
-import type { TemplateItem } from '../templates_data';
+import type { TemplateResponse } from '../types';
+import { categoryLabel, fieldLabel } from '../utils/templates';
 
 interface TemplatePreviewSheetProps {
-  template: TemplateItem | null;
+  template: TemplateResponse | null;
   onClose: () => void;
 }
 
 export function TemplatePreviewSheet({ template, onClose }: TemplatePreviewSheetProps) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const canDraft = useHasPermission('broadcast.draft');
 
   if (!template) return null;
 
@@ -36,7 +38,7 @@ export function TemplatePreviewSheet({ template, onClose }: TemplatePreviewSheet
           <View className="mb-5 flex-row items-start justify-between gap-4">
             <View className="flex-1 gap-0.5">
               <Text variant="heading">{template.name}</Text>
-              <Text variant="caption">{template.category} template</Text>
+              <Text variant="caption">{categoryLabel(template.category)}</Text>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -48,45 +50,54 @@ export function TemplatePreviewSheet({ template, onClose }: TemplatePreviewSheet
             </Pressable>
           </View>
 
-          <View className="gap-2">
-            <Text variant="overline">Message</Text>
-            <Text variant="body" className="leading-6">
-              {template.message}
-            </Text>
-          </View>
-
-          <View className="mt-6 gap-2">
-            <Text variant="overline">Personalisation fields</Text>
-            <View className="flex-row flex-wrap gap-2">
-              {template.variables.map((variable) => (
-                <Chip key={variable} label={variable} />
-              ))}
+          <ScrollView className="shrink" showsVerticalScrollIndicator={false}>
+            <View className="gap-2">
+              <Text variant="overline">Message</Text>
+              <Text variant="body" className="leading-6">
+                {template.body}
+              </Text>
             </View>
-          </View>
 
-          <View className="mt-7 flex-row gap-3">
-            <Button
-              label="Use template"
-              variant="accent"
-              size="lg"
-              className="flex-1"
-              onPress={() => {
-                notify.info('Using templates is ready for API wiring');
-                onClose();
-              }}
-            />
-            <Button
-              label="Edit"
-              icon={Pencil}
-              variant="outline"
-              size="lg"
-              className="flex-1"
-              onPress={() => {
-                onClose();
-                router.push({ pathname: '/templates/[id]/edit', params: { id: template.id } });
-              }}
-            />
-          </View>
+            {template.fields.length > 0 ? (
+              <View className="mt-6 gap-2">
+                <Text variant="overline">Personalisation fields</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {template.fields.map((field) => (
+                    <Chip key={field} label={fieldLabel(field)} />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </ScrollView>
+
+          {canDraft ? (
+            <View className="mt-7 flex-row gap-3">
+              <Button
+                label="Use template"
+                variant="accent"
+                size="lg"
+                className="flex-1"
+                onPress={() => {
+                  onClose();
+                  router.push({
+                    pathname: '/broadcasts/new',
+                    params: { templateBody: template.body },
+                  });
+                }}
+              />
+              <Button
+                label="Edit"
+                icon={Pencil}
+                variant="outline"
+                size="lg"
+                className="flex-1"
+                onPress={() => {
+                  onClose();
+                  router.push({ pathname: '/templates/[id]/edit', params: { id: template.id } });
+                }}
+              />
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>

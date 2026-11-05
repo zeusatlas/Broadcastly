@@ -6,21 +6,22 @@ import { useTheme } from '@/hooks/use_theme';
 import { cn } from '@/utils/helpers';
 
 interface CostEstimateProps {
-  recipients: number;
+  recipients: number | null;
   segments: number;
-  balance: number;
+  balance?: number;
 }
 
 // FR-SMS-07: shown before submit/send. The one chunky card on the screen, because it's the decision.
 export function CostEstimate({ recipients, segments, balance }: CostEstimateProps) {
   const theme = useTheme();
-  const cost = recipients * segments;
-  const isShort = cost > balance;
+  const cost = (recipients ?? 0) * segments;
+  const hasEstimate = recipients !== null && recipients > 0 && balance !== undefined;
+  const isShort = hasEstimate && cost > balance;
 
   const items = [
-    { label: 'Recipients', value: recipients.toLocaleString() },
+    { label: 'Recipients', value: recipients === null ? '—' : recipients.toLocaleString() },
     { label: 'Segments', value: String(segments) },
-    { label: 'Est. credits', value: cost.toLocaleString(), isStrong: true },
+    { label: 'Est. credits', value: hasEstimate ? cost.toLocaleString() : '—', isStrong: true },
   ];
 
   return (
@@ -56,7 +57,9 @@ export function CostEstimate({ recipients, segments, balance }: CostEstimateProp
         >
           {isShort
             ? `Not enough credits: balance ${balance.toLocaleString()}`
-            : `Balance after send: ${(balance - cost).toLocaleString()} credits`}
+            : hasEstimate
+              ? `Balance after send: ${(balance - cost).toLocaleString()} credits`
+              : 'Select recipients to calculate the credit cost.'}
         </Text>
       </View>
     </Card>

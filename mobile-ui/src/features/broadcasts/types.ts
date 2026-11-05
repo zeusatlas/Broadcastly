@@ -1,3 +1,5 @@
+import type { PageParams, Paginated } from '@/types/api';
+
 // Every status FR-SMS-12 names.
 export type BroadcastStatus =
   | 'draft'
@@ -10,6 +12,86 @@ export type BroadcastStatus =
   | 'partially_failed'
   | 'failed'
   | 'cancelled';
+
+export interface BroadcastApiResponse {
+  id: string;
+  organisationId: string;
+  organisationName: string;
+  title: string | null;
+  message: string;
+  status: BroadcastStatus;
+  audienceSummary: string | null;
+  recipientCount: number;
+  segmentCount: number;
+  estimatedCredits: number;
+  deliveredCount: number;
+  failedCount: number;
+  createdBy: string | null;
+  scheduledAt: string | null;
+  submittedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  createdById: string;
+  audience: BroadcastAudienceRequest;
+  submittedCount: number;
+  sentBy: string | null;
+  cancelledAt: string | null;
+  latestDecision: BroadcastDecision | null;
+}
+
+export interface BroadcastDecision {
+  decision: 'approved' | 'rejected';
+  reason: string | null;
+  decidedBy: string;
+  decidedAt: string;
+}
+
+// null clears the title; omitted fields stay as they are.
+export interface UpdateBroadcastRequest {
+  title?: string | null;
+  message?: string;
+  audience?: BroadcastAudienceRequest;
+}
+
+export interface ListBroadcastsParams extends PageParams {
+  statuses?: BroadcastStatus[];
+  search?: string;
+}
+
+export interface BroadcastAudienceRequest {
+  level: AudienceLevel;
+  unitIds?: string[];
+}
+
+export interface CreateBroadcastRequest {
+  title?: string;
+  message: string;
+  audience: BroadcastAudienceRequest;
+}
+
+export type BroadcastsResponse = Paginated<BroadcastApiResponse>;
+
+export interface EstimateBroadcastRequest {
+  message: string;
+  audience: BroadcastAudienceRequest;
+}
+
+export interface BroadcastEstimateResponse {
+  encoding: SmsEncoding;
+  characters: number;
+  segments: number;
+  matched: number;
+  recipientCount: number;
+  duplicateCount: number;
+  invalidCount: number;
+  estimatedCredits: number;
+  wallet: { owner: 'organisation' | 'executive'; available: number };
+}
+
+// Omit scheduledAt to send at once.
+export interface DispatchBroadcastRequest {
+  scheduledAt?: string | null;
+}
 
 export interface BroadcastSummary {
   id: string;
@@ -43,3 +125,33 @@ export interface SegmentEstimate {
   // Characters left before the next segment starts.
   remaining: number;
 }
+
+// Message templates (FR-SMS-04, FR-SMS-05): /templates.
+export type TemplateCategory = 'official_notice' | 'meeting_announcement' | 'reminder';
+
+export type TemplateField = 'first_name' | 'meeting_date' | 'meeting_location';
+
+export interface TemplateResponse {
+  id: string;
+  name: string;
+  category: TemplateCategory;
+  body: string;
+  fields: TemplateField[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TemplatesResponse = Paginated<TemplateResponse>;
+
+export interface ListTemplatesParams extends PageParams {
+  search?: string;
+  category?: TemplateCategory;
+}
+
+export interface CreateTemplateRequest {
+  name: string;
+  category: TemplateCategory;
+  body: string;
+}
+
+export type UpdateTemplateRequest = Partial<CreateTemplateRequest>;
