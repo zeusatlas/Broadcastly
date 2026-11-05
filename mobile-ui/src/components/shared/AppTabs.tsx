@@ -21,6 +21,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Fonts } from '@/constants/theme';
+import { GlassSurface } from '@/components/ui/GlassSurface';
 import { useHeaderOptions } from '@/hooks/use_header_options';
 import { useThemeName } from '@/hooks/use_theme';
 
@@ -83,7 +84,9 @@ export function AppTabs({ tabs }: { tabs: TabDefinition[] }) {
             title,
             headerShown: name === 'index',
             headerTitle: '',
-            tabBarButton: (props) => <TabBarButton {...props} activeColor={palette.border} />,
+            tabBarButton: (props) => (
+              <TabBarButton {...props} activeIndicatorColor={palette.accentEmphasis} />
+            ),
             tabBarLabel: ({ color, focused }) => (
               <RNText
                 numberOfLines={1}
@@ -108,11 +111,11 @@ export function AppTabs({ tabs }: { tabs: TabDefinition[] }) {
 }
 
 interface TabBarButtonProps extends BottomTabBarButtonProps {
-  activeColor: string;
+  activeIndicatorColor: string;
 }
 
 function TabBarButton({
-  activeColor,
+  activeIndicatorColor,
   accessibilityState,
   children,
   href: _href,
@@ -131,18 +134,31 @@ function TabBarButton({
         { flex: 1, alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 2 },
       ]}
     >
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: 999,
-          paddingHorizontal: 8,
-          backgroundColor: isSelected ? activeColor : 'transparent',
-        }}
-      >
-        {children}
-      </View>
+      {isSelected ? (
+        <GlassSurface
+          style={{
+            flex: 1,
+            borderRadius: 999,
+            overflow: 'hidden',
+            borderColor: activeIndicatorColor,
+            borderWidth: 1.5,
+          }}
+        >
+          {children}
+        </GlassSurface>
+      ) : (
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 999,
+            paddingHorizontal: 8,
+          }}
+        >
+          {children}
+        </View>
+      )}
     </Pressable>
   );
 }

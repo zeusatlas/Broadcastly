@@ -1,5 +1,7 @@
 import { Image, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { deviceUrl } from '@/config/env';
+
 import { Text } from '@/components/ui/Text';
 import { cn } from '@/utils/helpers';
 
@@ -42,7 +44,7 @@ export function Avatar({ name, imageUrl, size = 'md', className, style }: Avatar
     >
       {imageUrl ? (
         <Image
-          source={{ uri: imageUrl }}
+          source={{ uri: deviceUrl(imageUrl) ?? undefined }}
           resizeMode="cover"
           accessibilityIgnoresInvertColors
           style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: 999 }}

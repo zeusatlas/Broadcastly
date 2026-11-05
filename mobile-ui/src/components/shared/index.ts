@@ -1,7 +1,7 @@
 export { ADMIN_TABS, AppTabs, EXECUTIVE_TABS, type TabDefinition } from './AppTabs';
+export { AppToaster } from './AppToaster';
 export { ErrorFallback } from './ErrorFallback';
 export { ExternalLink } from './ExternalLink';
-export { AppToaster } from './AppToaster';
 export {
   androidHeaderBack,
   HeaderButton,

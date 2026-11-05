@@ -23,3 +23,4 @@ export { StatTile, type StatTileProps } from './StatTile';
 export { QueryState, type QueryStateProps } from './QueryState';
 export { FigureRow, type Figure } from './FigureRow';
 export { PageSection } from './PageSection';
+export { Skeleton, type SkeletonProps } from './Skeleton';

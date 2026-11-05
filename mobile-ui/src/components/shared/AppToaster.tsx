@@ -1,46 +1,68 @@
-import { CircleCheck, CircleX, Info, TriangleAlert } from 'lucide-react-native';
-import { ActivityIndicator } from 'react-native';
-import { Toaster } from 'sonner-native';
+import { CircleAlert, CircleCheck, CircleX, Info, type LucideIcon } from 'lucide-react-native';
+import { Pressable, View } from 'react-native';
+import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Fonts } from '@/constants/theme';
-import { useTheme, useThemeName } from '@/hooks/use_theme';
+import { Text } from '@/components/ui';
+import { useTheme } from '@/hooks/use_theme';
+import { useToastStore, type ToastKind } from '@/lib/toast_store';
+import { cn } from '@/utils/helpers';
 
-const ICON_SIZE = 22;
+// Static class strings so NativeWind sees every colour at build time; each surface has its own foreground.
+const STYLE: Record<ToastKind, { icon: LucideIcon; surface: string; text: string }> = {
+  success: { icon: CircleCheck, surface: 'bg-success', text: 'text-success-foreground' },
+  error: { icon: CircleX, surface: 'bg-destructive', text: 'text-destructive-foreground' },
+  warning: { icon: CircleAlert, surface: 'bg-warning', text: 'text-warning-foreground' },
+  info: { icon: Info, surface: 'bg-primary', text: 'text-primary-foreground' },
+};
 
-// The app's single toast host, styled with our tokens and the chunky card look (AGENTS §7).
-// Show toasts through `notify` from @/lib/notify, never by importing sonner-native directly.
+// The banner every notify() call shows, just under the status bar. Tap to dismiss.
 export function AppToaster() {
+  const toast = useToastStore((state) => state.toast);
+  const dismiss = useToastStore((state) => state.dismiss);
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const scheme = useThemeName();
+
+  if (!toast) return null;
+  const { icon: Icon, surface, text } = STYLE[toast.kind];
+  const iconColor = {
+    success: theme.successForeground,
+    error: theme.destructiveForeground,
+    warning: theme.warningForeground,
+    info: theme.primaryForeground,
+  }[toast.kind];
 
   return (
-    <Toaster
-      theme={scheme}
-      position="top-center"
-      duration={4000}
-      visibleToasts={3}
-      swipeToDismissDirection="up"
-      icons={{
-        success: <CircleCheck size={ICON_SIZE} color={theme.success} />,
-        error: <CircleX size={ICON_SIZE} color={theme.destructive} />,
-        warning: <TriangleAlert size={ICON_SIZE} color={theme.accentEmphasis} />,
-        info: <Info size={ICON_SIZE} color={theme.primary} />,
-        loading: <ActivityIndicator size="small" color={theme.mutedForeground} />,
-      }}
-      toastOptions={{
-        style: {
-          backgroundColor: theme.card,
-          borderColor: theme.border,
-          borderWidth: 2,
-          borderBottomWidth: 4,
-          borderRadius: 16,
-        },
-        titleStyle: { color: theme.foreground, fontFamily: Fonts.bold, fontSize: 15 },
-        descriptionStyle: { color: theme.mutedForeground, fontFamily: Fonts.regular, fontSize: 14 },
-        success: { borderColor: theme.success },
-        error: { borderColor: theme.destructive },
-        warning: { borderColor: theme.accent },
-      }}
-    />
+    <View
+      pointerEvents="box-none"
+      // Inline layout: NativeWind classes are not applied to Reanimated views, so the banner would shrink.
+      style={{ position: 'absolute', top: insets.top + 8, left: 12, right: 12, zIndex: 50 }}
+    >
+      <Animated.View
+        key={toast.id}
+        entering={FadeInUp.duration(220)}
+        exiting={FadeOutUp.duration(180)}
+        style={{ width: '100%' }}
+      >
+        <Pressable
+          accessibilityRole="alert"
+          accessibilityLabel={
+            toast.description ? `${toast.title}. ${toast.description}` : toast.title
+          }
+          accessibilityHint="Tap to dismiss"
+          onPress={() => dismiss(toast.id)}
+          className={cn('w-full flex-row items-center gap-3 px-4 py-3.5 shadow-lg', surface)}
+          style={{ borderRadius: 24 }}
+        >
+          <Icon size={22} color={iconColor} />
+          <View className="flex-1">
+            <Text className={cn('font-sans-bold text-base', text)}>{toast.title}</Text>
+            {toast.description ? (
+              <Text className={cn('text-sm', text)}>{toast.description}</Text>
+            ) : null}
+          </View>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }

@@ -37,6 +37,11 @@ function resolveApiUrl(): string {
   return reachableFromDevice(url);
 }
 
+// Files the server links to (e.g. organisation logos) are built from its own base URL, which is
+// localhost in development; send them through the same rewrite as API calls.
+export const deviceUrl = (url: string | null | undefined): string | null =>
+  url ? reachableFromDevice(url) : null;
+
 export const ENV = {
   apiUrl: resolveApiUrl(),
   isDev: __DEV__,

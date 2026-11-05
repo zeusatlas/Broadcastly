@@ -85,8 +85,6 @@ export default function RootLayout() {
   const signedOutHome = onboardingStatus === 'pending' ? '/onboarding' : '/sign-in';
 
   // The single authentication guard. Permission guards live in (app)/_layout.tsx.
-  // GestureHandlerRootView: required by swipe-to-dismiss toasts. The toaster sits outside the
-  // stack, so a toast survives navigation (e.g. "Welcome back" after the auth guard switches).
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
