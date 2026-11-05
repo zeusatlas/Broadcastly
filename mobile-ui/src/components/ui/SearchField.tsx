@@ -15,7 +15,7 @@ export function SearchField({ className, placeholder = 'Search', ...props }: Sea
   return (
     <View
       className={cn(
-        'h-12 flex-row items-center gap-2 rounded-lg border border-input bg-card px-3',
+        'h-12 flex-row items-center gap-2 rounded-full border border-input bg-card px-4',
         className,
       )}
     >

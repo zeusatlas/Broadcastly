@@ -14,3 +14,14 @@ export interface NotificationItemData {
   time: string;
   isUnread: boolean;
 }
+
+export interface OrganisationNotificationPreferences {
+  security: boolean;
+  approvals: boolean;
+  broadcasts: boolean;
+  imports: boolean;
+  digest: boolean;
+}
+
+export type UpdateOrganisationNotificationPreferencesRequest =
+  Partial<OrganisationNotificationPreferences>;

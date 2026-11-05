@@ -37,11 +37,13 @@ export function MembersScreen() {
     const query = search.trim().toLowerCase();
     const filtered = query
       ? DEMO_MEMBERS.filter(
-          (member) =>
-            member.name.toLowerCase().includes(query) || member.unit.toLowerCase().includes(query),
-        )
+        (member) =>
+          member.name.toLowerCase().includes(query) || member.unit.toLowerCase().includes(query),
+      )
       : DEMO_MEMBERS;
-    return [...filtered].sort((left, right) => left.name.localeCompare(right.name));
+    return [...filtered].sort((left, right) =>
+      left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }),
+    );
   }, [search]);
 
   const jumpToLetter = (letter: string) => {
@@ -68,6 +70,7 @@ export function MembersScreen() {
           alignSelf: 'center',
           minHeight: collapsing.minHeight,
           paddingHorizontal: 20,
+          paddingRight: 20,
           paddingBottom: canImport ? 104 : 24,
         }}
         ListHeaderComponent={
@@ -103,17 +106,17 @@ export function MembersScreen() {
 
       <MemberDetailSheet member={selectedMember} onClose={() => setSelectedMember(null)} />
 
-      <View pointerEvents="box-none" className="absolute bottom-24 right-1 top-40 justify-center">
-        <View className="items-center rounded-full bg-card/80 px-1 py-1">
+      <View pointerEvents="box-none" className="absolute inset-y-0 right-1 z-10 justify-center">
+        <View className="items-center">
           {ALPHABET.map((letter) => (
             <Pressable
               key={letter}
               accessibilityRole="button"
               accessibilityLabel={`Jump to ${letter === '#' ? 'symbols' : letter}`}
               onPress={() => jumpToLetter(letter)}
-              className="h-5 w-6 items-center justify-center"
+              className="h-4 w-4 items-center justify-center"
             >
-              <Text className="font-sans-semibold text-[10px] text-primary">{letter}</Text>
+              <Text className="font-sans-bold text-[10px] text-accent-emphasis">{letter}</Text>
             </Pressable>
           ))}
         </View>
