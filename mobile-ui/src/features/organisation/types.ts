@@ -106,3 +106,7 @@ export interface EndAppointmentRequest {
 
 export type OrganisationUnitsResponse = Paginated<UnitResponse>;
 export type OrganisationExecutivesResponse = Paginated<ExecutiveResponse>;
+
+export interface OrganisationLogoResponse {
+  logoUrl: string | null;
+}

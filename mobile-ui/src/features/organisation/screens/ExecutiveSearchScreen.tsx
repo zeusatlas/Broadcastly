@@ -51,15 +51,15 @@ export function ExecutiveSearchScreen() {
           onRetry={query.refetch}
         />
         <View>
-          {results.length > 0 ? (
-            results.map((executive, index) => (
-              <ExecutiveRow
-                key={executive.id}
-                executive={executive}
-                isLast={index === results.length - 1}
-              />
-            ))
-          ) : null}
+          {results.length > 0
+            ? results.map((executive, index) => (
+                <ExecutiveRow
+                  key={executive.id}
+                  executive={executive}
+                  isLast={index === results.length - 1}
+                />
+              ))
+            : null}
         </View>
       </View>
     </PageScreen>

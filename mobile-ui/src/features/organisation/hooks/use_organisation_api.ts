@@ -12,7 +12,7 @@ import type {
 } from '../types';
 
 interface ReadOptions {
-  // false for callers the API would refuse (no appointment.manage), so no request is wasted.
+  // false for callers the API would refuse, so no request is wasted.
   enabled?: boolean;
 }
 
@@ -27,9 +27,13 @@ export const useReadPositionsQuery = ({ enabled }: ReadOptions = {}) =>
   });
 
 export const useReadUnitsQuery = (params: ListUnitsParams, { enabled }: ReadOptions = {}) =>
-  useQuery(['organisation', 'units', params], (options) => api.organisation.readUnits(params, options), {
-    enabled,
-  });
+  useQuery(
+    ['organisation', 'units', params],
+    (options) => api.organisation.readUnits(params, options),
+    {
+      enabled,
+    },
+  );
 
 export const useReadExecutivesQuery = (
   params: ListExecutivesParams,
@@ -60,10 +64,18 @@ export const useCreateUnitMutation = () =>
   useMutation((credentials: CreateUnitRequest) => api.organisation.createUnit(credentials));
 
 export const useCreateExecutiveMutation = () =>
-  useMutation((credentials: CreateExecutiveRequest) => api.organisation.createExecutive(credentials));
+  useMutation((credentials: CreateExecutiveRequest) =>
+    api.organisation.createExecutive(credentials),
+  );
 
 export const useSuspendExecutiveMutation = () =>
   useMutation((args: { executiveId: string }) => api.organisation.suspendExecutive(args));
 
 export const useReactivateExecutiveMutation = () =>
   useMutation((args: { executiveId: string }) => api.organisation.reactivateExecutive(args));
+
+export const useUploadOrganisationLogoMutation = () =>
+  useMutation((form: FormData) => api.organisation.uploadOrganisationLogo(form));
+
+export const useRemoveOrganisationLogoMutation = () =>
+  useMutation(() => api.organisation.removeOrganisationLogo());

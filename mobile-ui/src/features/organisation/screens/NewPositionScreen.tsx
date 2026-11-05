@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { useState } from 'react';
 
@@ -19,10 +20,8 @@ export function NewPositionScreen() {
       title: title.trim(),
       ...(scope.trim() ? { unitType: scope.trim().toLowerCase().replaceAll(' ', '_') } : {}),
     });
-    if (!response) {
-      if (createPosition.error) notify.apiError(createPosition.error);
-      return;
-    }
+    if (!response) return;
+    router.back();
     notify.success('Position created.');
   };
 
@@ -32,16 +31,23 @@ export function NewPositionScreen() {
       backIcon={X}
       backLabel="Close new position"
       actions={
-        <Button
-          label="Create position"
-          variant="accent"
-          size="lg"
-          fullWidth
-          disabled={!canManage || !title.trim()}
-          isLoading={createPosition.isPending}
-          loadingLabel="Creating position…"
-          onPress={submit}
-        />
+        <>
+          <Button
+            label="Create position"
+            variant="accent"
+            size="lg"
+            fullWidth
+            disabled={!canManage || !title.trim()}
+            isLoading={createPosition.isPending}
+            loadingLabel="Creating position…"
+            onPress={submit}
+          />
+          {createPosition.error ? (
+            <Text variant="bodyMuted" className="text-center text-destructive">
+              {createPosition.error.message}
+            </Text>
+          ) : null}
+        </>
       }
     >
       <Text variant="bodyMuted" className="mt-0">

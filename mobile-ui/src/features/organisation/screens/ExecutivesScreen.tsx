@@ -95,15 +95,15 @@ export function ExecutivesScreen() {
         </Text>
 
         <View>
-          {executives.length > 0 ? (
-            executives.map((executive, index) => (
-              <ExecutiveRow
-                key={executive.id}
-                executive={executive}
-                isLast={index === executives.length - 1}
-              />
-            ))
-          ) : null}
+          {executives.length > 0
+            ? executives.map((executive, index) => (
+                <ExecutiveRow
+                  key={executive.id}
+                  executive={executive}
+                  isLast={index === executives.length - 1}
+                />
+              ))
+            : null}
         </View>
       </View>
     </PageScreen>

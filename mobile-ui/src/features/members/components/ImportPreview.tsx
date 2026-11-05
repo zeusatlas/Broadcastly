@@ -1,113 +1,185 @@
 import { CircleAlert } from 'lucide-react-native';
+import { useState } from 'react';
 import { View } from 'react-native';
 
-import { Chip, FigureRow, PageSection, Text } from '@/components/ui';
+import { Button, Chip, FigureRow, QueryState, Text } from '@/components/ui';
 import { useTheme } from '@/hooks/use_theme';
 import { cn } from '@/utils/helpers';
 
-export interface ImportIssue {
-  row: number;
-  name: string;
-  problem: string;
-}
-
-export interface ImportDuplicate {
-  row: number;
-  name: string;
-  matches: string;
-}
-
-export type DuplicateDecision = 'skip' | 'import';
+import { useImportRowPages, useResolveImportRowMutation } from '../hooks/use_member_import';
+import type {
+  ImportResolution,
+  ImportRowResponse,
+  ImportRowStatus,
+  MemberImportCounts,
+} from '../types';
 
 interface ImportPreviewProps {
-  readyCount: number;
-  issues: ImportIssue[];
-  duplicates: ImportDuplicate[];
-  decisions: Record<number, DuplicateDecision>;
-  onDecide: (row: number, decision: DuplicateDecision) => void;
+  importId: string;
+  counts: MemberImportCounts;
+  // Read-only once the import is confirmed, cancelled or opened from history.
+  canResolve: boolean;
+  onResolved: () => void;
+}
+
+const TABS: { key: ImportRowStatus; label: string }[] = [
+  { key: 'valid', label: 'Valid' },
+  { key: 'invalid', label: 'Problems' },
+  { key: 'duplicate', label: 'Duplicates' },
+];
+
+const RESOLUTIONS: { key: ImportResolution; label: string }[] = [
+  { key: 'skip', label: 'Skip' },
+  { key: 'update_existing', label: 'Update existing' },
+  { key: 'create_new', label: 'Add as new' },
+];
+
+function rowName(row: ImportRowResponse) {
+  const name = [row.values.firstName, row.values.lastName].filter(Boolean).join(' ');
+  return name || 'No name';
+}
+
+function rowDetail(row: ImportRowResponse) {
+  return [row.values.phone, row.values.partyId, row.values.unit].filter(Boolean).join(' · ');
+}
+
+// The API refuses these choices, so they are not offered.
+function isAllowed(row: ImportRowResponse, resolution: ImportResolution) {
+  if (resolution === 'update_existing') return Boolean(row.duplicate?.memberId);
+  if (resolution === 'create_new') {
+    return !(row.duplicate?.matchedOn === 'party_id' && row.duplicate.memberId);
+  }
+  return true;
 }
 
 // Validation before anything is saved (FR-MEM-04..06): counts, rows to fix, duplicates to decide.
-export function ImportPreview({
-  readyCount,
-  issues,
-  duplicates,
-  decisions,
-  onDecide,
-}: ImportPreviewProps) {
+export function ImportPreview({ importId, counts, canResolve, onResolved }: ImportPreviewProps) {
   const theme = useTheme();
+  const [tab, setTab] = useState<ImportRowStatus>('valid');
+  const [decisions, setDecisions] = useState<Record<string, ImportResolution>>({});
+  const rows = useImportRowPages(importId, tab);
+  const resolve = useResolveImportRowMutation();
+
+  const decide = async (row: ImportRowResponse, resolution: ImportResolution) => {
+    const response = await resolve.mutate({ importId, rowId: row.id, credentials: { resolution } });
+    if (!response) return;
+    setDecisions((current) => ({ ...current, [row.id]: resolution }));
+    onResolved();
+  };
 
   return (
     <View>
       <FigureRow
         figures={[
-          { label: 'Ready', value: readyCount },
-          { label: 'To fix', value: issues.length },
-          { label: 'Duplicates', value: duplicates.length },
+          { label: 'Valid', value: counts.valid },
+          { label: 'Problems', value: counts.invalid },
+          { label: 'Duplicates', value: counts.duplicates },
         ]}
       />
 
-      {issues.length > 0 ? (
-        <PageSection title="Needs fixing">
-          <View>
-            {issues.map((issue, index) => (
-              <View
-                key={issue.row}
-                className={cn(
-                  'flex-row items-start gap-3 py-3',
-                  index < issues.length - 1 && 'border-b border-border',
-                )}
-              >
-                <CircleAlert size={18} color={theme.destructive} style={{ marginTop: 2 }} />
-                <View className="flex-1 gap-0.5">
-                  <Text className="font-sans-semibold text-base text-foreground">
-                    Row {issue.row} · {issue.name}
-                  </Text>
-                  <Text variant="caption">{issue.problem}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-          <Text variant="caption">
-            These rows are left out. Fix them in the file and import it again.
-          </Text>
-        </PageSection>
+      <View className="mt-6 flex-row flex-wrap gap-2">
+        {TABS.map((item) => (
+          <Chip
+            key={item.key}
+            label={item.label}
+            isSelected={item.key === tab}
+            onPress={() => setTab(item.key)}
+          />
+        ))}
+      </View>
+
+      {tab === 'invalid' && counts.invalid > 0 ? (
+        <Text variant="caption" className="mt-3">
+          These rows are left out. Fix them in the file and import it again.
+        </Text>
+      ) : null}
+      {tab === 'duplicate' && canResolve && counts.duplicates > 0 ? (
+        <Text variant="caption" className="mt-3">
+          Duplicates are skipped unless you choose otherwise.
+        </Text>
       ) : null}
 
-      {duplicates.length > 0 ? (
-        <PageSection title="Possible duplicates">
-          {duplicates.map((duplicate, index) => {
-            const decision = decisions[duplicate.row] ?? 'skip';
-            return (
-              <View
-                key={duplicate.row}
-                className={cn(
-                  'gap-3 py-3',
-                  index < duplicates.length - 1 && 'border-b border-border',
-                )}
-              >
-                <View className="gap-0.5">
+      <View className="mt-2">
+        {rows.items.map((row, index) => {
+          const decision = decisions[row.id] ?? row.resolution ?? 'skip';
+          const errors = Object.values(row.errors).flat();
+          return (
+            <View
+              key={row.id}
+              className={cn(
+                'gap-2 py-3',
+                index < rows.items.length - 1 && 'border-b border-border',
+              )}
+            >
+              <View className="flex-row items-start gap-3">
+                {row.status === 'invalid' ? (
+                  <CircleAlert size={18} color={theme.destructive} style={{ marginTop: 2 }} />
+                ) : null}
+                <View className="flex-1 gap-0.5">
                   <Text className="font-sans-semibold text-base text-foreground">
-                    Row {duplicate.row} · {duplicate.name}
+                    Row {row.rowNumber} · {rowName(row)}
                   </Text>
-                  <Text variant="caption">Looks like {duplicate.matches}</Text>
-                </View>
-                <View className="flex-row gap-2">
-                  <Chip
-                    label="Skip"
-                    isSelected={decision === 'skip'}
-                    onPress={() => onDecide(duplicate.row, 'skip')}
-                  />
-                  <Chip
-                    label="Import anyway"
-                    isSelected={decision === 'import'}
-                    onPress={() => onDecide(duplicate.row, 'import')}
-                  />
+                  {rowDetail(row) ? <Text variant="caption">{rowDetail(row)}</Text> : null}
+                  {errors.map((error) => (
+                    <Text key={error} className="font-sans text-sm text-destructive">
+                      {error}
+                    </Text>
+                  ))}
+                  {row.duplicate ? (
+                    <Text variant="caption">
+                      Same {row.duplicate.matchedOn === 'phone' ? 'phone' : 'party ID'} as{' '}
+                      {row.duplicate.memberName
+                        ? `${row.duplicate.memberName}${row.duplicate.unitName ? ` · ${row.duplicate.unitName}` : ''}`
+                        : `row ${row.duplicate.rowNumber ?? '?'} of this file`}
+                    </Text>
+                  ) : null}
+                  {row.outcome ? (
+                    <Text variant="caption" className="capitalize">
+                      {row.outcome}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
-            );
-          })}
-        </PageSection>
+              {row.status === 'duplicate' && canResolve ? (
+                <View className="flex-row flex-wrap gap-2">
+                  {RESOLUTIONS.filter((item) => isAllowed(row, item.key)).map((item) => (
+                    <Chip
+                      key={item.key}
+                      label={item.label}
+                      isSelected={decision === item.key}
+                      onPress={() => decide(row, item.key)}
+                    />
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+
+      {resolve.error ? (
+        <Text className="mt-2 font-sans text-sm text-destructive">{resolve.error.message}</Text>
+      ) : null}
+
+      {rows.items.length === 0 ? (
+        <QueryState
+          isLoading={rows.isLoading}
+          error={rows.error}
+          isEmpty
+          emptyText="No rows here."
+          onRetry={rows.reload}
+        />
+      ) : null}
+
+      {rows.hasNextPage ? (
+        <Button
+          label="Show more rows"
+          variant="ghost"
+          fullWidth
+          isLoading={rows.isFetching}
+          loadingLabel="Loading…"
+          onPress={rows.loadMore}
+        />
       ) : null}
     </View>
   );

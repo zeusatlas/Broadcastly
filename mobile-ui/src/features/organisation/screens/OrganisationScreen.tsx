@@ -6,16 +6,15 @@ import { PageScreen } from '@/components/shared';
 import { Button, QueryState, StatTile, Text } from '@/components/ui';
 import { useAccess } from '@/features/auth';
 
+import { UnitTree } from '../components/UnitTree';
 import {
   useReadOrganisationOverviewQuery,
   useReadPositionsQuery,
 } from '../hooks/use_organisation_api';
+import { formatUnitType } from '../utils/format_unit_type';
 
 const count = (value: number | null | undefined) =>
   value === undefined || value === null ? '—' : value.toLocaleString();
-
-const formatUnitType = (value: string) =>
-  value.replaceAll('_', ' ').replace(/^\w/, (letter) => letter.toUpperCase());
 
 export function OrganisationScreen() {
   const access = useAccess();
@@ -63,26 +62,7 @@ export function OrganisationScreen() {
           </View>
         </View>
 
-        {totals?.unitsByType.length ? (
-          <View className="gap-1">
-            <Text variant="overline">Structure</Text>
-            {totals.unitsByType.map((unit, index) => (
-              <View
-                key={unit.type}
-                className={
-                  index < totals.unitsByType.length - 1
-                    ? 'flex-row items-center justify-between border-b border-border py-3'
-                    : 'flex-row items-center justify-between py-3'
-                }
-              >
-                <Text variant="label">{formatUnitType(unit.type)}</Text>
-                <Text variant="label" className="text-muted-foreground">
-                  {unit.count.toLocaleString()}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
+        <UnitTree />
 
         <View className="gap-1">
           <Text variant="overline">Positions</Text>

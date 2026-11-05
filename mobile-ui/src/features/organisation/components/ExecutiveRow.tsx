@@ -4,7 +4,15 @@ import { Pressable, View } from 'react-native';
 import { Avatar, Text } from '@/components/ui';
 import { cn } from '@/utils/helpers';
 
-import type { ExecutiveRowData } from '../demo_data';
+import type { ExecutiveStatus } from '@/types/models';
+
+export interface ExecutiveRowData {
+  id: string;
+  name: string;
+  position: string;
+  unit: string;
+  status: ExecutiveStatus;
+}
 
 interface ExecutiveRowProps {
   executive: ExecutiveRowData;
@@ -18,9 +26,7 @@ export function ExecutiveRow({ executive, isLast = false }: ExecutiveRowProps) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${executive.name}, ${executive.position}, ${executive.unit}`}
-      onPress={() =>
-        router.push({ pathname: '/executives/[id]', params: { id: executive.id } })
-      }
+      onPress={() => router.push({ pathname: '/executives/[id]', params: { id: executive.id } })}
       className={cn(
         'flex-row items-center gap-3 py-4 active:opacity-60',
         !isLast && 'border-b border-border',

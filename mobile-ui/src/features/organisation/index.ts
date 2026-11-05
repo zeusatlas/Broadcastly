@@ -2,8 +2,17 @@
 export {
   useReadOrganisationOverviewQuery,
   useReadPositionsQuery,
+  useReadUnitsQuery,
+  useRemoveOrganisationLogoMutation,
+  useUploadOrganisationLogoMutation,
 } from './hooks/use_organisation_api';
-export type { OrganisationOverviewResponse, PositionResponse, UnitTypeCount } from './types';
+export type {
+  ListUnitsParams,
+  OrganisationOverviewResponse,
+  PositionResponse,
+  UnitResponse,
+  UnitTypeCount,
+} from './types';
 export {
   AddUnitScreen,
   ExecutiveDetailScreen,

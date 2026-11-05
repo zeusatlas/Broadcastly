@@ -1,8 +1,6 @@
-import { ChevronRight } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { Avatar, Badge, Text } from '@/components/ui';
-import { useTheme } from '@/hooks/use_theme';
 import { cn } from '@/utils/helpers';
 
 export interface MemberRowData {
@@ -20,7 +18,6 @@ interface MemberRowProps {
 
 // Active is the normal case, so only an inactive member carries a badge.
 export function MemberRow({ member, onPress, isLast = false }: MemberRowProps) {
-  const theme = useTheme();
   const isInactive = member.status === 'inactive';
 
   return (
@@ -49,7 +46,6 @@ export function MemberRow({ member, onPress, isLast = false }: MemberRowProps) {
         </Text>
       </View>
       {isInactive ? <Badge label="Inactive" tone="neutral" variant="subtle" /> : null}
-      <ChevronRight size={18} color={theme.mutedForeground} />
     </Pressable>
   );
 }

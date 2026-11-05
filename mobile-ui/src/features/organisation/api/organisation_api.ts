@@ -1,6 +1,7 @@
 import { http, type RequestOptions } from '@/lib/api';
 
 import type {
+  OrganisationLogoResponse,
   AppointmentRequest,
   CreateExecutiveRequest,
   CreatePositionRequest,
@@ -28,7 +29,13 @@ export const organisationEndpoints = {
   createPosition: (credentials: CreatePositionRequest) =>
     http.post<PositionResponse, CreatePositionRequest>('/organisation/positions', credentials),
 
-  updatePosition: ({ positionId, credentials }: { positionId: string; credentials: UpdatePositionRequest }) =>
+  updatePosition: ({
+    positionId,
+    credentials,
+  }: {
+    positionId: string;
+    credentials: UpdatePositionRequest;
+  }) =>
     http.patch<PositionResponse, UpdatePositionRequest>(
       `/organisation/positions/${positionId}`,
       credentials,
@@ -49,13 +56,25 @@ export const organisationEndpoints = {
   createExecutive: (credentials: CreateExecutiveRequest) =>
     http.post<ExecutiveResponse, CreateExecutiveRequest>('/organisation/executives', credentials),
 
-  addAppointment: ({ executiveId, credentials }: { executiveId: string; credentials: AppointmentRequest }) =>
+  addAppointment: ({
+    executiveId,
+    credentials,
+  }: {
+    executiveId: string;
+    credentials: AppointmentRequest;
+  }) =>
     http.post<ExecutiveResponse, AppointmentRequest>(
       `/organisation/executives/${executiveId}/appointments`,
       credentials,
     ),
 
-  endAppointment: ({ appointmentId, credentials }: { appointmentId: string; credentials?: EndAppointmentRequest }) =>
+  endAppointment: ({
+    appointmentId,
+    credentials,
+  }: {
+    appointmentId: string;
+    credentials?: EndAppointmentRequest;
+  }) =>
     http.post<undefined, EndAppointmentRequest>(
       `/organisation/appointments/${appointmentId}/end`,
       credentials ?? {},
@@ -66,4 +85,10 @@ export const organisationEndpoints = {
 
   reactivateExecutive: ({ executiveId }: { executiveId: string }) =>
     http.post<ExecutiveResponse>(`/organisation/executives/${executiveId}/reactivate`),
+
+  // Multipart, field "logo"; PNG, JPEG or WebP up to 2 MB, checked by content on the server.
+  uploadOrganisationLogo: (form: FormData) =>
+    http.upload<OrganisationLogoResponse>('/organisation/logo', form),
+
+  removeOrganisationLogo: () => http.delete<OrganisationLogoResponse>('/organisation/logo'),
 };
