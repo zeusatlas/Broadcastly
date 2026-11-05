@@ -1,10 +1,14 @@
 import type {
+  AllocationRecipientResponse,
+  AllocationResponse,
   CreditTransactionResponse,
   PlatformCreditTransactionResponse,
   PurchaseResponse,
   WalletBalanceResponse,
 } from './credits_types';
 import type {
+  AllocationRecipientRow,
+  AllocationRow,
   PlatformTransactionRow,
   PurchaseRow,
   TransactionRow,
@@ -14,7 +18,7 @@ import type {
 export const toWalletBalance = ({
   balance,
   reserved,
-}: WalletBalanceRow): WalletBalanceResponse => ({
+}: Pick<WalletBalanceRow, 'balance' | 'reserved'>): WalletBalanceResponse => ({
   balance,
   reserved,
   available: balance - reserved,
@@ -30,3 +34,18 @@ export const toTransactionResponse = (row: TransactionRow): CreditTransactionRes
 export const toPlatformTransactionResponse = (
   row: PlatformTransactionRow,
 ): PlatformCreditTransactionResponse => row;
+
+export const toAllocationResponse = (row: AllocationRow): AllocationResponse => row;
+
+export const toAllocationRecipientResponse = ({
+  id,
+  name,
+  positions,
+  balance,
+  reserved,
+}: AllocationRecipientRow): AllocationRecipientResponse => ({
+  id,
+  name,
+  positions,
+  wallet: toWalletBalance({ balance, reserved }),
+});

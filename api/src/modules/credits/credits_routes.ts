@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 
 import {
   errorResponses,
@@ -14,9 +15,14 @@ import { authenticate, authorize } from '../auth';
 
 import { creditsController as c } from './credits_controller';
 import {
+  allocationRecipientResponseSchema,
+  allocationResponseSchema,
+  createAllocationSchema,
   createPurchaseSchema,
   creditBalancesResponseSchema,
   creditTransactionResponseSchema,
+  listAllocationRecipientsSchema,
+  listAllocationsSchema,
   listCreditTransactionsSchema,
   listPurchasesSchema,
   purchaseResponseSchema,
@@ -26,11 +32,18 @@ import {
 export const creditsRouter = Router();
 
 const purchaser = authorize({ permission: 'credit.purchase' });
+const allocator = authorize({ permission: 'credit.allocate' });
 
 // The provider calls this, not a signed-in user; the driver verifies the event (SRS 6.5).
 creditsRouter.post('/payments/webhook', c.paymentWebhook);
 
 creditsRouter.get('/balance', authenticate, c.getBalances);
+creditsRouter.get(
+  '/pricing',
+  authenticate,
+  authorize({ permission: 'credit.purchase' }),
+  c.getPricing,
+);
 creditsRouter.get(
   '/transactions',
   authenticate,
@@ -51,11 +64,116 @@ creditsRouter.post(
   validate({ body: createPurchaseSchema }),
   c.createPurchase,
 );
+creditsRouter.get(
+  '/allocation-recipients',
+  authenticate,
+  allocator,
+  validate({ query: listAllocationRecipientsSchema }),
+  c.listAllocationRecipients,
+);
+creditsRouter.get(
+  '/allocations',
+  authenticate,
+  allocator,
+  validate({ query: listAllocationsSchema }),
+  c.listAllocations,
+);
+creditsRouter.post(
+  '/allocations',
+  authenticate,
+  allocator,
+  validate({ body: createAllocationSchema }),
+  c.createAllocation,
+);
 
 const tags = ['Credits'];
 const security = [{ [bearerAuth.name]: [] }];
 const NOT_EXECUTIVE: [number, string] = [403, 'Not an executive of an organisation.'];
 const NOT_PURCHASER: [number, string] = [403, 'No credit.purchase permission.'];
+const NOT_ALLOCATOR: [number, string] = [
+  403,
+  'No credit.allocate permission, or a platform admin.',
+];
+
+openApiRegistry.registerPath({
+  method: 'get',
+  path: '/credits/allocation-recipients',
+  operationId: 'listAllocationRecipients',
+  tags,
+  summary: 'List who you can allocate to',
+  description:
+    'Active executives of your organisation within your reach, each with their positions and wallet. Excludes you and the chairman (who spends the organisation’s wallet). Search by name or party ID.',
+  security,
+  request: { query: listAllocationRecipientsSchema },
+  responses: {
+    200: jsonResponse(
+      'A page of executives.',
+      successEnvelope(paginatedSchema(allocationRecipientResponseSchema), 'Recipients retrieved.'),
+    ),
+    ...errorResponses(401, NOT_ALLOCATOR, 422),
+  },
+});
+openApiRegistry.registerPath({
+  method: 'get',
+  path: '/credits/allocations',
+  operationId: 'listCreditAllocations',
+  tags,
+  summary: 'List allocations',
+  description:
+    'Allocations from the organisation’s wallet, newest first, to executives within your reach. Filter with `period`.',
+  security,
+  request: { query: listAllocationsSchema },
+  responses: {
+    200: jsonResponse(
+      'A page of allocations.',
+      successEnvelope(paginatedSchema(allocationResponseSchema), 'Allocations retrieved.'),
+    ),
+    ...errorResponses(401, NOT_ALLOCATOR, 422),
+  },
+});
+openApiRegistry.registerPath({
+  method: 'post',
+  path: '/credits/allocations',
+  operationId: 'createCreditAllocation',
+  tags,
+  summary: 'Allocate credits to an executive',
+  description: `
+Moves credits from the organisation's wallet to an executive's wallet in one step, with a ledger row on each.
+
+- Send an \`Idempotency-Key\` header (8–100 letters, digits, - or _): repeating the request with the
+  same key returns the first allocation and moves nothing.
+- Only credits not reserved for scheduled broadcasts can be allocated.
+`,
+  security,
+  request: {
+    body: jsonBody(createAllocationSchema, {
+      executiveId: '7d3f1c2a-5b8e-4f6a-9c1d-2e3f4a5b6c7d',
+      credits: 500,
+      reason: 'Branch meeting reminders',
+    }),
+  },
+  responses: {
+    201: jsonResponse(
+      'The allocation.',
+      successEnvelope(allocationResponseSchema, 'Credits allocated.', 201),
+    ),
+    ...errorResponses(
+      401,
+      NOT_ALLOCATOR,
+      [404, 'No executive with this id in your organisation and reach.', 'Executive not found.'],
+      [
+        409,
+        'The organisation wallet has too few available credits.',
+        'There are not enough credits for this.',
+      ],
+      [
+        422,
+        'Yourself, the chairman, an inactive executive, or a reused Idempotency-Key.',
+        'You cannot allocate credits to yourself.',
+      ],
+    ),
+  },
+});
 
 openApiRegistry.registerPath({
   method: 'get',
@@ -152,5 +270,29 @@ openApiRegistry.registerPath({
   responses: {
     200: jsonResponse('Received.', messageEnvelope('Payment notification received.')),
     ...errorResponses([404, 'No purchase has this reference.', 'Purchase not found.'], 422),
+  },
+});
+
+openApiRegistry.registerPath({
+  method: 'get',
+  path: '/credits/pricing',
+  operationId: 'getCreditPricing',
+  tags: ['Credits'],
+  summary: 'Get the credit price',
+  description:
+    'The price per credit in pesewas (GHS 0.01), so the app can show a total before buying.',
+  security: [{ [bearerAuth.name]: [] }],
+  responses: {
+    200: jsonResponse(
+      'The price.',
+      successEnvelope(
+        z.object({
+          pricePesewasPerCredit: z.number().int().openapi({ example: 4 }),
+          currency: z.literal('GHS'),
+        }),
+        'Pricing retrieved.',
+      ),
+    ),
+    ...errorResponses(401, [403, 'No credit.purchase permission.']),
   },
 });

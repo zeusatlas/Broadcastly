@@ -3,6 +3,7 @@ import type { EntityManager } from 'typeorm';
 import { ConflictError } from '../../common/errors/app_error';
 
 import type { LedgerEntryInput } from './credits_types';
+import { CreditReservation } from './entities/credit_reservation_entity';
 import { CreditTransaction } from './entities/credit_transaction_entity';
 import { Wallet } from './entities/wallet_entity';
 
@@ -67,5 +68,68 @@ export const ledgerService = {
     );
     await manager.getRepository(Wallet).update({ id: wallet.id }, { balance: balanceAfter });
     return transaction;
+  },
+
+  async reserve(
+    walletId: string,
+    broadcastId: string,
+    amount: number,
+    manager: EntityManager,
+  ): Promise<CreditReservation> {
+    const wallets = manager.getRepository(Wallet);
+    const reservations = manager.getRepository(CreditReservation);
+    const wallet = await wallets.findOneOrFail({
+      where: { id: walletId },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    const existing = await reservations.findOneBy({ broadcastId });
+    if (existing) return existing;
+    if (wallet.balance - wallet.reserved < amount) throw new ConflictError(NOT_ENOUGH);
+
+    await wallets.update({ id: wallet.id }, { reserved: wallet.reserved + amount });
+    return reservations.save(reservations.create({ walletId, broadcastId, amount }));
+  },
+
+  // Charges what dispatch actually used and frees the rest of the hold (FR-CR-08, FR-CR-09).
+  // consumed 0 releases the whole hold, e.g. when a scheduled broadcast is cancelled.
+  async settle(
+    broadcastId: string,
+    consumed: number,
+    initiatedByExecutiveId: string | null,
+    manager: EntityManager,
+  ): Promise<CreditReservation | null> {
+    const reservations = manager.getRepository(CreditReservation);
+    const reservation = await reservations.findOne({
+      where: { broadcastId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!reservation || reservation.status !== 'held') return reservation;
+
+    const wallets = manager.getRepository(Wallet);
+    const wallet = await wallets.findOneOrFail({
+      where: { id: reservation.walletId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const used = Math.min(Math.max(consumed, 0), reservation.amount);
+    await wallets.update({ id: wallet.id }, { reserved: wallet.reserved - reservation.amount });
+    if (used > 0) {
+      await ledgerService.post(
+        {
+          walletId: wallet.id,
+          type: 'consumption',
+          amount: -used,
+          idempotencyKey: `broadcast:${broadcastId}:consumption`,
+          reason: 'Broadcast dispatch',
+          initiatedByExecutiveId,
+          broadcastId,
+        },
+        manager,
+      );
+    }
+    reservation.consumed = used;
+    reservation.status = used > 0 ? 'settled' : 'released';
+    reservation.settledAt = new Date();
+    return reservations.save(reservation);
   },
 };

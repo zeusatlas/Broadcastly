@@ -23,6 +23,9 @@ export type CreditTransactionType = (typeof CREDIT_TRANSACTION_TYPES)[number];
 export const CREDIT_PURCHASE_STATUSES = ['pending', 'completed', 'failed'] as const;
 export type CreditPurchaseStatus = (typeof CREDIT_PURCHASE_STATUSES)[number];
 
+export const RESERVATION_STATUSES = ['held', 'settled', 'released'] as const;
+export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
+
 export interface WalletBalanceResponse {
   balance: number;
   reserved: number;
@@ -81,6 +84,40 @@ export interface PlatformCreditTransactionResponse extends CreditTransactionResp
 export interface ListCreditTransactionsRequest extends PageParams, PeriodParams {
   wallet: 'mine' | 'organisation';
   type?: CreditTransactionType;
+}
+
+export interface CreateAllocationRequest {
+  executiveId: string;
+  credits: number;
+  reason?: string;
+}
+
+export interface AllocationResponse {
+  id: string;
+  executiveId: string;
+  executiveName: string;
+  credits: number;
+  reason: string | null;
+  initiatedBy: string | null;
+  createdAt: Date;
+}
+
+export interface ListAllocationsRequest extends PageParams, PeriodParams {}
+
+export interface AllocationRecipientPosition {
+  title: string;
+  unitName: string | null;
+}
+
+export interface AllocationRecipientResponse {
+  id: string;
+  name: string;
+  positions: AllocationRecipientPosition[];
+  wallet: WalletBalanceResponse;
+}
+
+export interface ListAllocationRecipientsRequest extends PageParams {
+  search?: string;
 }
 
 // The dev payment driver's webhook body. Real providers post their own format (SRS 6.5).

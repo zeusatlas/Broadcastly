@@ -90,6 +90,8 @@ describe('route protection', () => {
     ['patch', '/api/v1/platform/settings'],
     ['get', '/api/v1/platform/credit-transactions'],
     ['post', '/api/v1/platform/credit-adjustments'],
+    ['get', '/api/v1/organisation/notification-preferences'],
+    ['patch', '/api/v1/organisation/notification-preferences'],
     ['get', '/api/v1/platform/purchases/summary'],
     ['post', '/api/v1/platform/organisations/3f2c1a9e-6b7d-4e8f-9a0b-1c2d3e4f5a6b/suspend'],
     ['post', '/api/v1/platform/organisations/3f2c1a9e-6b7d-4e8f-9a0b-1c2d3e4f5a6b/logo'],

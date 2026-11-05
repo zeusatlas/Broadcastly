@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import { QueryFailedError } from 'typeorm';
 
@@ -14,13 +14,20 @@ import { auditActor, type AccessContext, type ActionActor } from '../auth';
 import { organisationService } from '../organisation';
 
 import {
+  toAllocationRecipientResponse,
+  toAllocationResponse,
   toPlatformTransactionResponse,
   toPurchaseResponse,
   toTransactionResponse,
   toWalletBalance,
 } from './credits_mapper';
-import { creditsRepository, type PurchaseTotals } from './credits_repository';
+import { creditsRepository, type PurchaseTotals, type Scope } from './credits_repository';
 import type {
+  AllocationRecipientResponse,
+  AllocationResponse,
+  CreateAllocationRequest,
+  ListAllocationRecipientsRequest,
+  ListAllocationsRequest,
   CreatePurchaseRequest,
   CreditBalancesResponse,
   CreditTransactionResponse,
@@ -47,11 +54,14 @@ function executiveOf(auth: AccessContext) {
   return { organisationId: auth.organisationId, executiveId: auth.accountId };
 }
 
+const scopeOf = (auth: AccessContext): Scope => (auth.organisationWide ? null : auth.scopeUnitIds);
+
+const RECIPIENT_NOT_FOUND = 'Executive not found.';
+
 const seesOrganisationWallet = (auth: AccessContext) =>
   auth.permissions.has('credit.purchase') || auth.permissions.has('credit.allocate');
 
 export const creditsService = {
-  // Everyone sees their own wallet (FR-CR-10); the organisation's only with a credit permission.
   async getBalances(auth: AccessContext): Promise<CreditBalancesResponse> {
     const { organisationId, executiveId } = executiveOf(auth);
     const [mine, organisation] = await Promise.all([
@@ -206,25 +216,23 @@ export const creditsService = {
     return toPaginated(rows.map(toTransactionResponse), total, page);
   },
 
-  async listPlatformTransactions(
-    {
-      page,
-      pageSize,
-      period,
-      from,
-      to,
-      organisationId,
-      type,
-    }: {
-      page: number;
-      pageSize: number;
-      period: PeriodParams['period'];
-      from?: string;
-      to?: string;
-      organisationId?: string;
-      type?: CreditTransactionType;
-    },
-  ): Promise<Paginated<PlatformCreditTransactionResponse>> {
+  async listPlatformTransactions({
+    page,
+    pageSize,
+    period,
+    from,
+    to,
+    organisationId,
+    type,
+  }: {
+    page: number;
+    pageSize: number;
+    period: PeriodParams['period'];
+    from?: string;
+    to?: string;
+    organisationId?: string;
+    type?: CreditTransactionType;
+  }): Promise<Paginated<PlatformCreditTransactionResponse>> {
     const { rows, total } = await creditsRepository.listPlatformTransactions(
       { organisationId, type, range: resolvePeriod({ period, from, to }) },
       { page, pageSize },
@@ -238,13 +246,26 @@ export const creditsService = {
     actor: ActionActor,
   ): Promise<CreditTransactionResponse> {
     const transaction = await dataSource.transaction(async (manager) => {
-      const organisation = await organisationService.lockOrganisation(input.organisationId, manager);
+      const organisation = await organisationService.lockOrganisation(
+        input.organisationId,
+        manager,
+      );
       if (!organisation) throw new NotFoundError('Organisation not found.');
-      const wallet = await ledgerService.walletFor({ organisationId: input.organisationId }, manager);
+      const wallet = await ledgerService.walletFor(
+        { organisationId: input.organisationId },
+        manager,
+      );
       const existing = await manager.getRepository(CreditTransaction).findOneBy({ idempotencyKey });
       if (existing) {
-        if (existing.walletId !== wallet.id || existing.amount !== input.amount || existing.reason !== input.reason) {
-          throw new ValidationError({}, 'This Idempotency-Key was already used for another adjustment.');
+        if (
+          existing.walletId !== wallet.id ||
+          existing.amount !== input.amount ||
+          existing.reason !== input.reason
+        ) {
+          throw new ValidationError(
+            {},
+            'This Idempotency-Key was already used for another adjustment.',
+          );
         }
         return existing;
       }
@@ -282,6 +303,132 @@ export const creditsService = {
       broadcastId: transaction.broadcastId,
       createdAt: transaction.createdAt,
     };
+  },
+
+  async createAllocation(
+    auth: AccessContext,
+    { executiveId, credits, reason }: CreateAllocationRequest,
+    idempotencyKey: string | null,
+    actor: ActionActor,
+  ): Promise<AllocationResponse> {
+    const { organisationId, executiveId: callerId } = executiveOf(auth);
+    if (executiveId === callerId) {
+      throw new ValidationError(
+        { executiveId: ['You cannot allocate credits to yourself.'] },
+        'You cannot allocate credits to yourself.',
+      );
+    }
+    const base = idempotencyKey
+      ? createHash('sha256').update(`${callerId}:${idempotencyKey}`).digest('hex')
+      : randomUUID();
+    const outKey = `allocation:${base}:out`;
+
+    const allocation = await dataSource.transaction(async (manager) => {
+      // Lock order is always organisation wallet, then executive wallet, so allocations never deadlock.
+      const organisationWallet = await ledgerService.walletFor({ organisationId }, manager);
+
+      if (idempotencyKey) {
+        const replay = await creditsRepository.findAllocationByKey(outKey, manager);
+        if (replay) {
+          if (replay.executiveId !== executiveId || replay.credits !== credits) {
+            throw new ValidationError(
+              {},
+              'This Idempotency-Key was already used for another allocation.',
+            );
+          }
+          return replay;
+        }
+      }
+
+      const target = await creditsRepository.findAllocationTarget(
+        organisationId,
+        executiveId,
+        scopeOf(auth),
+        manager,
+      );
+      if (!target || !target.inReach) throw new NotFoundError(RECIPIENT_NOT_FOUND);
+      if (target.holdsChairman) {
+        throw new ValidationError(
+          { executiveId: ['The chairman spends from the organisation’s wallet.'] },
+          'The chairman spends from the organisation’s wallet, so cannot receive an allocation.',
+        );
+      }
+      if (target.status !== 'active') {
+        throw new ValidationError(
+          { executiveId: ['This executive is not active.'] },
+          'This executive is not active.',
+        );
+      }
+
+      const executiveWallet = await ledgerService.walletFor(
+        { organisationId, executiveId },
+        manager,
+      );
+      const entry = { reason: reason ?? null, initiatedByExecutiveId: callerId };
+      const out = await ledgerService.post(
+        {
+          ...entry,
+          walletId: organisationWallet.id,
+          type: 'allocation_out',
+          amount: -credits,
+          idempotencyKey: outKey,
+        },
+        manager,
+      );
+      await ledgerService.post(
+        {
+          ...entry,
+          walletId: executiveWallet.id,
+          type: 'allocation_in',
+          amount: credits,
+          idempotencyKey: `allocation:${base}:in`,
+        },
+        manager,
+      );
+      await auditService.record(
+        {
+          action: AUDIT_ACTIONS.creditAllocated,
+          targetType: 'credit_transaction',
+          targetId: out.id,
+          metadata: { organisationId, executiveId, credits },
+          ...auditActor(actor),
+        },
+        manager,
+      );
+      return (await creditsRepository.findAllocationByKey(outKey, manager))!;
+    });
+    return toAllocationResponse(allocation);
+  },
+
+  async listAllocations(
+    auth: AccessContext,
+    { page, pageSize, ...period }: ListAllocationsRequest,
+  ): Promise<Paginated<AllocationResponse>> {
+    const { organisationId } = executiveOf(auth);
+    const wallet = await creditsRepository.findWalletBalance({ organisationId });
+    if (!wallet.id) return toPaginated([], 0, { page, pageSize });
+    const { rows, total } = await creditsRepository.listAllocations(
+      wallet.id,
+      scopeOf(auth),
+      resolvePeriod(period),
+      { page, pageSize },
+    );
+    return toPaginated(rows.map(toAllocationResponse), total, { page, pageSize });
+  },
+
+  async listAllocationRecipients(
+    auth: AccessContext,
+    { search, page, pageSize }: ListAllocationRecipientsRequest,
+  ): Promise<Paginated<AllocationRecipientResponse>> {
+    const { organisationId, executiveId } = executiveOf(auth);
+    const { rows, total } = await creditsRepository.listAllocationRecipients(
+      organisationId,
+      executiveId,
+      scopeOf(auth),
+      search,
+      { page, pageSize },
+    );
+    return toPaginated(rows.map(toAllocationRecipientResponse), total, { page, pageSize });
   },
 
   purchaseTotals(period: PeriodParams): Promise<PurchaseTotals> {

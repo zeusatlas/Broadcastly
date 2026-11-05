@@ -3,8 +3,14 @@ import type { EntityManager } from 'typeorm';
 import { toSkipTake, type PageParams } from '../../common/http/pagination';
 import type { DateRange } from '../../common/http/period';
 import { dataSource } from '../../config/database';
+import type { ExecutiveStatus } from '../auth';
+import { CHAIRMAN_POSITION_ID } from '../organisation';
 
-import type { CreditPurchaseStatus, CreditTransactionType } from './credits_types';
+import type {
+  AllocationRecipientPosition,
+  CreditPurchaseStatus,
+  CreditTransactionType,
+} from './credits_types';
 import { CreditPurchase } from './entities/credit_purchase_entity';
 import type { WalletOwner } from './ledger_service';
 
@@ -61,9 +67,52 @@ export interface PurchaseTotals {
   failedPurchases: number;
 }
 
+export interface AllocationRow {
+  id: string;
+  executiveId: string;
+  executiveName: string;
+  credits: number;
+  reason: string | null;
+  initiatedBy: string | null;
+  createdAt: Date;
+}
+
+export interface AllocationTarget {
+  id: string;
+  status: ExecutiveStatus;
+  holdsChairman: boolean;
+  inReach: boolean;
+}
+
+export interface AllocationRecipientRow {
+  id: string;
+  name: string;
+  positions: AllocationRecipientPosition[];
+  balance: number;
+  reserved: number;
+}
+
+export type Scope = readonly string[] | null;
+
 const EXECUTIVE_NAME = `(SELECT m.first_name || ' ' || m.last_name FROM organisation_executives e
                            JOIN members m ON m.id = e.member_id WHERE e.id = $COLUMN)`;
 const executiveName = (column: string) => EXECUTIVE_NAME.replace('$COLUMN', column);
+
+const likePattern = (search: string) => `%${search.replace(/[\\%_]/g, '\\$&')}%`;
+
+const inReach = (memberColumn: string, scopeParam: string) =>
+  `EXISTS (SELECT 1 FROM appointments sa WHERE sa.member_id = ${memberColumn}
+            AND sa.status = 'active' AND sa.unit_id = ANY(${scopeParam}::uuid[]))`;
+
+// One allocation = an allocation_out row on the organisation wallet plus its allocation_in twin,
+// paired through their keys (`<base>:out` / `<base>:in`), so no extra table is needed.
+const ALLOCATION_SELECT = `
+  SELECT o.id, w.executive_id AS "executiveId", ${executiveName('w.executive_id')} AS "executiveName",
+         -o.amount AS credits, o.reason,
+         ${executiveName('o.initiated_by_executive_id')} AS "initiatedBy", o.created_at AS "createdAt"
+    FROM credit_transactions o
+    JOIN credit_transactions i ON i.idempotency_key = left(o.idempotency_key, -4) || ':in'
+    JOIN wallets w ON w.id = i.wallet_id`;
 
 const PURCHASE_SELECT = `
   SELECT p.id, p.organisation_id AS "organisationId", o.name AS "organisationName", p.reference,
@@ -168,12 +217,16 @@ export const creditsRepository = {
   },
 
   listPlatformTransactions(
-    { organisationId, type, range }: { organisationId?: string; type?: CreditTransactionType; range: DateRange },
+    {
+      organisationId,
+      type,
+      range,
+    }: { organisationId?: string; type?: CreditTransactionType; range: DateRange },
     page: PageParams,
   ) {
     const params: unknown[] = [];
     const param = (value: unknown) => `$${params.push(value)}`;
-    const clauses = ['w.owner_type = \'organisation\''];
+    const clauses = ["w.owner_type = 'organisation'"];
     if (organisationId) clauses.push(`w.organisation_id = ${param(organisationId)}`);
     if (type) clauses.push(`t.type = ${param(type)}`);
     clauses.push(...rangeClauses('t.created_at', range, param));
@@ -209,5 +262,104 @@ export const creditsRepository = {
       params,
     )) as PurchaseTotals[];
     return row!;
+  },
+
+  // FOR SHARE: a suspension of this executive waits until the allocation commits.
+  async findAllocationTarget(
+    organisationId: string,
+    executiveId: string,
+    scope: Scope,
+    manager: EntityManager,
+  ): Promise<AllocationTarget | null> {
+    const [row] = (await manager.query(
+      `SELECT e.id, e.status,
+              EXISTS (SELECT 1 FROM appointments a WHERE a.member_id = e.member_id
+                       AND a.status = 'active' AND a.position_id = $3) AS "holdsChairman",
+              ${scope ? inReach('e.member_id', '$4') : 'true'} AS "inReach"
+         FROM organisation_executives e
+        WHERE e.organisation_id = $1 AND e.id = $2
+          FOR SHARE`,
+      scope
+        ? [organisationId, executiveId, CHAIRMAN_POSITION_ID, scope]
+        : [organisationId, executiveId, CHAIRMAN_POSITION_ID],
+    )) as AllocationTarget[];
+    return row ?? null;
+  },
+
+  async findAllocationByKey(outKey: string, manager: EntityManager): Promise<AllocationRow | null> {
+    const [row] = (await manager.query(
+      `${ALLOCATION_SELECT} WHERE o.idempotency_key = $1 AND o.type = 'allocation_out'`,
+      [outKey],
+    )) as AllocationRow[];
+    return row ?? null;
+  },
+
+  listAllocations(walletId: string, scope: Scope, range: DateRange, page: PageParams) {
+    const params: unknown[] = [walletId];
+    const param = (value: unknown) => `$${params.push(value)}`;
+    const clauses = [
+      'o.wallet_id = $1',
+      `o.type = 'allocation_out'`,
+      ...rangeClauses('o.created_at', range, param),
+    ];
+    if (scope) {
+      const scopeParam = param(scope);
+      clauses.push(`EXISTS (SELECT 1 FROM organisation_executives re WHERE re.id = w.executive_id
+                     AND ${inReach('re.member_id', scopeParam)})`);
+    }
+    return paged<AllocationRow>(
+      `${ALLOCATION_SELECT} WHERE ${clauses.join(' AND ')}`,
+      params,
+      page,
+    );
+  },
+
+  // Active executives the caller may allocate to: in reach, not themselves, not the chairman.
+  async listAllocationRecipients(
+    organisationId: string,
+    callerExecutiveId: string,
+    scope: Scope,
+    search: string | undefined,
+    page: PageParams,
+  ) {
+    const params: unknown[] = [organisationId, callerExecutiveId, CHAIRMAN_POSITION_ID];
+    const param = (value: unknown) => `$${params.push(value)}`;
+    const clauses = [
+      'e.organisation_id = $1',
+      `e.status = 'active'`,
+      'e.id <> $2',
+      `NOT EXISTS (SELECT 1 FROM appointments ca WHERE ca.member_id = e.member_id
+                    AND ca.status = 'active' AND ca.position_id = $3)`,
+    ];
+    if (scope) clauses.push(inReach('e.member_id', param(scope)));
+    if (search) {
+      const p = param(likePattern(search));
+      clauses.push(`(m.first_name || ' ' || m.last_name ILIKE ${p} OR m.party_id ILIKE ${p})`);
+    }
+    const from = `FROM organisation_executives e JOIN members m ON m.id = e.member_id
+                  WHERE ${clauses.join(' AND ')}`;
+    const { skip, take } = toSkipTake(page);
+    const n = params.length;
+    const [rows, [counted]] = await Promise.all([
+      dataSource.query(
+        `SELECT e.id, e.first_name || ' ' || e.last_name AS name,
+                COALESCE((SELECT json_agg(json_build_object('title', p.title, 'unitName', u.name)
+                                          ORDER BY a.effective_from)
+                            FROM appointments a
+                            JOIN positions p ON p.id = a.position_id
+                            LEFT JOIN organisation_units u ON u.id = a.unit_id
+                           WHERE a.member_id = e.member_id AND a.status = 'active'), '[]') AS positions,
+                COALESCE(w.balance, 0) AS balance, COALESCE(w.reserved, 0) AS reserved
+           FROM (SELECT e.id, e.member_id, m.first_name, m.last_name ${from}
+                  ORDER BY m.first_name, m.last_name, e.id LIMIT $${n + 1} OFFSET $${n + 2}) e
+           LEFT JOIN wallets w ON w.executive_id = e.id
+          ORDER BY e.first_name, e.last_name, e.id`,
+        [...params, take, skip],
+      ) as Promise<AllocationRecipientRow[]>,
+      dataSource.query(`SELECT count(*)::int AS total ${from}`, params) as Promise<
+        { total: number }[]
+      >,
+    ]);
+    return { rows, total: counted?.total ?? 0 };
   },
 };
