@@ -1,0 +1,70 @@
+BROADCASTLY — DEMO SIGN-IN ACCOUNTS
+===================================
+
+How to sign in
+--------------
+1. Open the app and enter the EMAIL and PHONE NUMBER from the list below.
+2. A 6-digit code is "sent" by SMS. SMS is not connected yet, so the code is
+   printed in the API server's terminal (look for "SMS to ...").
+   Whoever runs the API reads the code out to the person signing in.
+3. The code expires after 3 minutes. A session lasts 24 hours.
+
+There are no passwords. These are test accounts with made-up data only.
+
+
+PLATFORM ADMIN (manages all organisations)
+------------------------------------------
+Email: admin.test@example.com     Phone: 0201234567
+
+
+ORGANISATION: ZEUS ATLAS LTD   (best one to demo — has members, broadcasts, credits)
+------------------------------------------------------------------------------
+Head (chairman, can do everything)
+  Email: head.zeus@example.com          Phone: 0247000001
+
+Secretary — writes broadcasts and sends them for approval (whole organisation)
+  Email: sec.zeus@example.com           Phone: 0251000001
+
+HR Officer, North Branch — manages and imports members
+  Email: hr.zeus@example.com            Phone: 0251000002
+
+Compliance Officer, North Electoral Area — approves broadcasts, views reports
+  Email: compliance.zeus@example.com    Phone: 0251000003
+
+Organizer, South Branch — writes broadcasts for South Branch
+  Email: organizer.zeus@example.com     Phone: 0251000004
+
+
+ORGANISATION: XOLACE INC
+------------------------
+Head (chairman, can do everything)
+  Email: head.xolace@example.com        Phone: 0247000002
+
+CTO — writes broadcasts
+  Email: cto.xolace@example.com         Phone: 0252000001
+COO, Operations Branch — manages members
+  Email: coo.xolace@example.com         Phone: 0252000002
+CEO — writes broadcasts and sends them for approval
+  Email: ceo.xolace@example.com         Phone: 0252000003
+CMO, Communications Branch — writes broadcasts for the branch
+  Email: cmo.xolace@example.com         Phone: 0252000004
+Ambassador, Central Electoral Area — views reports
+  Email: ambassador.xolace@example.com  Phone: 0252000005
+Hello Desk Officer, Operations Branch — manages members
+  Email: hello.xolace@example.com       Phone: 0252000006
+Support Officer, Communications Branch — views reports
+  Email: support.xolace@example.com     Phone: 0252000007
+
+
+ORGANISATION: CENTRAL CONSTITUENCY
+----------------------------------
+Head (chairman)
+  Email: chairman.test@example.com      Phone: 0241234567
+
+
+Suggested demo flow
+-------------------
+1. Sign in as sec.zeus  -> New broadcast -> Submit for approval.
+2. Sign in as head.zeus -> bell shows the request -> More > Approvals -> Approve.
+3. The broadcast sends (the API worker must be running: `npm run dev:worker` in api/).
+4. More > Reports -> open it -> delivery details and CSV export.
