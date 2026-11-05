@@ -14,6 +14,8 @@ import {
   warnAboutTestDrivers,
 } from './config/startup';
 import { closeQueues } from './jobs/queues';
+import { createSmsDispatchWorker } from './modules/broadcasts';
+import { createMemberImportWorker } from './modules/members';
 
 // Separate process from the API so a slow import or SMS burst never blocks HTTP requests
 // (NFR-PERF-01). Scale workers independently of the API.
@@ -21,7 +23,7 @@ import { closeQueues } from './jobs/queues';
 // Each module exports a factory that creates its Worker, e.g. from modules/broadcasts/jobs/:
 //   createSmsDispatchWorker(redis)
 // Register them in WORKERS below.
-const WORKERS: Array<() => Worker> = [];
+const WORKERS: Array<() => Worker> = [createSmsDispatchWorker, createMemberImportWorker];
 
 async function main() {
   logger.info(`Starting Broadcastly API worker (${env.NODE_ENV})…`);

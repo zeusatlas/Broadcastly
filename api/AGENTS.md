@@ -162,11 +162,11 @@ src/
 │   ├── auth/               Sign-in, sessions, access control. Complete — the reference module.
 │   ├── organisation/       Data layer only (no routes): organisations, units, positions, appointments, grants.
 │   ├── members/            Members (every party member), memberships, suppression, imports (§4.4)
-│   ├── broadcasts/         The `broadcasts` table and its read shape so far; drafting and dispatch next (§4.5)
-│   ├── approvals/          Approval rules and decisions (§4.6)
-│   ├── credits/            Wallets, ledger, purchases (§7c); reservations and allocation next (§4.7)
-│   ├── reports/            History, delivery reports, exports (§4.8)
-│   ├── notifications/      In-app and email (§4.9)
+│   ├── broadcasts/         Drafts, estimates, recipient resolution, send/schedule, dispatch job, templates (§7e)
+│   ├── approvals/          Approval queue and decisions; rules come from permissions (§7e)
+│   ├── credits/            Wallets, ledger, purchases, allocation, reservations (§7c, §7e)
+│   ├── reports/            Per-recipient delivery reports and CSV export (§7e)
+│   ├── notifications/      In-app notifications; email waits for a provider (§7e)
 │   ├── audit/              Append-only audit log (NFR-SEC-05). Done; a DB trigger blocks UPDATE/DELETE.
 │   ├── chairman/           An organisation head's tools at /organisation: positions, units, executives (§7b).
 │   └── platform/           Platform admin: organisations, chairmen, executives, admins (§7a). Done.
@@ -249,6 +249,8 @@ Defined in `common/http/api_response.ts`, mirrored in
 | POST   | `/refresh`         | public | `{ refreshToken }`                 | `tokens`                |
 | POST   | `/logout`          | bearer | `{ allDevices? }` (body optional)  | —                       |
 | GET    | `/me`              | bearer | —                                  | `user` (`UserResponse`) |
+| GET    | `/sessions`        | bearer | —                                  | your live sessions, `isCurrent` marks this one |
+| DELETE | `/sessions/:id`    | bearer | —                                  | signs out another device (422 for this one) |
 
 **One login for everyone (owner's decision).** Executives and platform admins use the same
 `/api/v1/auth` endpoints. `user.role` tells each app where to go: `platform_admin` → admin tools,
@@ -429,6 +431,10 @@ Rules, all enforced in `chairman_service.ts` (owner's decision: chairman + grant
 - **Hands off.** Only a platform admin appoints or changes the chairman; nobody changes themselves.
 - **Database:** unit names unique among siblings (`uq_organisation_units_sibling_name`); one active
   holding of a position per place (`uq_appointments_active_holding`).
+- **Notification preferences** (`GET` any executive, `PATCH` chairman, `/organisation/notification-preferences`):
+  one set per organisation; `notificationsRepository.insert` skips a notification whose category
+  (approvals, broadcasts, imports) is switched off. Units (`GET /units`) are also readable with
+  `member.manage` / `member.import`, so member managers can place members.
 - **Logo.** The chairman can `POST` / `DELETE /organisation/logo` (same rules as the admin's). Everyone in
   the organisation sees it as `organisation.logoUrl` on `/auth/me`.
 
@@ -442,6 +448,9 @@ Module `credits`, mounted at `/api/v1/credits`.
 | GET | `/transactions?wallet=mine\|organisation&period=` | any executive | Ledger, newest first |
 | GET · POST | `/purchases` | `credit.purchase` | List · start a purchase (`{ credits }`, optional `Idempotency-Key` header) |
 | POST | `/payments/webhook` | the payment provider | Settles a purchase (public route; the driver verifies the event) |
+| GET | `/pricing` | `credit.purchase` | Price per credit in pesewas, so the app shows a total before buying |
+| GET | `/allocation-recipients?search=&page=&pageSize=` | `credit.allocate` | Executives you may allocate to, with positions and wallet |
+| GET · POST | `/allocations` | `credit.allocate` | History (newest first, `period`) · allocate (`{ executiveId, credits, reason? }`, optional `Idempotency-Key`) |
 
 - **Wallets:** one per organisation and one per executive, created on first use (`ledgerService.walletFor`,
   race-free through partial unique indexes). `balance` caches the ledger and changes only in
@@ -458,8 +467,18 @@ Module `credits`, mounted at `/api/v1/credits`.
   in `integrations/payments/payment_provider.ts`; the API does not change. Price: `CREDIT_PRICE_PESEWAS`
   (default 4 = GHS 0.04 per credit; **set the agreed price**).
 - **Permissions:** `credit.purchase` is new (the chairman has it with every permission).
-- **Not built yet:** allocation to executives/units (FR-CR-03/04), reservation at dispatch (FR-CR-08/09),
-  refunds. Until allocation exists, executive wallets stay at 0.
+- **Hybrid policy (owner's decision, 2026-11-05):** the chairman's broadcasts spend the organisation wallet;
+  every other executive spends their own wallet, filled by **allocation** from the organisation wallet.
+- **Allocation (FR-CR-03, UC-04):** one transaction posts `allocation_out` (negative) on the organisation
+  wallet and `allocation_in` on the executive's, keys `allocation:<base>:out` / `:in` (base = SHA-256 of
+  caller id + `Idempotency-Key`, or a random uuid). History pairs the two rows by key: no extra table.
+  **Lock order: organisation wallet, then executive wallet** — keep it in any code that locks both.
+  Recipient: an active executive of your organisation within reach (same SQL rule as §7b), never yourself
+  (422) or the chairman (422); unknown or out of reach is 404; too few *available* organisation credits is
+  409. A replayed key returns the first allocation; the same key with another recipient or amount is 422.
+  Audited as `credit.allocated`.
+- **Not built yet:** allocation to units (FR-CR-03: there are no unit wallets), allocation limits
+  (FR-CR-04: no configuration design yet), refunds. Reservation at dispatch is built (§7e).
 - **Logos:** `common/uploads/image_upload.ts`. PNG, JPEG or WebP, 2 MB max, random file names, checked by
   their real first bytes (a renamed file is rejected). Stored under `UPLOADS_DIR/organisation-logos/`
   (owner's choice: server disk for now; files are lost if the server is rebuilt, so move to object
@@ -469,6 +488,59 @@ Module `credits`, mounted at `/api/v1/credits`.
 - **Verified end to end** on 2026-11-03 against PostgreSQL 17 on a throwaway database (38 checks):
   purchases, idempotency, webhook replay, every period, broadcasts filters, logo upload, serving and
   replacement, suspension blocking sign-in and sessions, and access rules.
+
+## 7e. Broadcasts, approvals, notifications, reports (owner's decisions, 2026-11-05)
+
+| Method | Path | Who | Does |
+| --- | --- | --- | --- |
+| POST | `/broadcasts/estimate` | `broadcast.draft` | Recipients (duplicates, invalid, opted-out shown apart), segments, credits, paying wallet |
+| GET · POST | `/broadcasts` | any broadcast/report permission · `broadcast.draft` | List (`statuses`, `search`, `mine`) · save a draft |
+| GET · PATCH | `/broadcasts/:id` | same · author | Detail with `latestDecision` · edit own draft |
+| POST | `/broadcasts/:id/submit` | `broadcast.submit`, author | Draft → `pending_approval`; notifies approvers who reach the audience |
+| POST | `/broadcasts/:id/send` | `broadcast.send`, author | Reserve credits, then `processing` or `scheduled` (`Idempotency-Key` replays) |
+| POST | `/broadcasts/:id/cancel` | author, or a sender/approver who sees it | Draft, pending or scheduled → `cancelled`; releases the hold |
+| POST | `/broadcasts/delivery-reports` | the SMS provider (public) | Delivery states by provider reference (FR-REP-01) |
+| GET | `/approvals?status=pending\|decided` · `/approvals/:id` | `broadcast.approve` | Queue · detail with decisions and the paying wallet's free credits |
+| POST | `/approvals/:id/approve` · `/reject` | `broadcast.approve` | Approve = reserve + queue in one step; reject (reason required) → back to draft |
+| GET · POST | `/notifications` (`unread`), `/unread-count`, `/:id/read`, `/read-all` | any executive | In-app feed |
+| GET | `/reports/broadcasts/:id/deliveries` · `/export` | `report.view` | Per-recipient states (phones masked) · CSV download, audited |
+
+- **Approval rule (FR-APR-01/06):** derived from permissions, no rules table yet. `broadcast.send` sends
+  directly; `broadcast.submit` goes to approval. An approver decides only broadcasts whose **every** unit
+  they reach (organisation-level audiences need an organisation-wide approver) and never their own.
+- **Who pays (owner, FR-CR-11 = hybrid):** the **author's** wallet: the organisation wallet if the author
+  holds the chairman office, otherwise the author's own (filled by allocation). Same for approved broadcasts.
+- **Audience (FR-SMS-02/03, BR-06):** `constituency` (organisation-wide authors only, includes members
+  without a unit), `electoral_area` / `branch` / `polling_station` (units of exactly that type, their
+  descendants included), `executive_group` (active executives, optionally in units). Recipients are active
+  members with a valid +233 number, not opted out, one row per number (BR-07, BR-08). `recipient_resolver.ts`
+  is one SQL statement used by both the estimate and dispatch, so the preview counts what is sent.
+  Dispatch re-resolves with the author's **current** scope (BR-05).
+- **Personalisation (FR-SMS-05):** `{first_name}` is filled per recipient at dispatch (missing → "Member");
+  `{meeting_date}` / `{meeting_location}` must be replaced by the author before submit/send (422).
+  Estimates count `{first_name}` as 20 characters so the hold covers almost every name.
+- **Credits (FR-CR-08/09, BR-10):** `ledgerService.reserve` raises `wallets.reserved` and writes a
+  `credit_reservations` row (one per broadcast) in the send/approve transaction; too few *available*
+  credits is a 409 that rolls the whole step back. After dispatch `ledgerService.settle` posts one
+  `consumption` row for the segments actually submitted and frees the rest; cancelling a scheduled one
+  releases it all. The job refuses to send anything without a held reservation.
+- **Dispatch job (`jobs/sms_dispatch_job.ts`, queue `sms-dispatch`, job id = broadcast id):** recipient rows
+  move `pending → sending → submitted|failed` in batches of `SMS_SEND_RATE_PER_SECOND` per second. A provider
+  call that throws puts its batch back to `pending` and retries; a row left `sending` by a crash becomes
+  `unknown` and is never resent (BR-13). On start the worker re-queues every `scheduled` / `processing`
+  broadcast (safe: the job id deduplicates). Status: `submitted` while delivery reports are awaited, then
+  `completed`, `partially_failed` or `failed`. Outcome notifications go to the author and the sender.
+- **Bulk SMS boundary:** `integrations/sms/sms_provider.ts` (`sendBatch`, `parseDeliveryReport`). The `log`
+  driver logs counts only and accepts `{ reports: [{ providerReference, state }] }` on the webhook.
+- **Reports:** history is `GET /broadcasts`. Exports quote every cell and prefix `= + - @` (CSV injection).
+- **Not built yet:** retrying failed recipients (FR-REP-06: needs a decision on reserving credits again for
+  the same broadcast), email notifications (FR-NOT-02: no email provider), configurable approval rules
+  (FR-APR-01 beyond permissions), a real SMS driver.
+- **Verified end to end** on 2026-11-05 against the dev database: estimate, scope and level checks,
+  submit → approve → reserve → dispatch → settle (ledger row), delivery reports to `partially_failed`,
+  replayed reports, reject → edit → resubmit, scheduled send with idempotent replay, cancel releasing the
+  hold, notifications, reports and CSV export, cross-organisation 404s. Not exercised live: an approval
+  that fails for lack of credits.
 
 ## 8. Database — TypeORM 1.x
 

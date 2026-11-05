@@ -1,3 +1,3 @@
-// Public API of the reports module — Broadcast history, delivery summaries, exports and retry of failures (FR-REP-01..07).
-// Other modules import from here only.
-export {};
+// Public API of the reports module — per-recipient delivery reports and CSV exports (FR-REP-02..07).
+// History itself is GET /broadcasts. Other modules import from here only.
+export { reportsRouter } from './reports_routes';

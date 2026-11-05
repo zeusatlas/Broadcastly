@@ -10,6 +10,7 @@ import { BROADCAST_STATUSES, type BroadcastStatus } from '../broadcasts_types';
 @Entity({ name: 'broadcasts' })
 @Index('idx_broadcasts_organisation_created', ['organisationId', 'createdAt'])
 @Index('idx_broadcasts_status_created', ['status', 'createdAt'])
+@Index('idx_broadcasts_creator_created', ['createdByExecutiveId', 'createdAt'])
 export class Broadcast extends BaseEntity {
   @Column({ type: 'uuid', name: 'organisation_id' })
   organisationId: string;
@@ -70,4 +71,18 @@ export class Broadcast extends BaseEntity {
 
   @Column({ type: 'timestamptz', name: 'completed_at', nullable: true })
   completedAt: Date | null;
+
+  @Column({ type: 'integer', name: 'submitted_count', default: 0 })
+  submittedCount: number;
+
+  // Who dispatched it: the sender, or the approver whose approval released it (FR-SMS-13).
+  @Column({ type: 'uuid', name: 'sent_by_executive_id', nullable: true })
+  sentByExecutiveId: string | null;
+
+  // The Idempotency-Key of the send that dispatched it, so a retried request is a replay (FR-SMS-14).
+  @Column({ type: 'varchar', length: 120, name: 'dispatch_key', nullable: true })
+  dispatchKey: string | null;
+
+  @Column({ type: 'timestamptz', name: 'cancelled_at', nullable: true })
+  cancelledAt: Date | null;
 }

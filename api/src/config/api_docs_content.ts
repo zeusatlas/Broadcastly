@@ -139,6 +139,35 @@ export const TAG_DESCRIPTIONS = [
       'SMS credit wallets (the organisation’s and your own), their history, buying credits, and the payment webhook that settles a purchase. See *Credits and purchases* in the API overview.',
   },
   {
+    name: 'Members',
+    description:
+      'The member directory within your scope: add, edit, deactivate, and spreadsheet imports (CSV and Excel) with preview and duplicate review.',
+  },
+  {
+    name: 'Broadcasts',
+    description:
+      'Drafts, recipient and cost estimates, sending or scheduling with reserved credits, history, and the SMS provider’s delivery-report webhook.',
+  },
+  {
+    name: 'Templates',
+    description:
+      'Reusable official messages for your organisation, with the approved personalisation fields.',
+  },
+  {
+    name: 'Approvals',
+    description:
+      'Broadcasts waiting for your approval, and approving or rejecting them with a reason.',
+  },
+  {
+    name: 'Notifications',
+    description:
+      'Your in-app notifications: approval requests, decisions, imports and broadcast outcomes.',
+  },
+  {
+    name: 'Reports',
+    description: 'Per-recipient delivery states for a broadcast, and their CSV export.',
+  },
+  {
     name: 'Health',
     description: 'Whether the API is running and can reach its database and Redis.',
   },
