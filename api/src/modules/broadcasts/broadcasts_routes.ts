@@ -99,7 +99,7 @@ document({
   summary: 'Estimate a broadcast',
   description: `Recipients, segments and credits for a message and audience, before saving (FR-SMS-07).
 - Counts duplicates and invalid numbers that would be left out (FR-SMS-08, FR-SMS-09).
-- \`wallet\` is the one that would pay: the organisation's for the chairman, your own otherwise.`,
+- \`wallet\` is the one that would pay: always your own.`,
   request: {
     body: jsonBody(estimateBroadcastSchema, {
       message: 'Hello {first_name}, branch meeting on Saturday.',
@@ -207,7 +207,7 @@ document({
   operationId: 'sendBroadcast',
   summary: 'Send or schedule',
   description: `Sends your draft without approval (FR-APR-06), now or at \`scheduledAt\` (FR-SMS-10).
-- Reserves the credits first (BR-10): the chairman's come from the organisation wallet, others' from their own.
+- Reserves the credits first (BR-10), from the author's own wallet.
 - Send an \`Idempotency-Key\` header: repeating the request returns the same broadcast (FR-SMS-14).`,
   request: {
     params: broadcastParamsSchema,

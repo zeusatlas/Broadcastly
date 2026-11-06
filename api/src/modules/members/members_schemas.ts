@@ -5,6 +5,7 @@ import '../../config/openapi';
 import { pageQuerySchema } from '../../common/http/pagination';
 
 import {
+  MEMBER_SORTS,
   MEMBER_STATUSES,
   type CreateMemberRequest,
   type ListMembersRequest,
@@ -44,6 +45,9 @@ export const listMembersSchema = pageQuerySchema.extend({
   search: searchSchema,
   status: z.enum(MEMBER_STATUSES).optional(),
   unitId: z.uuid().optional(),
+  isExecutive: z.stringbool().optional(),
+  sort: z.enum(MEMBER_SORTS).optional(),
+  groupBy: z.enum(['unit']).optional(),
 }) satisfies z.ZodType<ListMembersRequest>;
 
 export const createMemberSchema = z

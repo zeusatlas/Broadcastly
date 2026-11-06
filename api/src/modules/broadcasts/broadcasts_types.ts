@@ -47,6 +47,9 @@ export interface ListBroadcastsRequest extends PageParams {
   statuses?: BroadcastStatus[];
   search?: string;
   mine?: boolean;
+  sort?: 'newest' | 'oldest';
+  // status: rows come stage by stage, what needs action first, so the app can show one section per stage.
+  groupBy?: 'status';
 }
 
 export interface CreateBroadcastRequest {

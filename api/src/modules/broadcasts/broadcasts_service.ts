@@ -252,7 +252,7 @@ export const broadcastsService = {
   ): Promise<BroadcastEstimateResponse> {
     const reach = reachOf(auth);
     const segments = estimateBroadcastSegments(request.message);
-    const isChairman = auth.role === 'chairman';
+    const isChairman = auth.role === 'head';
     return dataSource.transaction('REPEATABLE READ', async (manager) => {
       await checkAudience(reach, request.audience, manager);
       const counts = await recipientResolver.count(request.audience, reach, manager);
@@ -468,10 +468,8 @@ export const broadcastsService = {
 
     const segments = estimateBroadcastSegments(broadcast.message).segments;
     const credits = counts.recipientCount * segments;
-    // Hybrid policy (owner, 2026-11-05): the chairman spends the organisation wallet, others their own.
-    const owner = access.holdsChairman
-      ? { organisationId: broadcast.organisationId }
-      : { organisationId: broadcast.organisationId, executiveId: author.executiveId };
+    // Personal wallets (owner, 2026-11-06): every author, the head included, pays from their own.
+    const owner = { organisationId: broadcast.organisationId, executiveId: author.executiveId };
     const wallet = await ledgerService.walletFor(owner, manager);
     const available = wallet.balance - wallet.reserved;
     if (available < credits) {

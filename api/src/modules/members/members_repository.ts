@@ -43,6 +43,11 @@ function memberWhere(
 
   if (scope) clauses.push(`ms.unit_id = ANY(${param(scope)}::uuid[])`);
   if (filters.status) clauses.push(`m.status = ${param(filters.status)}`);
+  if (filters.isExecutive !== undefined) {
+    clauses.push(
+      `${filters.isExecutive ? '' : 'NOT '}EXISTS (SELECT 1 FROM organisation_executives e WHERE e.member_id = m.id)`,
+    );
+  }
   if (filters.unitId) {
     clauses.push(`ms.unit_id IN (
       WITH RECURSIVE tree AS (
@@ -69,9 +74,14 @@ export const membersRepository = {
     const where = memberWhere(organisationId, scope, request);
     const { skip, take } = toSkipTake(request);
     const n = where.params.length;
+    const names =
+      request.sort === 'last_name'
+        ? 'lower(m.last_name), lower(m.first_name)'
+        : 'lower(m.first_name), lower(m.last_name)';
+    const order = request.groupBy === 'unit' ? `lower(u.name) NULLS LAST, u.id, ${names}` : names;
     const [items, [count]] = await Promise.all([
       dataSource.query(
-        `${MEMBER_SELECT} ${where.sql} ORDER BY lower(m.first_name), lower(m.last_name), m.id LIMIT $${n + 1} OFFSET $${n + 2}`,
+        `${MEMBER_SELECT} ${where.sql} ORDER BY ${order}, m.id LIMIT $${n + 1} OFFSET $${n + 2}`,
         [...where.params, take, skip],
       ) as Promise<MemberResponse[]>,
       dataSource.query(

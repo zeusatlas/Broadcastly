@@ -59,6 +59,8 @@ export const listBroadcastsSchema = pageQuerySchema.extend({
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
     .optional(),
+  sort: z.enum(['newest', 'oldest']).optional(),
+  groupBy: z.enum(['status']).optional(),
 }) satisfies z.ZodType<ListBroadcastsRequest, unknown>;
 
 export const createBroadcastSchema = z

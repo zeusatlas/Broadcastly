@@ -73,6 +73,16 @@ function visibleWhere(visibility: BroadcastVisibility, params: unknown[]) {
   return clauses;
 }
 
+// Stages in the order the app shows them: work to finish first, finished work last.
+const STAGE_ORDER_SQL = `CASE
+    WHEN b.status = 'draft' THEN 1
+    WHEN b.status IN ('pending_approval', 'approved') THEN 2
+    WHEN b.status IN ('partially_failed', 'failed', 'cancelled') THEN 3
+    WHEN b.status = 'scheduled' THEN 4
+    WHEN b.status IN ('processing', 'submitted') THEN 5
+    ELSE 6
+  END`;
+
 export const broadcastsRepository = {
   async list(
     visibility: BroadcastVisibility,
@@ -93,9 +103,14 @@ export const broadcastsRepository = {
     const where = `WHERE ${clauses.join(' AND ')}`;
     const { skip, take } = toSkipTake(request);
     const n = params.length;
+    const direction = request.sort === 'oldest' ? 'ASC' : 'DESC';
+    const order =
+      request.groupBy === 'status'
+        ? `${STAGE_ORDER_SQL}, b.created_at ${direction}, b.id ${direction}`
+        : `b.created_at ${direction}, b.id ${direction}`;
     const [items, [count]] = await Promise.all([
       dataSource.query(
-        `${SELECT} ${where} ORDER BY b.created_at DESC, b.id DESC LIMIT $${n + 1} OFFSET $${n + 2}`,
+        `${SELECT} ${where} ORDER BY ${order} LIMIT $${n + 1} OFFSET $${n + 2}`,
         [...params, take, skip],
       ) as Promise<BroadcastDetailResponse[]>,
       dataSource.query(
