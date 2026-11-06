@@ -308,7 +308,7 @@ before any SMS is sent. Admin routes are admin-only regardless (`authorize({ rol
   older `/platform/organisations/:id/chairman` route and `hasChairman` filter, still used by the web app) keep
   their names; new clients use `/organisations/:id/head` and `hasHead`. Never suggest "Chairman" as a head title.
   An organisation's `type` is one of `ORGANISATION_TYPES` (constituency, party branch, church, union, school…)
-  and its optional `description` is capped at `ORGANISATION_DESCRIPTION_MAX_WORDS` (200) words. An executive's actual offices are their positions (owner's decision).
+  and its optional `description` is capped at `ORGANISATION_DESCRIPTION_MAX_WORDS` (20) words. An executive's actual offices are their positions (owner's decision).
 - Permissions: an active chairman appointment brings all of them; everyone else gets the grants on
   their active appointments. Ending an appointment removes the access on the next request.
 - Scope: an organisation-wide appointment covers every unit of that organisation; a unit
@@ -364,7 +364,7 @@ messages on mobile. All routes are under `/api/v1/platform` and need a platform 
 | ------ | ----------------------------------------------------- | ----------------------------------------------- |
 | GET    | `/overview`                                           | Dashboard totals                                |
 | GET    | `/organisations?search=&status=&hasHead=`             | List, each with head, member and executive counts |
-| POST   | `/organisations`                                      | Create (`{ name, type, description? }`)         |
+| POST   | `/organisations`                                      | Create (`{ name, type, description? }`); head after |
 | GET    | `/organisations/:organisationId`                      | One organisation                                |
 | POST   | `/organisations/:organisationId/head`                 | Promote a member to executive and appoint them head |
 | GET · POST | `/notifications` (`status`, `search`), `/unread-count`, `/:id/read`, `/read-all` | The admin's bell: built from the audit log by permission (payments, credit adjustments, admin changes, security, new organisations and heads), never their own actions; reads in `platform_notification_reads`, read-all sets `platform_admins.notifications_read_at` |

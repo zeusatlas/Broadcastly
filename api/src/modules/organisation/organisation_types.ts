@@ -21,7 +21,7 @@ export const ORGANISATION_TYPES = [
   'other',
 ] as const;
 export type OrganisationType = (typeof ORGANISATION_TYPES)[number];
-export const ORGANISATION_DESCRIPTION_MAX_WORDS = 200;
+export const ORGANISATION_DESCRIPTION_MAX_WORDS = 20;
 
 export const UNIT_STATUSES = ['active', 'inactive'] as const;
 export type UnitStatus = (typeof UNIT_STATUSES)[number];

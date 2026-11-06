@@ -58,7 +58,7 @@ const wordCount = (value: string) => (value ? value.split(/\s+/).length : 0);
 const descriptionSchema = z
   .string()
   .trim()
-  .max(2000, 'Keep it under 2,000 characters.')
+  .max(300, 'Keep it under 300 characters.')
   .refine((value) => wordCount(value) <= ORGANISATION_DESCRIPTION_MAX_WORDS, {
     message: `Keep it to ${ORGANISATION_DESCRIPTION_MAX_WORDS} words or fewer.`,
   })

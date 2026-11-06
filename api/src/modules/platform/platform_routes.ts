@@ -592,7 +592,7 @@ document({
   operationId: 'updateOrganisation',
   summary: 'Rename an organisation',
   description:
-    'Change its name and/or what it calls its head (`headTitle`, e.g. Head, Director) and its `description` (200 words at most; `null` clears it). Names stay unique, ignoring case. Needs `platform.organisation.manage`.',
+    'Change its name and/or what it calls its head (`headTitle`, e.g. Head, Director) and its `description` (20 words at most; `null` clears it). Names stay unique, ignoring case. Needs `platform.organisation.manage`.',
   request: {
     params: organisationParamsSchema,
     body: jsonBody(updateOrganisationSchema, { name: 'Central North', headTitle: 'Director' }),
