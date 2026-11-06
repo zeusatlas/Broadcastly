@@ -311,7 +311,7 @@ when pressed. Bold, large type. Reuse `Button`, `Card` and `TextField`; do not r
 hairline dividers (`BroadcastRow`, `SettingsRow`); a card is kept for **at most one** thing on a screen
 that carries weight (the credit balance, a cost estimate). The owner finds chunky cards too obvious when
 repeated: section content is plain, under a `PageSection` (small gold caps `overline` title), and summary
-counts use `FigureRow` (a hairline-divided strip of numbers), never a row of cards. Filters and single choices use `Chip`. Floating controls over content
+counts use `FigureRow` (a hairline-divided strip of numbers), never a row of cards. List filters use `FilterButton`; other single choices use `Chip`. Floating controls over content
 sit on `GlassSurface`: Liquid Glass on iOS 26+, blur + tint elsewhere.
 Forms scroll in `KeyboardAwareScrollView` (react-native-keyboard-controller), never `KeyboardAvoidingView`.
 
@@ -335,9 +335,10 @@ navigation, transitions and swipe-back. Change headers only in these files:
     can always scroll far enough.
   - **Title spacing is fixed:** the title ends 16pt above the content, and a screen's first block adds no top
     margin (`PageSection`, `SettingsSection`, `ComposeSection` take `className="mt-0"` when first).
-  - **Own lists:** a screen with its own list (Broadcasts, Members, Credits) uses an `Animated.FlatList` with
-    `onScroll`/`onLayout`/`minHeight` from the hook, `largeTitle` first in `ListHeaderComponent`, then
-    `{collapsing.bar}`.
+  - **Own lists:** a page whose content is a list uses `SectionListPage` (components/shared): the same
+    chrome as `PageScreen` around a virtualised `SectionList`. Tab lists with custom chrome (Broadcasts,
+    Members, Credits) use an animated `SectionList` with `onScroll`/`onLayout`/`minHeight` from the hook,
+    `largeTitle` first in `ListHeaderComponent`, then `{collapsing.bar}`.
 - **Tabs:** every tab except home is a folder (`(tabs)/broadcasts/_layout.tsx` + `index.tsx`) whose layout is
   `<TabStack title="…" />`, with the root's native bar hidden (`header: 'tab'` / `PageScreen isTabRoot`).
   **Home has no title** and keeps the native tab header: profile avatar (`ProfileButton`, home only) left,
@@ -349,6 +350,17 @@ navigation, transitions and swipe-back. Change headers only in these files:
 - **Do not use the native `headerLargeTitleEnabled`:** it failed to track our scroll views on device.
 - **Broadcasts "New":** no header action. "New" is a gold pill `Button` (`shape="pill"`) with a `SquarePen`
   icon floating bottom-right.
+- **List filters** (owner's rule, 2026-11-06): every list filter is `FilterButton` from `components/ui`, a round
+  button at the bottom left of the page's bottom bar that opens a bottom sheet of single-choice rows (the
+  Templates screen is the reference). Search and the primary action sit to its right. No chip rows for filters.
+  Lists with several independent choices (group, sort, status, unit) use `FilterGroupsButton`: one sheet with
+  a section per choice, Reset and Done; a big choice such as the unit tree is a `links` row that opens its own
+  sheet after this one closes. Members is the reference: a `SectionList` grouped A–Z by default, or by unit.
+  Picks in a `FilterGroupsButton` sheet are a draft: nothing changes until Done; closing discards them.
+  A filter shows only when there is something to filter (owner's rule): pass the list's `total` to
+  `FilterButton`; at `FILTER_THRESHOLD` (15) or fewer with nothing applied it renders an empty spacer. Credits puts
+  it bottom right (`align="right"`). Exceptions: Approvals (its filter switches queues) and the grouped
+  filters on Members and Broadcasts (they also change how the list is grouped).
 
 **Motion** (owner: pages should move slowly and nicely). Timing lives only in `src/constants/motion.ts`.
 - **Page content:** `PageScreen` and `ScrollScreen` fade their content in while it rises 12pt
@@ -358,6 +370,17 @@ navigation, transitions and swipe-back. Change headers only in these files:
 - **Transitions:** iOS keeps the native slide (it follows the swipe-back finger). Android uses
   `ios_from_right`. Bottom-up screens (profile, new broadcast) take 450ms. Tabs switch with `shift`.
 - **Reduce Motion:** Reanimated honours the system setting. Don't add per-screen animations elsewhere.
+- **Bottom sheets:** always `BottomSheet` from `components/ui` (owner's rule: every sheet looks the same). Title,
+  optional description and a round close button on top; `footer` holds action buttons right under the content
+  (`size="auto"` hugs the content, so no gap); `size="tall"` for pickers whose child is a FlatList. Choices inside
+  are radio rows (hairline divider, round radio on the right). Never hand-build a `<Modal>` sheet.
+  Motion lives in `BottomSheet` (owner: open slowly and nicely): backdrop fades in over 300ms while the panel
+  springs up; closing (close button, backdrop, back button, or `isVisible` turning false) slides it down first.
+**Credits (owner's rule, 2026-11-06):** there is no organisation pool. Everyone, the head included, has their own
+credits: what they bought (purchases go straight to the buyer) or were given (allocations come from the giver).
+**Home** shows your own credits (`useSpendingWallet`, "Your credits"). **Credits** shows, to those who may see it,
+everyone's credits added up (`organisationTotal`): available, with Scheduled / Yours under the available total (never repeat the total). *Scheduled* is the
+cost of broadcasts not yet sent: set aside now, deducted when sent. Never say "pool" or "given out".
 
 Inner pages stay plain — the wave/illustrated backgrounds are for sign-in and onboarding only.
 
@@ -368,10 +391,29 @@ small gold icon chip), then `ListCard`
 sections (titled card + "View all") holding plain rows. `StatTile` and `ListCard` live in `components/ui`.
 **Keep screens minimal** (owner's rule): one job per block, no repeated information, no placeholder or
 empty-state sections for features the API does not serve yet. The dashboard is header → position · scope line →
-the credit balance card (the chairman sees the organisation wallet, others their own: hybrid policy) →
+the credit balance card (always the user's own credits) →
 organisation overview tiles from `GET /organisation/overview` → one row of quick actions. The bell shows
-`GET /notifications/unread-count`, refreshed on focus.
+`GET /notifications/unread-count`, refreshed on focus; the admin home has the same bell on
+`GET /platform/notifications/unread-count` (`AdminNotificationsScreen`, reusing `NotificationItem` with an icon and tone).
+**Pick-lists** use `SelectField` (`components/ui`): a sheet of options that gets a search box above
+`SELECT_SEARCH_THRESHOLD` (8) options; long lists never show every option without a way to search. Search
+buttons on lists follow the filter rule: shown only above `FILTER_THRESHOLD` items or while searching.
+Organisation lists show the logo when there is one.
 `QueryState` (loading / retryable error / empty) is in `components/ui`.
+**Empty and loading states** (owner's rule, 2026-11-06): every empty list or screen uses `EmptyState`
+(`icon`, `title`, optional `description` and `action`); `QueryState` already does, and takes `emptyIcon`,
+`emptyDescription`, `emptyAction`. Search or filters with no result say so and offer to clear filters. While
+a screen or sheet's data is loading show `LoadingState` (or a row skeleton), never a half-drawn screen that
+then jumps; sheets whose content arrives later use `size="tall"` so their height never changes.
+**Permissions are never shown as codes** ("broadcast.draft"): use `PERMISSION_INFO` (label + plain-language
+description) from `features/organisation/utils/permission_labels.ts`; platform permissions use
+`PLATFORM_PERMISSION_OPTIONS`.
+
+**Head, not chairman (owner's rule, 2026-11-06):** the role is `head` (`useHasRole('head')`) and every text says
+"head" (or the organisation's own head title); "chairman" is only one kind of head.
+**The keyboard never covers a field** (owner's rule): pages use `PageScreen`, whose scroll keeps the focused field
+above the keyboard *and* the action bar riding on it; sheets use `BottomSheet`, which on Android lifts itself by
+exactly the overlap. New input screens must use one of these.
 
 **Owner's interaction rules (2026-11-05).** After an action that completes a task succeeds, go back first
 (`router.back()` / close the sheet), then toast. The keyboard must never cover an input: pages use
@@ -382,9 +424,16 @@ Infinite lists use `usePages` + `useDebouncedValue` from `src/hooks/use_pages.ts
 broadcast always goes through `useSendBroadcast` (confirm dialog + idempotency key). Images the server
 links to (logos) go through `deviceUrl()` from `@/config/env`, like API calls, so `localhost` works on a phone.
 
-**Top and bottom bars match** (owner's rule): the tab bar is `background`, the same colour the status bar
-sits on, with a hairline `border` top. Sign-in has no back button and verify has no close button; leaving
-verify is the system back gesture, which returns to sign-in and drops the pending code.
+**Tab bar** (owner's rule, 2026-11-06), split by platform in `AppTabs.tsx`:
+- **iOS:** the system tab bar, like WhatsApp and Telegram: `NativeTabs` from `expo-router/native-tabs`, Liquid
+  Glass on iOS 26, SF Symbol icons (`sf`). Never the `md` icon prop: it needs `expo-symbols` (not installed).
+- **Android:** the system bar is plain Material, so `FloatingTabBar` draws a floating glass pill as wide as the
+  screen (no border, capped at 520pt and centred on wide devices; the highlight is at most 96pt wide) with a filled highlight that springs to the selected tab; icons are `@expo/vector-icons`
+  MaterialIcons. Android glass is a frosted tint, not real blur (real blur needs a `BlurTargetView`).
+- Every tab press plays `haptics.tap()`. Each tab is a `TabStack` (Home is the `(home)` group with the native
+  header for avatar and bell). Inside a tab, `useSafeAreaInsets().bottom` is what bottom-pinned buttons and
+  list padding must clear: on iOS it includes the floating system bar (TabStack measures it with its own
+  `SafeAreaProvider`); on Android it is 0 because the bar sits below the tab.
 
 **Phone chrome follows the theme** through `SystemBars` (root layout): status bar and Android
 navigation bar icons (expo-status-bar, expo-navigation-bar) and the native window colour
@@ -399,6 +448,11 @@ background, below the 3:1 WCAG requires for non-text UI.
 
 **`critical` is rationed.** Signal Crimson is for urgent CTAs and critical
 notices only. Ordinary failures and destructive actions use `destructive`.
+
+**Fixed type sizes (owner's rule, 2026-11-06):** the phone's text-size setting never applies. One global
+switch, `src/lib/fixed_font_size.tsx`, loaded first by the entry file `index.ts` (package.json `main`), swaps
+React Native's `Text` and `TextInput` for versions that always pass `allowFontScaling={false}`. Do not add
+`allowFontScaling` per component, and keep `main` pointing at `index.ts`.
 
 **Typography is Manrope.** Each weight is a separately registered family, so
 Tailwind fontWeight utilities (`font-bold`, `font-semibold`) DO NOT WORK —
@@ -634,7 +688,19 @@ There are exactly three guard points. Do not add redirects inside screens.
    does not exist. The splash screen stays up until the session is restored.
 2. **Role** — `app/(app)/_layout.tsx`: `user.role === 'platform_admin'` gets `admin/(tabs)`
    (`ADMIN_TABS`: Home, Organisations, Admins; an organisation's executives live on its page,
-   `admin/organisations/[id]`); everyone else gets `(tabs)`
+   `admin/organisations/[id]`); admin actions are gated by `platform.*` permissions (the main admin holds all;
+   others hold what was ticked: `PermissionChecklist`). Admins have full control (owner's decision): "Work
+   inside this organisation" on an organisation's page calls the workspace endpoint, and
+   `useAuthStore.enterOrganisation` swaps `user` for the working profile (role head) and keeps the admin's
+   own in `workspace.admin`; the client then adds `X-Organisation-Id` to every non-`/auth`, non-`/platform`
+   request, so the executive tabs work unchanged. `WorkspaceBanner` (home and More) shows where they are and
+   exits back to the admin app. Not persisted: a relaunch starts as the admin;
+   the admin **More** tab (`AdminMoreScreen`) lists Payments, Credit history, Adjust credits, Broadcasts,
+   Audit log and Platform settings, each hidden without its `platform.*` permission; an organisation's page
+   links to the same screens filtered by `organisationId` (route params `organisationId`, `organisationName`),
+   lets `platform.organisation.manage` change or remove the logo (`utils/media` `pickLogoForm`, shared with
+   Settings), and opens each executive at `admin/organisations/executive` (contact, credits, suspend/reactivate).
+   Audit actions and credit kinds are shown in words (`utils/admin_labels.ts`), never as codes; everyone else gets `(tabs)`
    (`EXECUTIVE_TABS`). One login for both (owner's decision); the API re-checks every request.
 3. **Permission** — the same layout reads `GATED_ROUTES` in `constants/routes.ts` for executive
    screens. To gate a new screen, add one line there.
@@ -651,6 +717,13 @@ them). Tokens carry `sessionExpiresAt`, stored in `secureStorage`. On launch `re
 expired session with no network call and restores a live one (the client refreshes the access
 token itself), so the guard opens home or sign-in. `useSessionExpiry` (root layout) ends the
 session at the deadline while open and on resume, and shows "Your session has ended".
+
+**Signed-in devices** (Settings → Signed-in devices) lists `GET /auth/sessions` and signs others out with
+`DELETE /auth/sessions/:id`. The API client sends `User-Agent: Broadcastly (<OS version>; <device>)` from
+`clientUserAgent()` so each session is named from `expo-device` (in Expo Go): `modelName` on iOS ("iPhone 13"),
+the device name on Android ("Galaxy A12") unless it looks personal ("Kofi's phone"), then maker + model
+code ("Samsung SM-A125F"). Never send a person's name or any device ID. `describeUserAgent()`
+reads it back and falls back for older sessions. Expo Go on Android sends `ExpoGo/…`: that is Android, not iOS.
 
 **Profile → Settings → Help & Support** (`features/settings`): profile's gear opens `/settings`, whose
 rows are `SettingsSection` + `SettingsRow` / `SettingsExpandableRow`. Settings and support rows are
@@ -750,8 +823,10 @@ records without a redesign (NFR-SCALE-01). On the client that means:
 
 - **Paginate every list.** Member and delivery-report lists will reach tens of
   thousands of rows. Never render an unbounded array.
-- Use `FlatList`/`FlashList` with stable `keyExtractor`. Never `.map()` a large
-  list into a `ScrollView`.
+- Lists that load data use a `SectionList` (owner's rule, 2026-11-06), with a stable `keyExtractor` and
+  sections built by `groupIntoSections` from `@/utils/helpers` (`dateSectionTitle` for dated rows,
+  `letterSectionTitle` for names). Sections follow the server's order, so sort on the server. Load more in
+  `onEndReached`, never a "Show more" button. Never `.map()` a large list into a `ScrollView`.
 - Long-running work (imports, dispatch) is asynchronous and server-side
   (NFR-PERF-01). The client polls or subscribes for status — it never blocks.
 - Keep components small and props explicit. Memoise only after measuring.
