@@ -300,8 +300,14 @@ before any SMS is sent. Admin routes are admin-only regardless (`authorize({ rol
   settle a purchase through the webhook.
 
 **Roles and permissions (BR-01).**
-- `UserRole` is derived, never stored: `platform_admin`, `chairman` (holds an active chairman
-  appointment) or `executive`. An executive's actual offices are their positions (owner's decision).
+- `UserRole` is derived, never stored: `platform_admin`, `head` (holds the organisation's head office, the
+  built-in position at `CHAIRMAN_POSITION_ID`) or `executive`. **Say "head", never "chairman"** (owner's rule,
+  2026-11-06): the head may be a chairman, director or manager; each organisation names it in `head_title`.
+  Internal identifiers (`holdsChairman`, `CHAIRMAN_POSITION_ID`, the `chairman` module, the
+  older `/platform/organisations/:id/chairman` route and `hasChairman` filter, still used by the web app) keep
+  their names; new clients use `/organisations/:id/head` and `hasHead`. Never suggest "Chairman" as a head title.
+  An organisation's `type` is one of `ORGANISATION_TYPES` (constituency, party branch, church, union, school…)
+  and its optional `description` is capped at `ORGANISATION_DESCRIPTION_MAX_WORDS` (200) words. An executive's actual offices are their positions (owner's decision).
 - Permissions: an active chairman appointment brings all of them; everyone else gets the grants on
   their active appointments. Ending an appointment removes the access on the next request.
 - Scope: an organisation-wide appointment covers every unit of that organisation; a unit
@@ -349,22 +355,24 @@ platform admin with `npm run admin:create`.
 ## 7a. Platform administration (owner's decisions, 2026-11-02)
 
 The platform admin is the **super admin**: not a party member; manages every organisation, every
-executive and the other admins, on the web or the mobile app (admin tools only: no member data).
-They create an organisation and appoint its chairman; the chairman manages their own people and
+executive and the other admins, on the web or the mobile app, and can work inside any organisation.
+They create an organisation and appoint its head; the head manages their own people and
 messages on mobile. All routes are under `/api/v1/platform` and need a platform admin session.
 
 | Method | Path                                                  | Does                                            |
 | ------ | ----------------------------------------------------- | ----------------------------------------------- |
 | GET    | `/overview`                                           | Dashboard totals                                |
-| GET    | `/organisations?search=`                              | List, each with chairman, member and executive counts |
-| POST   | `/organisations`                                      | Create (`{ name, type? }`)                      |
+| GET    | `/organisations?search=&status=&hasHead=`             | List, each with head, member and executive counts |
+| POST   | `/organisations`                                      | Create (`{ name, type, description? }`)         |
 | GET    | `/organisations/:organisationId`                      | One organisation                                |
-| POST   | `/organisations/:organisationId/chairman`             | Promote a member to executive and appoint them chairman |
+| POST   | `/organisations/:organisationId/head`                 | Promote a member to executive and appoint them head |
+| GET · POST | `/notifications` (`status`, `search`), `/unread-count`, `/:id/read`, `/read-all` | The admin's bell: built from the audit log by permission (payments, credit adjustments, admin changes, security, new organisations and heads), never their own actions; reads in `platform_notification_reads`, read-all sets `platform_admins.notifications_read_at` |
 | GET    | `/organisations/:organisationId/executives?search=&status=` | That organisation's executives and their positions |
 | GET    | `/organisations/:organisationId/executives/:executiveId` | One of them                                  |
 | POST   | `/organisations/:organisationId/executives/:executiveId/suspend` · `/reactivate` | Suspension ends their sessions |
 | GET    | `/admins` · POST `/admins`                            | List · add a platform admin (admins add admins) |
 | POST   | `/admins/:platformAdminId/suspend` · `/reactivate`    | Another admin, never yourself (403)             |
+| GET · PATCH | `/admins/:platformAdminId` · `/admins/:platformAdminId/permissions` | One admin · replace their permissions |
 
 - **Executives belong to an organisation** (owner's decision): the admin sees them inside it, never
   as one platform-wide list. An executive id used under another organisation is a 404.
@@ -383,8 +391,31 @@ messages on mobile. All routes are under `/api/v1/platform` and need a platform 
   count as suspended at sign-in, refresh and on every request (`EXECUTIVE_STATUS_SQL` in
   `auth_repository.ts`). Its data is kept; `reactivate` restores access (each executive's own status
   still applies). `inactive` is reserved and cannot be changed here.
-- **Admin reach (owner's decision).** The platform admin reads everything about an organisation and acts on
-  status only: no sending broadcasts or moving credits on its behalf.
+- **Admin reach (owner's decision, 2026-11-06, replaces "manage, don't send").** Admins have full control:
+  with `platform.organisation.operate` they open an organisation (`POST /platform/organisations/:id/workspace`,
+  audited as `platform.organisation_opened`) and then send `X-Organisation-Id` on any non-`/auth`,
+  non-`/platform` request. `authenticate` swaps the context for `actAsHead()` (access_resolver.ts): the
+  request runs as that organisation's active head (all head permissions, organisation-wide), so every head
+  rule, scope and wallet applies unchanged, and `actorFrom` records both the head office and the admin in
+  the audit log. Suspended organisations and ones with no head are refused (409); executives' headers are ignored.
+- **Admin permissions (owner's decision, 2026-11-06).** Every admin has role `platform_admin`. The main admin
+  (`is_super_admin`, set only by `admin:create` / the seeder; existing admins were migrated to it) holds every
+  `PLATFORM_PERMISSIONS` entry, including future ones. Other admins hold what was ticked when they were added
+  (`POST /admins { permissions }`) or later (`PATCH /admins/:id/permissions`). You can only grant or remove
+  permissions you hold; nobody changes their own permissions; only a main admin can suspend a main admin.
+  Permissions are resolved on every request (`findSessionForAccess`), so changes apply at once.
+
+| Permission | Unlocks |
+| --- | --- |
+| *(none)* | Overview, organisations and their executives (read), admins list, settings (read) |
+| `platform.organisation.manage` | Create, suspend/reactivate, logo, appoint chairman |
+| `platform.executive.manage` | Suspend/reactivate an organisation's executives |
+| `platform.credit.manage` | `POST /credit-adjustments` |
+| `platform.finance.view` | Purchases, purchase summary, credit transactions |
+| `platform.broadcast.view` | Broadcast lists |
+| `platform.audit.view` | Audit log |
+| `platform.settings.manage` | `PATCH /settings` |
+| `platform.admin.manage` | Add admins, suspend/reactivate, change permissions |
 
 More platform routes (all need a platform admin session; lists are newest first and take `period`):
 
@@ -402,7 +433,13 @@ More platform routes (all need a platform admin session; lists are newest first 
   inclusive). Rolling windows end now; days are UTC, which is Ghana time.
 - **Responses:** organisations carry `logoUrl` and `credits { balance, reserved, available }`, executives
   `creditBalance`, and the overview `suspendedOrganisations` plus all-time purchase totals.
-- Not built yet: replacing a chairman, renaming or deactivating an organisation, units, wiring the mobile admin screens.
+- **Rename and replace head (owner, 2026-11-06), both `platform.organisation.manage`:**
+  `PATCH /organisations/:id { name?, headTitle? }` (names unique ignoring case, 409) and
+  `POST /organisations/:id/head/replace` with `{ executiveId }` (an active executive of that organisation) or the
+  appoint-head fields. One transaction ends the current head appointment (`organisation.head_replaced` audit)
+  and appoints the new one; the old head keeps their account, other positions and own credits. 409 when
+  there is no head yet (appoint instead), the organisation is inactive, or it is the same person.
+- Not built yet: deactivating an organisation, units.
 
 ## 7b. Chairman tools (owner's decisions, 2026-11-02)
 
@@ -466,16 +503,23 @@ Module `credits`, mounted at `/api/v1/credits`.
   `{ reference, outcome: "paid" | "failed" }`. A real provider (SRS 12.2, still pending) is another driver
   in `integrations/payments/payment_provider.ts`; the API does not change. Price: `CREDIT_PRICE_PESEWAS`
   (default 4 = GHS 0.04 per credit; **set the agreed price**).
-- **Permissions:** `credit.purchase` is new (the chairman has it with every permission).
-- **Hybrid policy (owner's decision, 2026-11-05):** the chairman's broadcasts spend the organisation wallet;
-  every other executive spends their own wallet, filled by **allocation** from the organisation wallet.
-- **Allocation (FR-CR-03, UC-04):** one transaction posts `allocation_out` (negative) on the organisation
-  wallet and `allocation_in` on the executive's, keys `allocation:<base>:out` / `:in` (base = SHA-256 of
-  caller id + `Idempotency-Key`, or a random uuid). History pairs the two rows by key: no extra table.
-  **Lock order: organisation wallet, then executive wallet** — keep it in any code that locks both.
+- **Permissions:** `credit.purchase` is new (the head has it with every permission).
+- **Personal wallets, no pool (owner's decisions, 2026-11-06, replace the 2026-11-05 hybrid policy):** every
+  executive, **the head included**, has one wallet and spends from it. **Purchases go straight into the buyer's
+  wallet; allocations move credits from the giver's wallet to the recipient's.** Platform adjustments go to the
+  head's wallet. The `organisation` wallet type is legacy: migration `RemoveOrganisationPool` moved each pool's
+  free balance to its head as two `adjustment` rows.
+- **Balances:** `GET /balance` returns `mine`, plus for those who see organisation credits `organisation`
+  (= `organisationTotal`): every wallet in the organisation added up; its `reserved` is what scheduled broadcasts
+  have set aside (deducted when sent). `GET /transactions?wallet=organisation` lists every wallet's rows, each
+  with `walletOwner`; platform `OrganisationResponse.credits` is the same sum.
+- **Allocation (FR-CR-03, UC-04):** one transaction posts `allocation_out` (negative) on the giver's wallet and
+  `allocation_in` on the recipient's, keys `allocation:<base>:out` / `:in` (base = SHA-256 of caller id +
+  `Idempotency-Key`, or a random uuid). History pairs the two rows by key: no extra table.
+  **Lock order: the two wallets in executive-id order** — keep it in any code that locks both.
   Recipient: an active executive of your organisation within reach (same SQL rule as §7b), never yourself
-  (422) or the chairman (422); unknown or out of reach is 404; too few *available* organisation credits is
-  409. A replayed key returns the first allocation; the same key with another recipient or amount is 422.
+  (422); unknown or out of reach is 404; too few *available* credits in the giver's wallet is 409. A replayed
+  key returns the first allocation; the same key with another recipient or amount is 422.
   Audited as `credit.allocated`.
 - **Not built yet:** allocation to units (FR-CR-03: there are no unit wallets), allocation limits
   (FR-CR-04: no configuration design yet), refunds. Reservation at dispatch is built (§7e).
@@ -508,8 +552,8 @@ Module `credits`, mounted at `/api/v1/credits`.
 - **Approval rule (FR-APR-01/06):** derived from permissions, no rules table yet. `broadcast.send` sends
   directly; `broadcast.submit` goes to approval. An approver decides only broadcasts whose **every** unit
   they reach (organisation-level audiences need an organisation-wide approver) and never their own.
-- **Who pays (owner, FR-CR-11 = hybrid):** the **author's** wallet: the organisation wallet if the author
-  holds the chairman office, otherwise the author's own (filled by allocation). Same for approved broadcasts.
+- **Who pays (owner, FR-CR-11, 2026-11-06):** always the **author's own** wallet, the head included.
+  Same for approved broadcasts; the approval detail shows the author's available credits.
 - **Audience (FR-SMS-02/03, BR-06):** `constituency` (organisation-wide authors only, includes members
   without a unit), `electoral_area` / `branch` / `polling_station` (units of exactly that type, their
   descendants included), `executive_group` (active executives, optionally in units). Recipients are active
