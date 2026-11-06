@@ -16,7 +16,17 @@ export interface TextFieldProps extends TextInputProps {
 
 export const TextField = forwardRef<ComponentRef<typeof TextInput>, TextFieldProps>(
   function TextField(
-    { label, error, isPassword = false, className, editable = true, onFocus, onBlur, ...props },
+    {
+      label,
+      error,
+      isPassword = false,
+      className,
+      editable = true,
+      multiline,
+      onFocus,
+      onBlur,
+      ...props
+    },
     ref,
   ) {
     const theme = useTheme();
@@ -29,7 +39,8 @@ export const TextField = forwardRef<ComponentRef<typeof TextInput>, TextFieldPro
         <Text className="font-sans-bold text-base text-foreground">{label}</Text>
         <View
           className={cn(
-            'h-14 flex-row items-center rounded-lg border bg-muted/40 px-4',
+            'flex-row rounded-lg border bg-muted/40 px-4',
+            multiline ? 'min-h-32 items-start py-3' : 'h-14 items-center',
             error ? 'border-destructive' : isFocused ? 'border-ring' : 'border-input',
             !editable && 'opacity-60',
           )}
@@ -40,9 +51,13 @@ export const TextField = forwardRef<ComponentRef<typeof TextInput>, TextFieldPro
             accessibilityHint={error}
             editable={editable}
             secureTextEntry={isHidden}
+            multiline={multiline}
             placeholderTextColor={theme.mutedForeground}
             selectionColor={theme.ring}
-            className="h-full flex-1 font-sans-medium text-base text-foreground"
+            className={cn(
+              'flex-1 font-sans-medium text-base text-foreground',
+              multiline ? 'min-h-24' : 'h-full',
+            )}
             onFocus={(event) => {
               setIsFocused(true);
               onFocus?.(event);

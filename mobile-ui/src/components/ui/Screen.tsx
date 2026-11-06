@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from 'react';
 import { ScrollView, View, type ScrollViewProps } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 
 import { enterContent } from '@/constants/motion';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { cn } from '@/utils/helpers';
 
 type ScreenProps = PropsWithChildren<{
@@ -34,11 +34,14 @@ export function ScrollScreen({
   children,
   ...props
 }: PropsWithChildren<ScrollViewProps & { className?: string }>) {
+  // Inside a tab the inset includes the floating tab bar (TabStack measures it).
+  const insets = useSafeAreaInsets();
+
   return (
     <ScrollView
       className="flex-1 bg-background"
       contentContainerStyle={[
-        { alignItems: 'center', paddingBottom: BottomTabInset + Spacing.xl },
+        { alignItems: 'center', paddingBottom: insets.bottom + Spacing.xl },
         contentContainerStyle,
       ]}
       {...props}

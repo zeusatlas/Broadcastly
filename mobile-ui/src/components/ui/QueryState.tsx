@@ -1,47 +1,51 @@
-import { ActivityIndicator, View } from 'react-native';
+import { CloudOff, type LucideIcon } from 'lucide-react-native';
 
-import { useTheme } from '@/hooks/use_theme';
 import type { ApiError } from '@/lib/api';
 
-import { Button } from './Button';
-import { Text } from './Text';
+import { EmptyState, LoadingState, type EmptyStateProps } from './EmptyState';
 
 export interface QueryStateProps {
   isLoading: boolean;
   error: ApiError | null;
   isEmpty: boolean;
+  // The empty state's title, e.g. "No members yet".
   emptyText: string;
+  emptyDescription?: string;
+  emptyIcon?: LucideIcon;
+  emptyAction?: EmptyStateProps['action'];
   onRetry: () => void;
 }
 
-// What a list shows instead of rows: loading, a retryable error, or an empty message. Null otherwise.
-export function QueryState({ isLoading, error, isEmpty, emptyText, onRetry }: QueryStateProps) {
-  const theme = useTheme();
-
-  if (isLoading) {
-    return (
-      <View className="items-center py-10">
-        <ActivityIndicator color={theme.mutedForeground} />
-      </View>
-    );
-  }
+// What a list shows instead of rows: loading, a retryable error, or an empty state. Null otherwise.
+export function QueryState({
+  isLoading,
+  error,
+  isEmpty,
+  emptyText,
+  emptyDescription,
+  emptyIcon,
+  emptyAction,
+  onRetry,
+}: QueryStateProps) {
+  if (isLoading) return <LoadingState />;
   if (error) {
     return (
-      <View className="items-center gap-3 py-8">
-        <Text variant="bodyMuted" className="text-center">
-          {error.message}
-        </Text>
-        {error.isRetryable ? (
-          <Button label="Try again" variant="outline" onPress={onRetry} />
-        ) : null}
-      </View>
+      <EmptyState
+        icon={CloudOff}
+        title="Couldn’t load this"
+        description={error.message}
+        action={error.isRetryable ? { label: 'Try again', onPress: onRetry } : undefined}
+      />
     );
   }
   if (isEmpty) {
     return (
-      <Text variant="bodyMuted" className="py-8 text-center">
-        {emptyText}
-      </Text>
+      <EmptyState
+        title={emptyText}
+        description={emptyDescription}
+        icon={emptyIcon}
+        action={emptyAction}
+      />
     );
   }
   return null;

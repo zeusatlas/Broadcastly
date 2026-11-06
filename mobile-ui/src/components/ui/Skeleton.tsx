@@ -27,5 +27,11 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
-  return <Animated.View {...props} style={[props.style, animatedStyle]} className={cn('bg-muted', className)} />;
+  return (
+    <Animated.View
+      {...props}
+      style={[props.style, animatedStyle]}
+      className={cn('bg-muted', className)}
+    />
+  );
 }

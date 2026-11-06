@@ -35,8 +35,10 @@ export function Avatar({ name, imageUrl, size = 'md', className, style }: Avatar
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
+      // No ring or fill behind a picture: only initials sit on a coloured disc.
       className={cn(
-        'items-center justify-center rounded-full border border-secondary bg-secondary',
+        'items-center justify-center overflow-hidden rounded-full',
+        imageUrl ? 'bg-transparent' : 'bg-secondary',
         SIZE[size].box,
         className,
       )}

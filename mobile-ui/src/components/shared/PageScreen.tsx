@@ -53,7 +53,8 @@ export function PageScreen({
     <>
       <Stack.Screen options={{ headerShown: false, title: title ?? '' }} />
       <KeyboardAwareScrollView
-        bottomOffset={24}
+        // The action bar rides on top of the keyboard, so the focused field must clear the bar too.
+        bottomOffset={actions ? actionsHeight + 16 : 24}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         onScroll={collapsing.onScroll}
@@ -115,7 +116,7 @@ export function PageScreen({
         <View
           pointerEvents="box-none"
           className="absolute bottom-0 left-0 right-0 px-5"
-          style={{ paddingBottom: insets.bottom + 16 }}
+          style={{ paddingBottom: insets.bottom + 12 }}
         >
           {footer}
         </View>

@@ -1,4 +1,4 @@
-import { Easing, FadeInDown } from 'react-native-reanimated';
+import { Easing, FadeInDown, SlideInDown } from 'react-native-reanimated';
 
 // The one place for motion timing: change these and every page follows.
 export const ENTER_DURATION = 420;
@@ -15,3 +15,6 @@ export const enterContent = (delay = 0) =>
 
 export const enterRow = (index: number) =>
   index < ANIMATED_ROWS ? enterContent(80 + index * ROW_STAGGER) : undefined;
+
+// Bottom sheets: the modal only fades the backdrop in; the panel itself slides up.
+export const SHEET_ENTER = SlideInDown.duration(320).easing(Easing.out(Easing.cubic));

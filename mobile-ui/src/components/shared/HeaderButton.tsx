@@ -57,12 +57,7 @@ export function ProfileButton({ name, organisationName, organisationLogoUrl }: P
       hitSlop={8}
       className="h-11 w-11 items-center justify-center active:opacity-70"
     >
-      <Avatar
-        name={organisationName ?? name}
-        imageUrl={organisationLogoUrl}
-        size="sm"
-        className="border-b-2"
-      />
+      <Avatar name={organisationName ?? name} imageUrl={organisationLogoUrl} size="sm" />
     </Pressable>
   );
 }
