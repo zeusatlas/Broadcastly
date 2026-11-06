@@ -399,6 +399,11 @@ organisation overview tiles from `GET /organisation/overview` → one row of qui
 `SELECT_SEARCH_THRESHOLD` (8) options; long lists never show every option without a way to search. Search
 buttons on lists follow the filter rule: shown only above `FILTER_THRESHOLD` items or while searching.
 Organisation lists show the logo when there is one.
+**New organisation is a two-step stepper** on two endpoints: step 1 (name, type, description of at most
+20 words) calls `POST /platform/organisations`; step 2 appoints its head (`POST …/head`, the shared
+`HeadFields` form also used by Appoint head) or is skipped, leaving it under "No head yet".
+A member's own ID is **"Member ID"** in every label (`memberNumber` in the API); never "Party ID", since
+organisations include schools, churches, unions and businesses.
 `QueryState` (loading / retryable error / empty) is in `components/ui`.
 **Empty and loading states** (owner's rule, 2026-11-06): every empty list or screen uses `EmptyState`
 (`icon`, `title`, optional `description` and `action`); `QueryState` already does, and takes `emptyIcon`,
@@ -693,13 +698,20 @@ There are exactly three guard points. Do not add redirects inside screens.
    inside this organisation" on an organisation's page calls the workspace endpoint, and
    `useAuthStore.enterOrganisation` swaps `user` for the working profile (role head) and keeps the admin's
    own in `workspace.admin`; the client then adds `X-Organisation-Id` to every non-`/auth`, non-`/platform`
-   request, so the executive tabs work unchanged. `WorkspaceBanner` (home and More) shows where they are and
-   exits back to the admin app. Not persisted: a relaunch starts as the admin;
+   request, so the executive tabs work unchanged. `WorkspaceBanner` (Home only, owner's rule) shows where they are and
+   exits back to the admin app. The admin screens stay registered (and in history) while inside, so entering is one
+   push of `/` and leaving only removes the organisation's screens, revealing the page underneath: never navigate
+   by hand on enter/exit (it made screens jump). Popping `(tabs)` (swipe or Android back) also exits. Not persisted: a relaunch starts as the admin;
    the admin **More** tab (`AdminMoreScreen`) lists Payments, Credit history, Adjust credits, Broadcasts,
    Audit log and Platform settings, each hidden without its `platform.*` permission; an organisation's page
    links to the same screens filtered by `organisationId` (route params `organisationId`, `organisationName`),
    lets `platform.organisation.manage` change or remove the logo (`utils/media` `pickLogoForm`, shared with
-   Settings), and opens each executive at `admin/organisations/executive` (contact, credits, suspend/reactivate).
+   Settings). It does not list executives (they are members): **Members** under Activity opens
+   `admin/organisations/members`, the organisation's own `MembersScreen` (`isTabRoot={false}`) scoped by
+   `useAuthStore.viewOrganisation` (adds `X-Organisation-Id` while open, needs `platform.organisation.operate`);
+   filter "Executives only" there, and an executive's detail sheet has "Executive account", which opens
+   `admin/organisations/executive` (by `memberId`): contact, credits, suspend/reactivate. Both notification
+   screens are `NotificationFeed` (features/notifications), so they always look the same.
    Audit actions and credit kinds are shown in words (`utils/admin_labels.ts`), never as codes; everyone else gets `(tabs)`
    (`EXECUTIVE_TABS`). One login for both (owner's decision); the API re-checks every request.
 3. **Permission** — the same layout reads `GATED_ROUTES` in `constants/routes.ts` for executive
