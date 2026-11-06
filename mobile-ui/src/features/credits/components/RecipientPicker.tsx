@@ -26,7 +26,7 @@ function RecipientList({ onSelect }: Pick<RecipientPickerProps, 'onSelect'>) {
   return (
     <View className="flex-1 gap-4">
       <SearchField
-        placeholder="Search by name or party ID"
+        placeholder="Search by name or member ID"
         value={search}
         onChangeText={setSearch}
       />

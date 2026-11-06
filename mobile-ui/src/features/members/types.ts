@@ -9,7 +9,7 @@ export interface MemberResponse {
   middleName: string | null;
   lastName: string;
   fullName: string;
-  partyId: string | null;
+  memberNumber: string | null;
   phone: string | null;
   dateOfBirth: string | null;
   unitId: string | null;
@@ -33,7 +33,7 @@ export interface CreateMemberRequest {
   firstName: string;
   middleName?: string;
   lastName: string;
-  partyId?: string;
+  memberNumber?: string;
   phone?: string;
   dateOfBirth?: string;
   unitId?: string;
@@ -44,7 +44,7 @@ export interface UpdateMemberRequest {
   firstName?: string;
   middleName?: string | null;
   lastName?: string;
-  partyId?: string | null;
+  memberNumber?: string | null;
   phone?: string | null;
   dateOfBirth?: string | null;
   unitId?: string;
@@ -91,7 +91,7 @@ export interface MemberImportResponse {
 export type MemberImportsResponse = Paginated<MemberImportResponse>;
 
 export interface ImportRowDuplicate {
-  matchedOn: 'party_id' | 'phone';
+  matchedOn: 'member_number' | 'phone';
   memberId: string | null;
   memberName: string | null;
   unitName: string | null;
@@ -104,7 +104,7 @@ export interface ImportRowResponse {
   status: ImportRowStatus;
   values: Partial<
     Record<
-      'firstName' | 'middleName' | 'lastName' | 'partyId' | 'phone' | 'dateOfBirth' | 'unit',
+      'firstName' | 'middleName' | 'lastName' | 'memberNumber' | 'phone' | 'dateOfBirth' | 'unit',
       string
     >
   >;

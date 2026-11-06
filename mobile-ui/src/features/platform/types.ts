@@ -31,7 +31,7 @@ export interface WalletBalanceResponse {
 export interface OrganisationExecutiveResponse {
   id: string;
   memberId: string;
-  partyId: string | null;
+  memberNumber: string | null;
   fullName: string;
   email: string;
   phone: string | null;
@@ -92,7 +92,7 @@ export interface AppointHeadRequest {
   firstName: string;
   middleName?: string;
   lastName: string;
-  partyId?: string;
+  memberNumber?: string;
   email: string;
   phone: string;
   dateOfBirth: string;

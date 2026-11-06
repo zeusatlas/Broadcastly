@@ -266,7 +266,7 @@ export function MembersScreen() {
             <EmptyState
               icon={SearchX}
               title="No members found"
-              description="Try a different name, phone number or party ID."
+              description="Try a different name, phone number or member ID."
             />
           ) : groups.some((g) => g.value !== g.defaultValue) || unit ? (
             <EmptyState

@@ -14,12 +14,12 @@ interface AppointHeadScreenProps {
   headTitle: string;
 }
 
-// The only way an organisation gets its head; a matching party ID promotes that member instead.
+// The only way an organisation gets its head; a matching member ID promotes that member instead.
 export function AppointHeadScreen({ organisationId, headTitle }: AppointHeadScreenProps) {
   const appoint = useAppointHeadMutation();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [partyId, setPartyId] = useState('');
+  const [memberNumber, setPartyId] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
@@ -33,7 +33,7 @@ export function AppointHeadScreen({ organisationId, headTitle }: AppointHeadScre
       credentials: {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        partyId: partyId.trim() || undefined,
+        memberNumber: memberNumber.trim() || undefined,
         email: email.trim(),
         phone: phone.trim(),
         dateOfBirth: dateOfBirth.trim(),
@@ -70,7 +70,7 @@ export function AppointHeadScreen({ organisationId, headTitle }: AppointHeadScre
       }
     >
       <Text variant="bodyMuted">
-        They sign in with this email and phone. If the party ID matches a member of this
+        They sign in with this email and phone. If the member ID matches a member of this
         organisation, that member is promoted.
       </Text>
       <View className="mt-6 gap-5">
@@ -89,11 +89,11 @@ export function AppointHeadScreen({ organisationId, headTitle }: AppointHeadScre
           error={fieldError('lastName')}
         />
         <TextField
-          label="Party ID (optional)"
-          value={partyId}
+          label="Member ID (optional)"
+          value={memberNumber}
           onChangeText={setPartyId}
           autoCapitalize="characters"
-          error={fieldError('partyId')}
+          error={fieldError('memberNumber')}
         />
         <TextField
           label="Email"

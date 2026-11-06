@@ -144,7 +144,7 @@ export function ReplaceHeadScreen() {
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
-    partyId: '',
+    memberNumber: '',
     email: '',
     phone: '',
     dateOfBirth: '',
@@ -169,7 +169,7 @@ export function ReplaceHeadScreen() {
         : {
             firstName: form.firstName.trim(),
             lastName: form.lastName.trim(),
-            partyId: form.partyId.trim() || undefined,
+            memberNumber: form.memberNumber.trim() || undefined,
             email: form.email.trim(),
             phone: form.phone.trim(),
             dateOfBirth: form.dateOfBirth.trim(),
@@ -249,7 +249,7 @@ export function ReplaceHeadScreen() {
       ) : (
         <View className="mt-6 gap-5">
           <Text variant="caption">
-            If the party ID matches a member of this organisation, that member is promoted.
+            If the member ID matches a member of this organisation, that member is promoted.
           </Text>
           <TextField
             label="First name"
@@ -266,11 +266,11 @@ export function ReplaceHeadScreen() {
             error={fieldError('lastName')}
           />
           <TextField
-            label="Party ID (optional)"
-            value={form.partyId}
-            onChangeText={set('partyId')}
+            label="Member ID (optional)"
+            value={form.memberNumber}
+            onChangeText={set('memberNumber')}
             autoCapitalize="characters"
-            error={fieldError('partyId')}
+            error={fieldError('memberNumber')}
           />
           <TextField
             label="Email"

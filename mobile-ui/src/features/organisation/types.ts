@@ -48,7 +48,7 @@ export interface ExecutiveAppointmentResponse {
 export interface ExecutiveResponse {
   id: string;
   memberId: string;
-  partyId: string | null;
+  memberNumber: string | null;
   fullName: string;
   email: string;
   phone: string | null;
@@ -91,7 +91,7 @@ export interface AppointmentRequest {
 }
 
 export interface CreateExecutiveRequest extends AppointmentRequest {
-  partyId?: string;
+  memberNumber?: string;
   firstName: string;
   middleName?: string;
   lastName: string;

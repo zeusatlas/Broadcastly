@@ -26,7 +26,7 @@ const TEMPLATE_COLUMNS = [
   { header: 'First name', isRequired: true },
   { header: 'Middle name', isRequired: false },
   { header: 'Last name', isRequired: true },
-  { header: 'Party ID', isRequired: false },
+  { header: 'Member ID', isRequired: false },
   { header: 'Phone', isRequired: false },
   { header: 'Date of birth', isRequired: false },
   { header: 'Unit', isRequired: false },

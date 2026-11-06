@@ -80,7 +80,7 @@ export function ProfileScreen() {
   const unitName = user.appointments[0]?.unitName ?? user.organisation?.name;
 
   const details = [
-    { label: 'Party ID', value: user.partyId ?? 'Not on record' },
+    { label: 'Member ID', value: user.memberNumber ?? 'Not on record' },
     { label: 'Phone', value: user.phone ? formatGhanaPhone(user.phone) : '—' },
     { label: 'Email', value: user.email },
     {

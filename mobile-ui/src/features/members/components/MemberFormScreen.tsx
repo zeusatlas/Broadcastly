@@ -13,7 +13,7 @@ export interface MemberFormValues {
   firstName: string;
   middleName: string;
   lastName: string;
-  partyId: string;
+  memberNumber: string;
   phone: string;
   dateOfBirth: string;
   unit: UnitChoice | null;
@@ -23,7 +23,7 @@ export const EMPTY_MEMBER_FORM: MemberFormValues = {
   firstName: '',
   middleName: '',
   lastName: '',
-  partyId: '',
+  memberNumber: '',
   phone: '',
   dateOfBirth: '',
   unit: null,
@@ -112,11 +112,11 @@ export function MemberFormScreen({
           error={fieldError('lastName')}
         />
         <TextField
-          label="Party ID"
-          value={values.partyId}
-          onChangeText={set('partyId')}
+          label="Member ID"
+          value={values.memberNumber}
+          onChangeText={set('memberNumber')}
           autoCapitalize="characters"
-          error={fieldError('partyId')}
+          error={fieldError('memberNumber')}
         />
         <TextField
           label="Phone number"

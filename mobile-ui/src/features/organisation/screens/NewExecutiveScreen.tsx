@@ -110,7 +110,7 @@ function MemberSheet({
       <SearchField
         value={search}
         onChangeText={setSearch}
-        placeholder="Search by name, phone or party ID"
+        placeholder="Search by name, phone or member ID"
         autoFocus
       />
       <FlatList
@@ -140,7 +140,8 @@ function MemberSheet({
               <Text variant="caption" numberOfLines={1}>
                 {item.isExecutive
                   ? 'Already an executive'
-                  : [item.partyId, item.unitName].filter(Boolean).join(' · ') || 'No party ID'}
+                  : [item.memberNumber, item.unitName].filter(Boolean).join(' · ') ||
+                    'No member ID'}
               </Text>
             </View>
             {item.id === selectedId ? <Check size={20} color={theme.accentEmphasis} /> : null}
@@ -268,7 +269,7 @@ function PermissionSheet({
 
 type OpenSheet = 'member' | 'position' | 'permissions' | null;
 
-// Appoints an existing member (FR-ORG-05): the account links to the member through the party ID.
+// Appoints an existing member (FR-ORG-05): the account links to the member through the member ID.
 export function NewExecutiveScreen() {
   const canManage = useHasPermission('appointment.manage');
   const available = (useCurrentUser()?.permissions ?? []).filter(
@@ -285,10 +286,10 @@ export function NewExecutiveScreen() {
   const [unit, setUnit] = useState<UnitChoice | null>(null);
   const [permissions, setPermissions] = useState<Permission[]>([]);
 
-  const hasNoPartyId = member !== null && !member.partyId;
+  const hasNoMemberNumber = member !== null && !member.memberNumber;
   const isReady = Boolean(
     canManage &&
-    member?.partyId &&
+    member?.memberNumber &&
     email.trim() &&
     (member.phone || phone.trim()) &&
     (member.dateOfBirth || dateOfBirth.trim()) &&
@@ -296,12 +297,12 @@ export function NewExecutiveScreen() {
   );
 
   const submit = async () => {
-    if (!member?.partyId || !position) return;
+    if (!member?.memberNumber || !position) return;
     const response = await create.mutate({
       firstName: member.firstName,
       middleName: member.middleName ?? undefined,
       lastName: member.lastName,
-      partyId: member.partyId,
+      memberNumber: member.memberNumber,
       email: email.trim(),
       phone: member.phone ?? phone.trim(),
       dateOfBirth: member.dateOfBirth ?? dateOfBirth.trim(),
@@ -348,13 +349,13 @@ export function NewExecutiveScreen() {
           label="Member"
           value={member?.fullName}
           detail={
-            member ? [member.partyId, member.unitName].filter(Boolean).join(' · ') : undefined
+            member ? [member.memberNumber, member.unitName].filter(Boolean).join(' · ') : undefined
           }
           placeholder="Search members"
           error={
-            hasNoPartyId
-              ? 'This member has no party ID. Add one to their record first.'
-              : create.error?.fieldError('partyId')
+            hasNoMemberNumber
+              ? 'This member has no member ID. Add one to their record first.'
+              : create.error?.fieldError('memberNumber')
           }
           onPress={() => setSheet('member')}
         />

@@ -67,7 +67,7 @@ export interface Appointment {
 export interface User {
   id: string;
   memberId: string | null;
-  partyId: string | null;
+  memberNumber: string | null;
   organisation: OrganisationRef | null;
   firstName: string;
   middleName: string | null;

@@ -118,7 +118,7 @@ export function AdminExecutiveScreen() {
         <View>
           <DetailRow label="Email" value={executive.email} />
           <DetailRow label="Phone" value={executive.phone ?? 'Not recorded'} />
-          <DetailRow label="Party ID" value={executive.partyId ?? 'Not recorded'} isLast />
+          <DetailRow label="Member ID" value={executive.memberNumber ?? 'Not recorded'} isLast />
         </View>
       </PageSection>
 

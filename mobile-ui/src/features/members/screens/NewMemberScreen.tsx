@@ -22,7 +22,7 @@ export function NewMemberScreen() {
           firstName: values.firstName.trim(),
           middleName: values.middleName.trim() || undefined,
           lastName: values.lastName.trim(),
-          partyId: values.partyId.trim() || undefined,
+          memberNumber: values.memberNumber.trim() || undefined,
           phone: values.phone.trim() ? (normaliseGhanaPhone(values.phone) ?? undefined) : undefined,
           dateOfBirth: values.dateOfBirth.trim() || undefined,
           unitId: values.unit?.id,

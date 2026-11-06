@@ -141,8 +141,8 @@ export function MemberDetailSheet({ memberId, onClose, onChanged }: MemberDetail
             />
             <DetailRow
               icon={IdCard}
-              label="Party ID"
-              value={data.partyId ?? 'Not recorded'}
+              label="Member ID"
+              value={data.memberNumber ?? 'Not recorded'}
               color={theme.mutedForeground}
             />
             <DetailRow

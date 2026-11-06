@@ -40,14 +40,14 @@ function rowName(row: ImportRowResponse) {
 }
 
 function rowDetail(row: ImportRowResponse) {
-  return [row.values.phone, row.values.partyId, row.values.unit].filter(Boolean).join(' · ');
+  return [row.values.phone, row.values.memberNumber, row.values.unit].filter(Boolean).join(' · ');
 }
 
 // The API refuses these choices, so they are not offered.
 function isAllowed(row: ImportRowResponse, resolution: ImportResolution) {
   if (resolution === 'update_existing') return Boolean(row.duplicate?.memberId);
   if (resolution === 'create_new') {
-    return !(row.duplicate?.matchedOn === 'party_id' && row.duplicate.memberId);
+    return !(row.duplicate?.matchedOn === 'member_number' && row.duplicate.memberId);
   }
   return true;
 }
@@ -127,7 +127,7 @@ export function ImportPreview({ importId, counts, canResolve, onResolved }: Impo
                   ))}
                   {row.duplicate ? (
                     <Text variant="caption">
-                      Same {row.duplicate.matchedOn === 'phone' ? 'phone' : 'party ID'} as{' '}
+                      Same {row.duplicate.matchedOn === 'phone' ? 'phone' : 'member ID'} as{' '}
                       {row.duplicate.memberName
                         ? `${row.duplicate.memberName}${row.duplicate.unitName ? ` · ${row.duplicate.unitName}` : ''}`
                         : `row ${row.duplicate.rowNumber ?? '?'} of this file`}
