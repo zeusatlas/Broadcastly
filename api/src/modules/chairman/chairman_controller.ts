@@ -23,7 +23,7 @@ import type {
   UpdateOrganisationNotificationPreferencesRequest,
 } from './chairman_types';
 
-// The chairman's own organisation only; the same logo rules as the platform admin's.
+// The head's own organisation only; the same logo rules as the platform admin's.
 async function setOwnLogo(req: Request, logoPath: string | null) {
   const auth = requireAuth(req);
   const organisation = await platformService.setOrganisationLogo(

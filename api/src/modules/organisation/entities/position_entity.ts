@@ -5,7 +5,7 @@ import { BaseEntity } from '../../../database/base_entity';
 import { Organisation } from './organisation_entity';
 
 // An office an executive holds, e.g. "Constituency Organiser" (FR-ORG-08, BR-03). Each organisation's
-// chairman creates its own; built-in offices (Chairman) have no organisation. Never branch on `title`.
+// head creates its own; built-in offices (Head) have no organisation. Never branch on `title`.
 @Entity({ name: 'positions' })
 // Titles unique per organisation, ignoring case: an expression index, so it lives in the migration only.
 @Index('uq_positions_organisation_title', { synchronize: false })

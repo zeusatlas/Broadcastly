@@ -21,7 +21,7 @@ import type {
   UpdateOrganisationNotificationPreferencesRequest,
 } from './chairman_types';
 
-// Inner whitespace collapsed, so "Branch  Chairman" and "Branch Chairman" count as the same name.
+// Inner whitespace collapsed, so "Branch  Head" and "Branch Head" count as the same name.
 const labelSchema = (max: number) =>
   z
     .string()

@@ -93,7 +93,12 @@ const ORGANISATIONS: OrganisationFixture[] = [
         positionTitle: 'Secretary',
         unitType: 'organisation',
         unitName: null,
-        permissions: ['broadcast.draft', 'broadcast.submit', 'broadcast.select_recipients', 'report.view'],
+        permissions: [
+          'broadcast.draft',
+          'broadcast.submit',
+          'broadcast.select_recipients',
+          'report.view',
+        ],
         creditBalance: 1000,
       },
       {
@@ -225,7 +230,7 @@ const ORGANISATIONS: OrganisationFixture[] = [
 async function seedAdmin() {
   const { items } = await platformService.listPlatformAdmins({ page: 1, pageSize: 100 });
   const exists = items.some((admin) => admin.email === ADMIN.email);
-  if (!exists) await platformService.createPlatformAdmin(ADMIN, SEEDER);
+  if (!exists) await authService.createPlatformAdmin(ADMIN, SEEDER, { isSuperAdmin: true });
   print(`  Platform admin: ${exists ? 'exists' : 'created'}`);
 }
 
@@ -283,14 +288,22 @@ async function ensureMemberships(organisationId: string) {
   );
 }
 
-async function ensureUnit(organisationId: string, name: string, type: string, parentId: string | null) {
+async function ensureUnit(
+  organisationId: string,
+  name: string,
+  type: string,
+  parentId: string | null,
+) {
   const [existing] = (await dataSource.query(
     `SELECT id FROM organisation_units WHERE organisation_id = $1 AND name = $2`,
     [organisationId, name],
   )) as Array<{ id: string }>;
   if (existing) return existing.id;
   return dataSource.transaction(async (manager) => {
-    const unit = await organisationService.createUnit({ organisationId, name, type, parentId }, manager);
+    const unit = await organisationService.createUnit(
+      { organisationId, name, type, parentId },
+      manager,
+    );
     return unit.id;
   });
 }
@@ -302,7 +315,10 @@ async function ensurePosition(organisationId: string, title: string, unitType: s
   )) as Array<{ id: string }>;
   if (existing) return existing.id;
   return dataSource.transaction(async (manager) => {
-    const position = await organisationService.createPosition({ organisationId, title, unitType }, manager);
+    const position = await organisationService.createPosition(
+      { organisationId, title, unitType },
+      manager,
+    );
     return position.id;
   });
 }
@@ -356,8 +372,12 @@ async function seedExecutives(
   ];
   for (const executive of fixture.executives) {
     const executiveId = await ensureExecutive(organisationId, fixture, executive);
-    const positionId = await ensurePosition(organisationId, executive.positionTitle, executive.unitType);
-    const unitId = executive.unitName ? units.get(executive.unitName) ?? null : null;
+    const positionId = await ensurePosition(
+      organisationId,
+      executive.positionTitle,
+      executive.unitType,
+    );
+    const unitId = executive.unitName ? (units.get(executive.unitName) ?? null) : null;
     await dataSource.transaction(async (manager) => {
       const [appointment] = (await manager.query(
         `SELECT id FROM appointments WHERE organisation_id = $1 AND member_id =
@@ -381,7 +401,12 @@ async function seedExecutives(
         },
         manager,
       );
-      await organisationService.grantPermissions(created.id, executive.permissions, chairmanId, manager);
+      await organisationService.grantPermissions(
+        created.id,
+        executive.permissions,
+        chairmanId,
+        manager,
+      );
     });
     executiveIds.push({ id: executiveId, creditBalance: executive.creditBalance });
   }
@@ -395,10 +420,13 @@ async function seedCredits(
   organisationBalance: number,
 ) {
   await dataSource.transaction(async (manager) => {
-    const organisationWallet = await ledgerService.walletFor({ organisationId }, manager);
+    const headWallet = await ledgerService.walletFor(
+      { organisationId, executiveId: chairmanId },
+      manager,
+    );
     await ledgerService.post(
       {
-        walletId: organisationWallet.id,
+        walletId: headWallet.id,
         type: 'adjustment',
         amount: organisationBalance,
         idempotencyKey: `seed:organisation:${organisationId}`,
@@ -408,7 +436,10 @@ async function seedCredits(
       manager,
     );
     for (const executive of executiveIds) {
-      const wallet = await ledgerService.walletFor({ organisationId, executiveId: executive.id }, manager);
+      const wallet = await ledgerService.walletFor(
+        { organisationId, executiveId: executive.id },
+        manager,
+      );
       await ledgerService.post(
         {
           walletId: wallet.id,
@@ -432,14 +463,29 @@ async function seedBroadcasts(
   slug: string,
 ) {
   const repository = dataSource.getRepository(Broadcast);
-  const statuses = ['completed', 'pending_approval', 'cancelled', 'draft', 'partially_failed'] as const;
+  const statuses = [
+    'completed',
+    'pending_approval',
+    'cancelled',
+    'draft',
+    'partially_failed',
+  ] as const;
   for (let index = 1; index <= count; index += 1) {
     const title = `${slug.toUpperCase()} development broadcast ${pad(index)}`;
-    const existing = await repository.findOneBy({ organisationId, createdByExecutiveId: executiveId, title });
+    const existing = await repository.findOneBy({
+      organisationId,
+      createdByExecutiveId: executiveId,
+      title,
+    });
     if (existing) continue;
     const status = statuses[(index - 1) % statuses.length];
     const recipientCount = status === 'draft' ? 0 : 80 + index * 7;
-    const deliveredCount = status === 'completed' ? recipientCount - 3 : status === 'partially_failed' ? recipientCount - 12 : 0;
+    const deliveredCount =
+      status === 'completed'
+        ? recipientCount - 3
+        : status === 'partially_failed'
+          ? recipientCount - 12
+          : 0;
     await repository.save(
       repository.create({
         organisationId,
@@ -454,11 +500,15 @@ async function seedBroadcasts(
         estimatedCredits: recipientCount,
         deliveredCount,
         failedCount: status === 'partially_failed' ? 12 : status === 'completed' ? 3 : 0,
-        submittedCount: status === 'completed' || status === 'partially_failed' ? recipientCount : 0,
+        submittedCount:
+          status === 'completed' || status === 'partially_failed' ? recipientCount : 0,
         scheduledAt: null,
         cancelledAt: status === 'cancelled' ? new Date(Date.now() - index * 3_600_000) : null,
         submittedAt: status === 'draft' ? null : new Date(Date.now() - index * 3_600_000),
-        completedAt: status === 'completed' || status === 'partially_failed' ? new Date(Date.now() - index * 3_600_000) : null,
+        completedAt:
+          status === 'completed' || status === 'partially_failed'
+            ? new Date(Date.now() - index * 3_600_000)
+            : null,
       }),
     );
   }
@@ -466,9 +516,21 @@ async function seedBroadcasts(
 }
 
 const TEMPLATE_FIXTURES = [
-  ['Monthly meeting', 'meeting_announcement', 'Dear {first_name}, our monthly meeting is on {meeting_date} at {meeting_location}.'],
-  ['Official notice', 'official_notice', 'Dear {first_name}, please note this official notice from the executive.'],
-  ['Meeting reminder', 'reminder', 'Reminder: the meeting is on {meeting_date} at {meeting_location}.'],
+  [
+    'Monthly meeting',
+    'meeting_announcement',
+    'Dear {first_name}, our monthly meeting is on {meeting_date} at {meeting_location}.',
+  ],
+  [
+    'Official notice',
+    'official_notice',
+    'Dear {first_name}, please note this official notice from the executive.',
+  ],
+  [
+    'Meeting reminder',
+    'reminder',
+    'Reminder: the meeting is on {meeting_date} at {meeting_location}.',
+  ],
 ] as const;
 
 async function seedTemplates(organisationId: string, executiveId: string) {
@@ -495,9 +557,15 @@ async function seedOrganisation(fixture: OrganisationFixture) {
     `SELECT id FROM organisations WHERE lower(name) = ANY($1::text[]) ORDER BY created_at LIMIT 1`,
     [names],
   )) as Array<{ id: string }>;
-  const found = organisationRow ? await platformService.getOrganisation(organisationRow.id) : undefined;
+  const found = organisationRow
+    ? await platformService.getOrganisation(organisationRow.id)
+    : undefined;
   const organisation =
-    found ?? (await platformService.createOrganisation({ name: fixture.name, type: 'constituency' }, SEEDER));
+    found ??
+    (await platformService.createOrganisation(
+      { name: fixture.name, type: 'constituency', description: null },
+      SEEDER,
+    ));
 
   const headEmail = `head.${fixture.slug}@example.com`;
   const [existingHead] = (await dataSource.query(
@@ -548,7 +616,9 @@ async function main() {
   for (const fixture of ORGANISATIONS) {
     print(`  ${fixture.name} executives:`);
     for (const executive of fixture.executives) {
-      print(`    ${executive.emailName}.${fixture.slug}@example.com / ${executivePhone(fixture.slug, executive.memberIndex)}`);
+      print(
+        `    ${executive.emailName}.${fixture.slug}@example.com / ${executivePhone(fixture.slug, executive.memberIndex)}`,
+      );
     }
   }
 }

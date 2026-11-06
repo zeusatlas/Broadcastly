@@ -147,7 +147,7 @@ async function appoint(
   );
 }
 
-// The chairman's (or a granted manager's) tools for their own organisation.
+// The head's (or a granted manager's) tools for their own organisation.
 export const chairmanService = {
   async getNotificationPreferences(
     auth: AccessContext,

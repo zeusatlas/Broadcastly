@@ -18,7 +18,7 @@ import { Position } from './position_entity';
 @Index('idx_appointments_member_status', ['memberId', 'status'])
 // No one holds the same position in the same place twice at once (NULLS NOT DISTINCT: migration only).
 @Index('uq_appointments_active_holding', { synchronize: false })
-// At most one active chairman per organisation, even if two admins appoint at the same moment.
+// At most one active head per organisation, even if two admins appoint at the same moment.
 @Index('uq_appointments_active_chairman', ['organisationId'], {
   unique: true,
   where: `"status" = 'active' AND "position_id" = '${CHAIRMAN_POSITION_ID}'`,
@@ -46,7 +46,7 @@ export class Appointment extends BaseEntity {
   @JoinColumn({ name: 'organisation_id' })
   organisation?: Organisation;
 
-  // Null for organisation-wide offices such as chairman.
+  // Null for organisation-wide offices such as head.
   @Index('idx_appointments_unit_id')
   @Column({ type: 'uuid', name: 'unit_id', nullable: true })
   unitId: string | null;

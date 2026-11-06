@@ -16,7 +16,7 @@ and delivery reports.
 ## Who can use it
 
 Executives and platform admins sign in through the same \`/auth\` endpoints. There is no public
-sign-up: platform admins create organisations and appoint each chairman, and chairmen appoint their
+sign-up: platform admins create organisations and appoint each head, and heads appoint their
 executives. What each executive may see and do depends on their **active appointment**, their
 **permissions** and their **organisational scope** — never on job title alone. Platform admins
 manage every organisation through **Platform**.
@@ -67,7 +67,7 @@ Every organisation has a credit wallet, and so does every executive. One credit 
 segment. Balances change only through a ledger that cannot be edited, so every change is on record.
 
 1. **Buy** — \`POST /api/v1/credits/purchases\` with \`{ "credits": 10000 }\` (needs \`credit.purchase\`;
-   the chairman has it). Send an \`Idempotency-Key\` header so a retried request never buys twice.
+   the head has it). Send an \`Idempotency-Key\` header so a retried request never buys twice.
    The purchase starts as **pending**.
 2. **Pay** — at \`checkoutUrl\` when the provider gives one.
 3. **Settle** — the payment provider calls \`POST /api/v1/credits/payments/webhook\`. Only then do
@@ -131,7 +131,7 @@ export const TAG_DESCRIPTIONS = [
   {
     name: 'Platform',
     description:
-      'Platform admins only: dashboard totals, organisations and their chairmen, suspending and reactivating organisations and accounts, logos, every organisation’s broadcasts, credit purchases and credit history (filtered by period), and platform admins.',
+      'Platform admins only: dashboard totals, organisations and their heads, suspending and reactivating organisations and accounts, logos, every organisation’s broadcasts, credit purchases and credit history (filtered by period), and platform admins.',
   },
   {
     name: 'Credits',

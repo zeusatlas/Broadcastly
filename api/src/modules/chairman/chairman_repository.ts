@@ -14,7 +14,7 @@ import type {
   UnitResponse,
 } from './chairman_types';
 
-// Read models for the chairman's screens: lean raw SQL across modules' tables, always filtered to
+// Read models for the head's screens: lean raw SQL across modules' tables, always filtered to
 // the caller's organisation, and to their units unless they are organisation-wide (FR-IAM-03).
 
 export interface ExecutiveRow {

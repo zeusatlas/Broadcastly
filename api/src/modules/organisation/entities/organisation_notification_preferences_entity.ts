@@ -13,7 +13,11 @@ export class OrganisationNotificationPreferences extends BaseEntity {
   @JoinColumn({ name: 'organisation_id' })
   organisation?: Organisation;
 
-  @Column({ type: 'jsonb', default: () => "'{\"security\":true,\"approvals\":true,\"broadcasts\":true,\"imports\":true,\"digest\":false}'::jsonb" })
+  @Column({
+    type: 'jsonb',
+    default: () =>
+      '\'{"security":true,"approvals":true,"broadcasts":true,"imports":true,"digest":false}\'::jsonb',
+  })
   preferences: {
     security: boolean;
     approvals: boolean;

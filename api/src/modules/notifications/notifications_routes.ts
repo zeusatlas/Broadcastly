@@ -21,7 +21,7 @@ import {
 export const notificationsRouter = Router();
 
 // Every executive has a feed; platform admins have none.
-notificationsRouter.use(authenticate, authorize({ roles: ['chairman', 'executive'] }));
+notificationsRouter.use(authenticate, authorize({ roles: ['head', 'executive'] }));
 notificationsRouter.get('/', validate({ query: listNotificationsSchema }), c.list);
 notificationsRouter.get('/unread-count', c.unreadCount);
 notificationsRouter.post('/read-all', c.markAllRead);

@@ -37,15 +37,15 @@ import {
 
 export const chairmanRouter = Router();
 
-// Structure (positions, units) is the chairman's; managing people needs appointment.manage,
+// Structure (positions, units) is the head's; managing people needs appointment.manage,
 // limited to the units the caller reaches (checked in the service).
-const chairman = authorize({ roles: ['chairman'] });
+const chairman = authorize({ roles: ['head'] });
 const manager = authorize({ permission: 'appointment.manage' });
 const unitReader = authorize({
   anyOf: ['appointment.manage', 'broadcast.select_recipients', 'member.manage', 'member.import'],
 });
 const executiveParams = validate({ params: executiveParamsSchema });
-const executiveAccess = authorize({ roles: ['chairman', 'executive'] });
+const executiveAccess = authorize({ roles: ['head', 'executive'] });
 
 chairmanRouter.use(authenticate);
 
