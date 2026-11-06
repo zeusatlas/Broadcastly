@@ -8,11 +8,13 @@ import {
   EXECUTIVE_STATUSES,
   PERMISSIONS,
   PLATFORM_ADMIN_STATUSES,
+  PLATFORM_PERMISSIONS,
   SIGN_IN_CLIENTS,
   USER_ROLES,
   type CreateExecutiveRequest,
   type CreatePlatformAdminRequest,
   type RefreshTokenRequest,
+  type UpdatePlatformAdminPermissionsRequest,
   type ResendOtpRequest,
   type SignInRequest,
   type SessionParams,
@@ -74,9 +76,26 @@ export const createExecutiveSchema = z.object({
   dateOfBirth: dateOfBirthSchema,
 }) satisfies z.ZodType<CreateExecutiveRequest>;
 
+const platformPermissionsSchema = z
+  .array(z.enum(PLATFORM_PERMISSIONS))
+  .max(PLATFORM_PERMISSIONS.length)
+  .openapi({ example: ['platform.organisation.manage', 'platform.finance.view'] });
+
 export const createPlatformAdminSchema = z
-  .object({ firstName: nameSchema, lastName: nameSchema, email: emailSchema, phone: phoneSchema })
+  .object({
+    firstName: nameSchema,
+    lastName: nameSchema,
+    email: emailSchema,
+    phone: phoneSchema,
+    permissions: platformPermissionsSchema.optional(),
+  })
   .openapi('CreatePlatformAdminRequest') satisfies z.ZodType<CreatePlatformAdminRequest>;
+
+export const updatePlatformAdminPermissionsSchema = z
+  .object({ permissions: platformPermissionsSchema })
+  .openapi(
+    'UpdatePlatformAdminPermissionsRequest',
+  ) satisfies z.ZodType<UpdatePlatformAdminPermissionsRequest>;
 
 export const authTokensResponseSchema = z
   .object({
@@ -91,7 +110,7 @@ export const authTokensResponseSchema = z
 const appointmentSchema = z
   .object({
     id: z.uuid(),
-    positionTitle: z.string().openapi({ example: 'Constituency Chairman' }),
+    positionTitle: z.string().openapi({ example: 'Head' }),
     organisationId: z.uuid(),
     organisationName: z.string().openapi({ example: 'Central Constituency' }),
     unitId: z.uuid().nullable(),
@@ -117,7 +136,7 @@ export const organisationRefSchema = z
 export const userResponseSchema = z
   .object({
     id: z.uuid(),
-    role: z.enum(USER_ROLES).openapi({ example: 'chairman' }),
+    role: z.enum(USER_ROLES).openapi({ example: 'head' }),
     status: z.enum(EXECUTIVE_STATUSES).openapi({ example: 'active' }),
     memberId: z.uuid().nullable(),
     partyId: z.string().nullable().openapi({ example: 'M-004512' }),
@@ -130,7 +149,7 @@ export const userResponseSchema = z
     dateOfBirth: z.iso.date().nullable().openapi({ example: '1984-03-12' }),
     organisation: organisationRefSchema.nullable(),
     permissions: z
-      .array(z.enum(PERMISSIONS))
+      .array(z.enum([...PERMISSIONS, ...PLATFORM_PERMISSIONS]))
       .openapi({ example: ['broadcast.draft', 'member.manage', 'report.view'] }),
     appointments: z.array(appointmentSchema),
     lastSignInAt: z.iso.datetime().nullable(),
@@ -161,6 +180,8 @@ export const platformAdminResponseSchema = z
     email: z.string().openapi({ example: 'ama.owusu@example.com' }),
     phone: z.string().openapi({ example: '+233201234567' }),
     status: z.enum(PLATFORM_ADMIN_STATUSES).openapi({ example: 'active' }),
+    isSuperAdmin: z.boolean().openapi({ example: false }),
+    permissions: z.array(z.enum(PLATFORM_PERMISSIONS)),
     lastSignInAt: z.iso.datetime().nullable(),
     createdAt: z.iso.datetime(),
   })

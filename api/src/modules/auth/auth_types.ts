@@ -18,9 +18,26 @@ export const PERMISSIONS = [
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
+// What a platform admin may do. The super admin holds all of them; other admins hold what was ticked
+// when they were added. Reading organisations, executives and admins needs none.
+export const PLATFORM_PERMISSIONS = [
+  'platform.organisation.manage',
+  'platform.executive.manage',
+  'platform.credit.manage',
+  'platform.finance.view',
+  'platform.broadcast.view',
+  'platform.audit.view',
+  'platform.settings.manage',
+  'platform.admin.manage',
+  // Work inside an organisation with everything its head can do (members, broadcasts, credits…).
+  'platform.organisation.operate',
+] as const;
+export type PlatformPermission = (typeof PLATFORM_PERMISSIONS)[number];
+export type AccessPermission = Permission | PlatformPermission;
+
 // What sign-in and /auth/me report, so each app can route the user to the right dashboard.
-// Derived, not stored: `chairman` holds the chairman office; an executive's offices are positions.
-export const USER_ROLES = ['platform_admin', 'chairman', 'executive'] as const;
+// Derived, not stored: `head` holds the head office; an executive's offices are positions.
+export const USER_ROLES = ['platform_admin', 'head', 'executive'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export const EXECUTIVE_STATUSES = ['invited', 'active', 'suspended', 'deactivated'] as const;
@@ -59,8 +76,11 @@ export interface AccessContext {
   memberId: string | null;
   organisationId: string | null;
   organisationWide: boolean;
-  permissions: ReadonlySet<Permission>;
+  permissions: ReadonlySet<AccessPermission>;
   scopeUnitIds: readonly string[];
+  // Set when a platform admin works inside an organisation: the request runs as its head, and the
+  // audit log records this admin as the person who did it.
+  actingPlatformAdminId?: string | null;
 }
 
 export interface SignInRequest {
@@ -102,6 +122,11 @@ export interface CreatePlatformAdminRequest {
   lastName: string;
   email: string;
   phone: string;
+  permissions?: PlatformPermission[];
+}
+
+export interface UpdatePlatformAdminPermissionsRequest {
+  permissions: PlatformPermission[];
 }
 
 export interface ActionActor {
@@ -149,7 +174,7 @@ export interface UserResponse {
   partyId: string | null;
   dateOfBirth: string | null;
   organisation: OrganisationRef | null;
-  permissions: Permission[];
+  permissions: AccessPermission[];
   appointments: AppointmentSummaryResponse[];
   lastSignInAt: Date | null;
   createdAt: Date;
@@ -176,6 +201,8 @@ export interface PlatformAdminResponse {
   email: string;
   phone: string;
   status: PlatformAdminStatus;
+  isSuperAdmin: boolean;
+  permissions: PlatformPermission[];
   lastSignInAt: Date | null;
   createdAt: Date;
 }

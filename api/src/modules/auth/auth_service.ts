@@ -31,6 +31,7 @@ import type {
   ManageableStatus,
   OtpChallengeResponse,
   PlatformAdminResponse,
+  PlatformPermission,
   RefreshTokenRequest,
   ResendOtpRequest,
   SignInRequest,
@@ -42,6 +43,7 @@ import type {
 import { OrganisationExecutive } from './entities/organisation_executive_entity';
 import type { OtpChallenge } from './entities/otp_challenge_entity';
 import { PlatformAdmin } from './entities/platform_admin_entity';
+import { platformPermissionsOf } from './platform_permissions';
 import {
   generateOtp,
   hashOtp,
@@ -78,6 +80,26 @@ const CODE_ATTEMPTS_USED = 'Too many incorrect attempts. Request a new code.';
 const EMAIL_TAKEN = 'An account with this email already exists.';
 const NOT_FOUND = 'Account not found.';
 const NOT_YOURSELF = 'You cannot change the status of your own account.';
+const NOT_YOUR_PERMISSIONS = 'You cannot change your own permissions.';
+const GRANT_HELD_ONLY = 'You can only give or remove permissions you hold yourself.';
+const MAIN_ADMIN_ONLY = 'Only the main admin can change another main admin.';
+const MAIN_ADMIN_PERMISSIONS = 'The main admin always holds every permission.';
+
+// The admin acting through the API; null for the trusted CLI and seeder, which have no session.
+async function actingAdmin(actor: ActionActor, manager: EntityManager) {
+  if (!actor.platformAdminId) return null;
+  const admin = await authRepository.findPlatformAdminById(actor.platformAdminId, manager);
+  if (!admin) throw new UnauthorizedError(SESSION_ENDED);
+  return admin;
+}
+
+function assertCanGrant(grantor: PlatformAdmin | null, changed: readonly PlatformPermission[]) {
+  if (!grantor) return;
+  const held = new Set(platformPermissionsOf(grantor));
+  if (changed.some((permission) => !held.has(permission))) {
+    throw new ForbiddenError(GRANT_HELD_ONLY);
+  }
+}
 const TOO_MANY_CODES = `Too many codes requested. Try again in ${OTP_SEND_WINDOW_MINUTES} minutes.`;
 
 const asActor = (kind: AccountKind, id: string) =>
@@ -90,9 +112,11 @@ export const auditActor = (actor: ActionActor) => ({
 });
 
 export const actorFrom = (auth: AccessContext, context?: RequestContext): ActionActor => ({
-  ...(auth.kind === 'executive'
-    ? { executiveId: auth.accountId }
-    : { platformAdminId: auth.accountId }),
+  ...(auth.actingPlatformAdminId
+    ? { executiveId: auth.accountId, platformAdminId: auth.actingPlatformAdminId }
+    : auth.kind === 'executive'
+      ? { executiveId: auth.accountId }
+      : { platformAdminId: auth.accountId }),
   context,
 });
 
@@ -615,22 +639,29 @@ export const authService = {
     });
   },
 
+  // isSuperAdmin is for the CLI only; the API never creates a main admin.
   async createPlatformAdmin(
     input: CreatePlatformAdminRequest,
     actor: ActionActor = {},
+    { isSuperAdmin = false }: { isSuperAdmin?: boolean } = {},
   ): Promise<PlatformAdminResponse> {
+    const permissions = [...new Set(input.permissions ?? [])].sort();
     const admin = await dataSource.transaction(async (manager) => {
+      assertCanGrant(await actingAdmin(actor, manager), permissions);
       if (await authRepository.lockEmail(input.email, manager)) {
         throw new ConflictError(EMAIL_TAKEN, { errors: { email: [EMAIL_TAKEN] } });
       }
 
       const admins = manager.getRepository(PlatformAdmin);
-      const created = await admins.save(admins.create({ ...input, status: 'active' }));
+      const created = await admins.save(
+        admins.create({ ...input, permissions, isSuperAdmin, status: 'active' }),
+      );
       await auditService.record(
         {
           action: AUDIT_ACTIONS.platformAdminCreated,
           targetType: 'platform_admin',
           targetId: created.id,
+          metadata: { permissions, isSuperAdmin },
           ...auditActor(actor),
         },
         manager,
@@ -653,8 +684,12 @@ export const authService = {
     if (platformAdminId === actor.platformAdminId) throw new ForbiddenError(NOT_YOURSELF);
 
     await dataSource.transaction(async (manager) => {
+      const grantor = await actingAdmin(actor, manager);
       const admin = await authRepository.lockPlatformAdmin(platformAdminId, manager);
       if (!admin) throw new NotFoundError(NOT_FOUND);
+      if (admin.isSuperAdmin && grantor && !grantor.isSuperAdmin) {
+        throw new ForbiddenError(MAIN_ADMIN_ONLY);
+      }
       if (admin.status === status) return;
 
       await manager.getRepository(PlatformAdmin).update({ id: platformAdminId }, { status });
@@ -676,6 +711,43 @@ export const authService = {
           targetType: 'platform_admin',
           targetId: platformAdminId,
           metadata: { previousStatus: admin.status },
+          ...auditActor(actor),
+        },
+        manager,
+      );
+    });
+  },
+
+  // Takes effect on the admin's next request: permissions are resolved per request, never cached.
+  async updatePlatformAdminPermissions(
+    platformAdminId: string,
+    requested: readonly PlatformPermission[],
+    actor: ActionActor,
+  ): Promise<void> {
+    if (platformAdminId === actor.platformAdminId) throw new ForbiddenError(NOT_YOUR_PERMISSIONS);
+    const permissions = [...new Set(requested)].sort();
+
+    await dataSource.transaction(async (manager) => {
+      const grantor = await actingAdmin(actor, manager);
+      const admin = await authRepository.lockPlatformAdmin(platformAdminId, manager);
+      if (!admin) throw new NotFoundError(NOT_FOUND);
+      if (admin.isSuperAdmin) throw new ForbiddenError(MAIN_ADMIN_PERMISSIONS);
+
+      const previous = platformPermissionsOf(admin);
+      const changed = [
+        ...permissions.filter((permission) => !previous.includes(permission)),
+        ...previous.filter((permission) => !permissions.includes(permission)),
+      ];
+      if (changed.length === 0) return;
+      assertCanGrant(grantor, changed);
+
+      await manager.getRepository(PlatformAdmin).update({ id: platformAdminId }, { permissions });
+      await auditService.record(
+        {
+          action: AUDIT_ACTIONS.platformAdminPermissionsChanged,
+          targetType: 'platform_admin',
+          targetId: platformAdminId,
+          metadata: { previous, permissions },
           ...auditActor(actor),
         },
         manager,

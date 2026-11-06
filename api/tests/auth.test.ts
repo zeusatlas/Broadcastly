@@ -144,7 +144,7 @@ describe('hasAccess', () => {
     expect(hasAccess(auth, { permission: 'broadcast.send' })).toBe(false);
     expect(hasAccess(auth, { anyOf: ['broadcast.send', 'report.view'] })).toBe(true);
     expect(hasAccess(auth, { allOf: ['broadcast.draft', 'broadcast.send'] })).toBe(false);
-    expect(hasAccess(auth, { roles: ['chairman'] })).toBe(false);
+    expect(hasAccess(auth, { roles: ['head'] })).toBe(false);
   });
 });
 

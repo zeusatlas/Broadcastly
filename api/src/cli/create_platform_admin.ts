@@ -28,8 +28,8 @@ async function main() {
   }
 
   await initializeDatabase();
-  const admin = await authService.createPlatformAdmin(parsed.data);
-  print(`\nPlatform admin created: ${admin.id}`);
+  const admin = await authService.createPlatformAdmin(parsed.data, {}, { isSuperAdmin: true });
+  print(`\nMain platform admin created (every permission): ${admin.id}`);
 }
 
 main()

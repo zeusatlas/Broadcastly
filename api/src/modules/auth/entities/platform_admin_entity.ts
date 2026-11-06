@@ -1,7 +1,11 @@
 import { Column, Entity } from 'typeorm';
 
 import { BaseEntity } from '../../../database/base_entity';
-import { PLATFORM_ADMIN_STATUSES, type PlatformAdminStatus } from '../auth_types';
+import {
+  PLATFORM_ADMIN_STATUSES,
+  type PlatformAdminStatus,
+  type PlatformPermission,
+} from '../auth_types';
 
 // A Broadcastly operator: runs the platform from the web app. Not a party member, so no members row.
 @Entity({ name: 'platform_admins' })
@@ -28,6 +32,13 @@ export class PlatformAdmin extends BaseEntity {
   })
   status: PlatformAdminStatus;
 
+  // The main admin: holds every platform permission, including ones added later. Set only by the CLI.
+  @Column({ type: 'boolean', name: 'is_super_admin', default: false })
+  isSuperAdmin: boolean;
+
+  @Column({ type: 'text', array: true, default: () => "'{}'" })
+  permissions: PlatformPermission[];
+
   @Column({ type: 'smallint', name: 'failed_sign_in_attempts', default: 0 })
   failedSignInAttempts: number;
 
@@ -36,4 +47,8 @@ export class PlatformAdmin extends BaseEntity {
 
   @Column({ type: 'timestamptz', name: 'last_sign_in_at', nullable: true })
   lastSignInAt: Date | null;
+
+  // "Mark all as read": every notification up to this moment counts as read.
+  @Column({ type: 'timestamptz', name: 'notifications_read_at', nullable: true })
+  notificationsReadAt: Date | null;
 }

@@ -4,6 +4,7 @@ import type { ProfileAccess } from './access_resolver';
 import type { PlatformAdminResponse, UserResponse } from './auth_types';
 import type { OrganisationExecutive } from './entities/organisation_executive_entity';
 import type { PlatformAdmin } from './entities/platform_admin_entity';
+import { platformPermissionsOf } from './platform_permissions';
 
 // Entities never leave the service layer; these are the only shapes of an account the API returns.
 export function toUserResponse(
@@ -55,7 +56,7 @@ export function toAdminUserResponse(admin: PlatformAdmin): UserResponse {
     partyId: null,
     dateOfBirth: null,
     organisation: null,
-    permissions: [],
+    permissions: platformPermissionsOf(admin),
     appointments: [],
     lastSignInAt: admin.lastSignInAt,
     createdAt: admin.createdAt,
@@ -72,6 +73,8 @@ export function toPlatformAdminResponse(admin: PlatformAdmin): PlatformAdminResp
     email: admin.email,
     phone: admin.phone,
     status: admin.status,
+    isSuperAdmin: admin.isSuperAdmin,
+    permissions: platformPermissionsOf(admin),
     lastSignInAt: admin.lastSignInAt,
     createdAt: admin.createdAt,
   };

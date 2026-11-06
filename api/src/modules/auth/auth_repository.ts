@@ -27,6 +27,8 @@ interface SessionAccessRow {
   memberId: string | null;
   organisationId: string | null;
   status: string;
+  isSuperAdmin: boolean | null;
+  adminPermissions: string[] | null;
 }
 
 // Code constants only, so interpolating them into SQL is safe (AGENTS.md §8). EXECUTIVE_STATUS_SQL
@@ -165,7 +167,8 @@ export const authRepository = {
     const [row] = (await dataSource.query(
       `SELECT s.executive_id AS "executiveId", s.platform_admin_id AS "platformAdminId",
               e.member_id AS "memberId", e.organisation_id AS "organisationId",
-              COALESCE(${EXECUTIVE_STATUS_SQL}, a.status::text) AS status
+              COALESCE(${EXECUTIVE_STATUS_SQL}, a.status::text) AS status,
+              a.is_super_admin AS "isSuperAdmin", a.permissions AS "adminPermissions"
          FROM sessions s
          LEFT JOIN organisation_executives e ON e.id = s.executive_id
          LEFT JOIN organisations o ON o.id = e.organisation_id
@@ -188,7 +191,7 @@ export const authRepository = {
 
   lockPlatformAdmin(id: string, manager: EntityManager) {
     return manager.getRepository(PlatformAdmin).findOne({
-      select: { id: true, status: true },
+      select: { id: true, status: true, isSuperAdmin: true, permissions: true },
       where: { id },
       lock: { mode: 'pessimistic_write' },
     });
