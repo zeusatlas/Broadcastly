@@ -115,7 +115,9 @@ export function NewAdminScreen() {
       <Text variant="caption" className="mt-1">
         Everyone can view organisations, executives and admins. You can give only what you hold.
       </Text>
-      <PermissionChecklist selected={permissions} grantable={grantable} onToggle={toggle} />
+      <View className="mt-5">
+        <PermissionChecklist selected={permissions} grantable={grantable} onToggle={toggle} />
+      </View>
       {fieldError('permissions') ? (
         <Text className="font-sans text-sm text-destructive">{fieldError('permissions')}</Text>
       ) : null}

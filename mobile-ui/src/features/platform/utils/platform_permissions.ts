@@ -1,3 +1,11 @@
+import {
+  Building2,
+  Megaphone,
+  SlidersHorizontal,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react-native';
+
 import type { PlatformPermission } from '@/types/models';
 
 // Order shown in the permission checklist when adding or editing an admin.
@@ -47,5 +55,37 @@ export const PLATFORM_PERMISSION_OPTIONS: {
     key: 'platform.admin.manage',
     label: 'Manage admins',
     description: 'Add admins, change their permissions, suspend them.',
+  },
+];
+
+// How the checklist groups them, like an executive's permissions on the organisation side.
+export const PLATFORM_PERMISSION_GROUPS: {
+  title: string;
+  icon: LucideIcon;
+  permissions: PlatformPermission[];
+}[] = [
+  {
+    title: 'Organisations',
+    icon: Building2,
+    permissions: [
+      'platform.organisation.manage',
+      'platform.organisation.operate',
+      'platform.executive.manage',
+    ],
+  },
+  {
+    title: 'Money',
+    icon: Wallet,
+    permissions: ['platform.finance.view', 'platform.credit.manage'],
+  },
+  {
+    title: 'Activity',
+    icon: Megaphone,
+    permissions: ['platform.broadcast.view', 'platform.audit.view'],
+  },
+  {
+    title: 'Platform',
+    icon: SlidersHorizontal,
+    permissions: ['platform.settings.manage', 'platform.admin.manage'],
   },
 ];

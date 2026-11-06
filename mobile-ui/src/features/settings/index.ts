@@ -8,3 +8,5 @@ export { NotificationSettingsScreen } from './screens/NotificationSettingsScreen
 export { SecurityScreen } from './screens/SecurityScreen';
 export { DevicesScreen } from './screens/DevicesScreen';
 export { PrivacyScreen } from './screens/PrivacyScreen';
+export { SettingsRow } from './components/SettingsRow';
+export { SettingsSection } from './components/SettingsSection';

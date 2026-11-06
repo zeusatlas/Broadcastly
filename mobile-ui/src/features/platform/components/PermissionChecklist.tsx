@@ -6,7 +6,10 @@ import { useTheme } from '@/hooks/use_theme';
 import type { PlatformPermission } from '@/types/models';
 import { cn } from '@/utils/helpers';
 
-import { PLATFORM_PERMISSION_OPTIONS } from '../utils/platform_permissions';
+import {
+  PLATFORM_PERMISSION_GROUPS,
+  PLATFORM_PERMISSION_OPTIONS,
+} from '../utils/platform_permissions';
 
 interface PermissionChecklistProps {
   selected: readonly PlatformPermission[];
@@ -16,6 +19,10 @@ interface PermissionChecklistProps {
   isReadOnly?: boolean;
 }
 
+const INFO = Object.fromEntries(PLATFORM_PERMISSION_OPTIONS.map((option) => [option.key, option]));
+
+// Grouped like an executive's permissions on the organisation side: a gold icon chip per group,
+// then each permission in plain words with its tick box.
 export function PermissionChecklist({
   selected,
   grantable,
@@ -25,38 +32,63 @@ export function PermissionChecklist({
   const theme = useTheme();
 
   return (
-    <View>
-      {PLATFORM_PERMISSION_OPTIONS.map((option, index) => {
-        const isChecked = selected.includes(option.key);
-        const isDisabled = isReadOnly || !grantable.includes(option.key);
+    <View className="gap-6">
+      {PLATFORM_PERMISSION_GROUPS.map((group) => {
+        const Icon = group.icon;
+        const count = group.permissions.filter((key) => selected.includes(key)).length;
         return (
-          <Pressable
-            key={option.key}
-            accessibilityRole="checkbox"
-            accessibilityLabel={option.label}
-            accessibilityHint={option.description}
-            accessibilityState={{ checked: isChecked, disabled: isDisabled }}
-            disabled={isDisabled}
-            onPress={() => onToggle?.(option.key)}
-            className={cn(
-              'flex-row items-center gap-3 py-3.5 active:opacity-60',
-              index < PLATFORM_PERMISSION_OPTIONS.length - 1 && 'border-b border-border',
-            )}
-          >
-            <View
-              className={cn(
-                'h-6 w-6 items-center justify-center rounded-md border',
-                isChecked ? 'border-primary bg-primary' : 'border-input',
-                isDisabled && 'opacity-50',
-              )}
-            >
-              {isChecked ? <Check size={16} color={theme.primaryForeground} /> : null}
+          <View key={group.title} className="gap-1">
+            <View className="flex-row items-center gap-2">
+              <View className="h-8 w-8 items-center justify-center rounded-full bg-accent/15">
+                <Icon size={16} color={theme.accentEmphasis} />
+              </View>
+              <Text className="flex-1 font-sans-bold text-base text-foreground">{group.title}</Text>
+              <Text variant="caption">
+                {count} of {group.permissions.length}
+              </Text>
             </View>
-            <View className={cn('flex-1 gap-0.5', isDisabled && 'opacity-60')}>
-              <Text className="font-sans-semibold text-base text-foreground">{option.label}</Text>
-              <Text variant="caption">{option.description}</Text>
-            </View>
-          </Pressable>
+            {group.permissions.map((key, index) => {
+              const option = INFO[key];
+              if (!option) return null;
+              const isChecked = selected.includes(key);
+              const isDisabled = isReadOnly || !grantable.includes(key);
+              return (
+                <Pressable
+                  key={key}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={option.label}
+                  accessibilityHint={option.description}
+                  accessibilityState={{ checked: isChecked, disabled: isDisabled }}
+                  disabled={isDisabled}
+                  onPress={() => onToggle?.(key)}
+                  className={cn(
+                    'ml-10 flex-row items-start gap-3 py-3 active:opacity-60',
+                    index < group.permissions.length - 1 && 'border-b border-border',
+                  )}
+                >
+                  <View className={cn('flex-1 gap-0.5', isDisabled && !isChecked && 'opacity-60')}>
+                    <Text className="font-sans-semibold text-[15px] text-foreground">
+                      {option.label}
+                    </Text>
+                    <Text variant="caption">
+                      {isDisabled && !isReadOnly
+                        ? `${option.description} Only an admin who holds it can give it.`
+                        : option.description}
+                    </Text>
+                  </View>
+                  <View
+                    className={cn(
+                      'mt-0.5 h-6 w-6 items-center justify-center rounded-md border',
+                      isChecked ? 'border-primary bg-primary' : 'border-input',
+                      isDisabled && 'opacity-50',
+                    )}
+                  >
+                    {isChecked ? <Check size={16} color={theme.primaryForeground} /> : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
         );
       })}
     </View>
