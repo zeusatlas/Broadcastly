@@ -1,19 +1,10 @@
 import { router } from 'expo-router';
 import { Check, ChevronDown, X } from 'lucide-react-native';
 import { useState, type ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
-import { Button, QueryState, SearchField, Text, TextField } from '@/components/ui';
+import { BottomSheet, Button, QueryState, SearchField, Text, TextField } from '@/components/ui';
 import { useCurrentUser, useHasPermission } from '@/features/auth';
 import {
   UnitPicker,
@@ -28,21 +19,12 @@ import type { Permission } from '@/types/models';
 import { cn } from '@/utils/helpers';
 
 import { useCreateExecutiveMutation, useReadPositionsQuery } from '../hooks/use_organisation_api';
+import { PERMISSION_INFO } from '../utils/permission_labels';
 import type { PositionResponse } from '../types';
 
-const PERMISSION_LABELS: Record<Permission, string> = {
-  'appointment.manage': 'Manage appointments',
-  'member.manage': 'Manage members',
-  'member.import': 'Import members',
-  'broadcast.draft': 'Draft broadcasts',
-  'broadcast.submit': 'Submit broadcasts',
-  'broadcast.send': 'Send broadcasts',
-  'broadcast.select_recipients': 'Select recipients',
-  'broadcast.approve': 'Approve broadcasts',
-  'report.view': 'View reports',
-  'credit.allocate': 'Allocate credits',
-  'credit.purchase': 'Purchase credits',
-};
+const PERMISSION_LABELS = Object.fromEntries(
+  Object.entries(PERMISSION_INFO).map(([key, info]) => [key, info.label]),
+) as Record<Permission, string>;
 
 function SelectionField({
   label,
@@ -102,43 +84,10 @@ function Sheet({
   onClose: () => void;
   children: ReactNode;
 }) {
-  const insets = useSafeAreaInsets();
-  const theme = useTheme();
-
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        // A modal is its own window, so the page's keyboard handling can't reach it; lift the sheet here.
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <View className="flex-1 justify-end bg-backdrop/60">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            onPress={onClose}
-            className="flex-1"
-          />
-          <View
-            className="max-h-[80%] rounded-t-3xl bg-background px-5 pt-5"
-            style={{ paddingBottom: insets.bottom + 16 }}
-          >
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text variant="heading">{title}</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-                onPress={onClose}
-                className="h-11 w-11 items-center justify-center rounded-full bg-muted"
-              >
-                <X size={20} color={theme.foreground} />
-              </Pressable>
-            </View>
-            {children}
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    <BottomSheet isVisible onClose={onClose} title={title} size="tall">
+      {children}
+    </BottomSheet>
   );
 }
 
@@ -302,9 +251,12 @@ function PermissionSheet({
               >
                 {isSelected ? <Check size={16} color={theme.primaryForeground} /> : null}
               </View>
-              <Text className="flex-1 font-sans-medium text-base text-foreground">
-                {PERMISSION_LABELS[item]}
-              </Text>
+              <View className="flex-1 gap-0.5">
+                <Text className="font-sans-medium text-base text-foreground">
+                  {PERMISSION_INFO[item].label}
+                </Text>
+                <Text variant="caption">{PERMISSION_INFO[item].description}</Text>
+              </View>
             </Pressable>
           );
         }}
@@ -319,7 +271,9 @@ type OpenSheet = 'member' | 'position' | 'permissions' | null;
 // Appoints an existing member (FR-ORG-05): the account links to the member through the party ID.
 export function NewExecutiveScreen() {
   const canManage = useHasPermission('appointment.manage');
-  const available = useCurrentUser()?.permissions ?? [];
+  const available = (useCurrentUser()?.permissions ?? []).filter(
+    (permission): permission is Permission => permission in PERMISSION_LABELS,
+  );
   const positions = useReadPositionsQuery({ enabled: canManage });
   const create = useCreateExecutiveMutation();
   const [sheet, setSheet] = useState<OpenSheet>(null);

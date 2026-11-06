@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { Permission, UserRole } from '@/types/models';
+import type { AccessPermission, UserRole } from '@/types/models';
 
 import { useAuthStore } from '../store/auth_store';
 import { checkAccess, type AccessRule } from '../utils/access_policy';
@@ -12,14 +12,15 @@ import { checkAccess, type AccessRule } from '../utils/access_policy';
 // The general form. Re-renders only when the boolean result changes.
 //   useCan({ permission: 'broadcast.send' })
 //   useCan({ anyOf: ['broadcast.send', 'broadcast.submit'] })
-//   useCan({ allOf: ['member.manage', 'member.import'], roles: ['chairman'] })
+//   useCan({ allOf: ['member.manage', 'member.import'], roles: ['head'] })
 export const useCan = (rule: AccessRule) => useAuthStore((state) => checkAccess(state.user, rule));
 
-export const useHasPermission = (permission: Permission) => useCan({ permission });
+export const useHasPermission = (permission: AccessPermission) => useCan({ permission });
 
-export const useHasAnyPermission = (...permissions: Permission[]) => useCan({ anyOf: permissions });
+export const useHasAnyPermission = (...permissions: AccessPermission[]) =>
+  useCan({ anyOf: permissions });
 
-export const useHasAllPermissions = (...permissions: Permission[]) =>
+export const useHasAllPermissions = (...permissions: AccessPermission[]) =>
   useCan({ allOf: permissions });
 
 export const useHasRole = (...roles: UserRole[]) => useCan({ roles });
@@ -32,9 +33,11 @@ export function useAccess() {
 
   return useMemo(
     () => ({
-      can: (permission: Permission) => checkAccess(user, { permission }),
-      canAny: (permissions: readonly Permission[]) => checkAccess(user, { anyOf: permissions }),
-      canAll: (permissions: readonly Permission[]) => checkAccess(user, { allOf: permissions }),
+      can: (permission: AccessPermission) => checkAccess(user, { permission }),
+      canAny: (permissions: readonly AccessPermission[]) =>
+        checkAccess(user, { anyOf: permissions }),
+      canAll: (permissions: readonly AccessPermission[]) =>
+        checkAccess(user, { allOf: permissions }),
       hasRole: (...roles: UserRole[]) => checkAccess(user, { roles }),
       check: (rule: AccessRule) => checkAccess(user, rule),
     }),

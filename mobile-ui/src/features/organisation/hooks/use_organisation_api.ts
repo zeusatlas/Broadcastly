@@ -1,4 +1,5 @@
 import { useMutation } from '@/hooks/use_mutation';
+import { PAGE_SIZE, usePages } from '@/hooks/use_pages';
 import { useQuery } from '@/hooks/use_query';
 import { api } from '@/lib/api/apiSlice';
 
@@ -6,6 +7,7 @@ import type {
   CreateExecutiveRequest,
   CreatePositionRequest,
   CreateUnitRequest,
+  ExecutiveResponse,
   ListExecutivesParams,
   ListUnitsParams,
   UpdatePositionRequest,
@@ -33,6 +35,11 @@ export const useReadUnitsQuery = (params: ListUnitsParams, { enabled }: ReadOpti
     {
       enabled,
     },
+  );
+
+export const useExecutivePages = (filters: Omit<ListExecutivesParams, 'page' | 'pageSize'>) =>
+  usePages<ExecutiveResponse>(`organisation-executives:${JSON.stringify(filters)}`, (page, o) =>
+    api.organisation.readExecutives({ ...filters, page, pageSize: PAGE_SIZE }, o),
   );
 
 export const useReadExecutivesQuery = (

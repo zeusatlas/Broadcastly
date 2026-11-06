@@ -18,7 +18,7 @@ import type {
   UpdatePositionRequest,
 } from '../types';
 
-// The chairman's tools (api/src/modules/chairman). The API limits every read to the caller's units.
+// The head's tools (api/src/modules/head). The API limits every read to the caller's units.
 export const organisationEndpoints = {
   readOverview: (options?: RequestOptions) =>
     http.get<OrganisationOverviewResponse>('/organisation/overview', options),

@@ -1,11 +1,11 @@
-import type { Permission, User, UserRole } from '@/types/models';
+import type { AccessPermission, User, UserRole } from '@/types/models';
 
 // One declarative requirement. Every field present must pass; omit what you do not need.
 // Prefer permissions over roles: per BR-01 access is never decided by title alone.
 export interface AccessRule {
-  permission?: Permission;
-  anyOf?: readonly Permission[];
-  allOf?: readonly Permission[];
+  permission?: AccessPermission;
+  anyOf?: readonly AccessPermission[];
+  allOf?: readonly AccessPermission[];
   roles?: readonly UserRole[];
 }
 
@@ -14,7 +14,7 @@ export interface AccessRule {
 export function checkAccess(user: User | null, rule: AccessRule): boolean {
   if (!user) return false;
 
-  const has = (permission: Permission) => user.permissions.includes(permission);
+  const has = (permission: AccessPermission) => user.permissions.includes(permission);
 
   if (rule.permission && !has(rule.permission)) return false;
   if (rule.allOf && !rule.allOf.every(has)) return false;

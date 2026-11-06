@@ -49,7 +49,7 @@ export function ProfileScreen() {
   const isSigningOut = useIsAuthSubmitting();
   const [scope, setScope] = useState<SignOutScope | null>(null);
   const [isRemovingLogo, setIsRemovingLogo] = useState(false);
-  const canChangeLogo = useHasRole('chairman');
+  const canChangeLogo = useHasRole('head');
   const logo = useOrganisationLogo();
   const refreshUser = useAuthStore((s) => s.refreshUser);
 

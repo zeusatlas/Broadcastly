@@ -2,7 +2,6 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import {
   Bell,
-  Check,
   LifeBuoy,
   LockKeyhole,
   Paintbrush,
@@ -10,14 +9,14 @@ import {
   ShieldCheck,
   Smartphone,
 } from 'lucide-react-native';
-import { Modal, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useState } from 'react';
 
 import { PageScreen } from '@/components/shared';
-import { Text } from '@/components/ui';
+import { BottomSheet, Text } from '@/components/ui';
 import { useColorScheme } from '@/hooks/use_color_scheme';
-import { useTheme } from '@/hooks/use_theme';
 import { notify } from '@/lib/notify';
+import { cn } from '@/utils/helpers';
 
 import { SettingsRow } from '../components/SettingsRow';
 import { SettingsSection } from '../components/SettingsSection';
@@ -30,7 +29,6 @@ const APPEARANCE_OPTIONS = [
 
 export function SettingsScreen() {
   const { setColorScheme } = useColorScheme();
-  const theme = useTheme();
   const [isAppearanceOpen, setIsAppearanceOpen] = useState(false);
   const [appearancePreference, setAppearancePreference] =
     useState<(typeof APPEARANCE_OPTIONS)[number]['key']>('system');
@@ -97,53 +95,42 @@ export function SettingsScreen() {
         <Text variant="caption">Version {version}</Text>
       </View>
 
-      <Modal
-        visible={isAppearanceOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsAppearanceOpen(false)}
+      <BottomSheet
+        isVisible={isAppearanceOpen}
+        onClose={() => setIsAppearanceOpen(false)}
+        title="Appearance"
+        description="Choose the theme for this device."
+        closeLabel="Close appearance options"
       >
-        <View className="flex-1 justify-end bg-backdrop/60">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close appearance options"
-            onPress={() => setIsAppearanceOpen(false)}
-            className="absolute inset-0"
-          />
-          <View className="rounded-t-2xl border border-b-0 border-border bg-card px-5 pb-8 pt-4">
-            <View className="mb-4 h-1 w-10 self-center rounded-full bg-muted-foreground" />
-            <Text variant="heading">Appearance</Text>
-            <Text variant="caption" className="mt-1">
-              Choose the theme for this device.
-            </Text>
-            <View className="mt-5 gap-2">
-              {APPEARANCE_OPTIONS.map((option) => {
-                const isSelected = appearancePreference === option.key;
-                return (
-                  <Pressable
-                    key={option.key}
-                    accessibilityRole="radio"
-                    accessibilityLabel={`${option.label} appearance`}
-                    accessibilityState={{ selected: isSelected }}
-                    onPress={() => {
-                      setAppearancePreference(option.key);
-                      setColorScheme(option.key);
-                      setIsAppearanceOpen(false);
-                    }}
-                    className={`min-h-16 flex-row items-center rounded-lg border px-4 ${isSelected ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'}`}
-                  >
-                    <View className="flex-1 gap-0.5">
-                      <Text variant="label">{option.label}</Text>
-                      <Text variant="caption">{option.description}</Text>
-                    </View>
-                    {isSelected ? <Check size={21} color={theme.primary} /> : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-      </Modal>
+        {APPEARANCE_OPTIONS.map((option) => {
+          const isSelected = appearancePreference === option.key;
+          return (
+            <Pressable
+              key={option.key}
+              accessibilityRole="radio"
+              accessibilityLabel={`${option.label} appearance`}
+              accessibilityState={{ checked: isSelected }}
+              onPress={() => {
+                setAppearancePreference(option.key);
+                setColorScheme(option.key);
+                setIsAppearanceOpen(false);
+              }}
+              className="flex-row items-center justify-between gap-3 border-b border-border py-4 active:opacity-60"
+            >
+              <View className="flex-1 gap-0.5">
+                <Text className="font-sans-semibold text-base text-foreground">{option.label}</Text>
+                <Text variant="caption">{option.description}</Text>
+              </View>
+              <View
+                className={cn(
+                  'h-6 w-6 rounded-full border',
+                  isSelected ? 'border-primary bg-primary' : 'border-input',
+                )}
+              />
+            </Pressable>
+          );
+        })}
+      </BottomSheet>
     </PageScreen>
   );
 }

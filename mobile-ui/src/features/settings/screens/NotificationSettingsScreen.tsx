@@ -67,9 +67,9 @@ function NotificationSetting({
   );
 }
 
-// One set of preferences for the whole organisation (FR-NOT-01): everyone sees it, the chairman sets it.
+// One set of preferences for the whole organisation (FR-NOT-01): everyone sees it, the head sets it.
 export function NotificationSettingsScreen() {
-  const canEdit = useHasRole('chairman');
+  const canEdit = useHasRole('head');
   const preferences = useReadNotificationPreferencesQuery();
   const update = useUpdateNotificationPreferencesMutation();
   const [changes, setChanges] = useState<Partial<Record<PreferenceKey, boolean>>>({});
@@ -115,7 +115,7 @@ export function NotificationSettingsScreen() {
         <Text variant="bodyMuted">
           {canEdit
             ? 'Choose which updates your organisation’s executives receive in the app.'
-            : 'These updates are set by your chairman for the whole organisation.'}
+            : 'These updates are set by your head for the whole organisation.'}
         </Text>
         {preferences.data ? (
           <View>
