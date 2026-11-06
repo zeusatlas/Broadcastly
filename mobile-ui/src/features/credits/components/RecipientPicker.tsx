@@ -1,16 +1,8 @@
-import { X } from 'lucide-react-native';
 import { useDeferredValue, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
 
-import { QueryState, SearchField, Text } from '@/components/ui';
+import { BottomSheet, QueryState, SearchField, Text } from '@/components/ui';
+import { useCurrentUser } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
 
 import { useAllocationRecipientPages } from '../hooks/use_allocation_recipients';
@@ -29,6 +21,7 @@ function RecipientList({ onSelect }: Pick<RecipientPickerProps, 'onSelect'>) {
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search.trim());
   const recipients = useAllocationRecipientPages(deferredSearch);
+  const meId = useCurrentUser()?.id;
 
   return (
     <View className="flex-1 gap-4">
@@ -56,7 +49,7 @@ function RecipientList({ onSelect }: Pick<RecipientPickerProps, 'onSelect'>) {
           >
             <View className="flex-row items-center justify-between gap-3">
               <Text className="flex-1 font-sans-semibold text-base text-foreground">
-                {item.name}
+                {item.id === meId ? `${item.name} (you)` : item.name}
               </Text>
               <Text variant="caption">{item.wallet.available.toLocaleString()} credits</Text>
             </View>
@@ -89,40 +82,15 @@ function RecipientList({ onSelect }: Pick<RecipientPickerProps, 'onSelect'>) {
 }
 
 export function RecipientPicker({ isVisible, onSelect, onClose }: RecipientPickerProps) {
-  const theme = useTheme();
-
   return (
-    <Modal visible={isVisible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        // A modal is its own window, so the page's keyboard handling can't reach it; lift the sheet here.
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <View className="flex-1 justify-end bg-backdrop/60">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close recipient list"
-            onPress={onClose}
-            className="absolute inset-0"
-          />
-          <View className="h-[85%] rounded-t-2xl border border-b-0 border-border bg-card px-5 pb-8 pt-4">
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text accessibilityRole="header" variant="heading">
-                Choose an executive
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close recipient list"
-                onPress={onClose}
-                className="h-11 w-11 items-center justify-center rounded-xl bg-muted"
-              >
-                <X size={20} color={theme.foreground} />
-              </Pressable>
-            </View>
-            {isVisible ? <RecipientList onSelect={onSelect} /> : null}
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    <BottomSheet
+      isVisible={isVisible}
+      onClose={onClose}
+      title="Choose an executive"
+      closeLabel="Close recipient list"
+      size="tall"
+    >
+      {isVisible ? <RecipientList onSelect={onSelect} /> : null}
+    </BottomSheet>
   );
 }

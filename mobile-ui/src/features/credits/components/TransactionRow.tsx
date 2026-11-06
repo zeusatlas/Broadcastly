@@ -1,7 +1,9 @@
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  Coins,
   Lock,
+  LockOpen,
   RotateCcw,
   Send,
   SlidersHorizontal,
@@ -20,6 +22,7 @@ const ICON: Record<CreditTransactionType, LucideIcon> = {
   allocation_in: ArrowDownLeft,
   allocation_out: ArrowUpRight,
   reservation: Lock,
+  release: LockOpen,
   consumption: Send,
   refund: RotateCcw,
   reversal: RotateCcw,
@@ -35,7 +38,8 @@ interface TransactionRowProps {
 export function TransactionRow({ transaction, isLast = false }: TransactionRowProps) {
   const theme = useTheme();
   const { type, title, amount, occurredAt, initiatedBy } = transaction;
-  const Icon = ICON[type];
+  // A kind the app doesn't know yet still renders instead of crashing the list.
+  const Icon = ICON[type] ?? Coins;
   const isCredit = amount > 0;
   const formatted = `${isCredit ? '+' : '−'}${Math.abs(amount).toLocaleString()}`;
 

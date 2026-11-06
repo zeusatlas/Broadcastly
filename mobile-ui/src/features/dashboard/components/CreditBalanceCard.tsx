@@ -8,6 +8,9 @@ interface CreditBalanceCardProps {
   organisationName: string;
   role: string;
   balance?: number;
+  // Whose credits these are and what they pay for, e.g. "Organisation credits".
+  walletTitle: string;
+  reserved?: number;
   isLoading?: boolean;
   onPress: () => void;
 }
@@ -16,6 +19,8 @@ export function CreditBalanceCard({
   organisationName,
   role,
   balance,
+  walletTitle,
+  reserved = 0,
   isLoading = false,
   onPress,
 }: CreditBalanceCardProps) {
@@ -44,10 +49,14 @@ export function CreditBalanceCard({
         </View>
         <View className="gap-0.5">
           <Text className="font-sans-semibold text-xs uppercase tracking-widest text-primary-foreground">
-            Credit balance
+            {walletTitle}
           </Text>
           <Text className="font-sans-extrabold text-4xl leading-tight text-primary-foreground">
             {isLoading || balance === undefined ? '—' : balance.toLocaleString()}
+          </Text>
+          <Text className="font-sans text-sm text-primary-foreground">
+            available to spend
+            {reserved > 0 ? ` · ${reserved.toLocaleString()} set aside for scheduled` : ''}
           </Text>
         </View>
         <View className="absolute bottom-5 right-5">

@@ -22,7 +22,10 @@ export const creditsEndpoints = {
     http.get<CreditBalancesResponse>('/credits/balance', options),
 
   readTransactions: (params: ListCreditTransactionsParams, options?: RequestOptions) =>
-    http.get<CreditTransactionsResponse>('/credits/transactions', { ...options, params }),
+    http.get<CreditTransactionsResponse>('/credits/transactions', {
+      ...options,
+      params: { ...params, types: params.types?.join(',') },
+    }),
 
   readPurchases: (params: ListCreditPurchasesParams, options?: RequestOptions) =>
     http.get<CreditPurchasesResponse>('/credits/purchases', { ...options, params }),

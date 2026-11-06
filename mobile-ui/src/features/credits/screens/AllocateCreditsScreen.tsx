@@ -22,7 +22,7 @@ interface AllocationIntent {
   idempotencyKey: string;
 }
 
-// Allocate credits from the organisation's wallet to an executive's wallet (FR-CR-03, UC-04).
+// Give some of your own credits to another executive (FR-CR-03, UC-04).
 export function AllocateCreditsScreen() {
   const balances = useReadCreditBalancesQuery();
   const allocation = useCreateAllocationMutation();
@@ -33,7 +33,7 @@ export function AllocateCreditsScreen() {
   const [isConfirmVisible, setIsConfirmVisible] = useState(false);
   const [intent, setIntent] = useState<AllocationIntent | null>(null);
 
-  const available = balances.data?.organisation?.available ?? null;
+  const available = balances.data?.mine.available ?? null;
   const credits = Number(amount) || 0;
   const trimmedReason = reason.trim();
   const serverError = allocation.error;
@@ -43,7 +43,7 @@ export function AllocateCreditsScreen() {
     executiveId: serverError?.fieldError('executiveId'),
     credits:
       available !== null && credits > available
-        ? `The organisation has ${available.toLocaleString()} credits available.`
+        ? `You have ${available.toLocaleString()} credits available.`
         : serverError?.fieldError('credits'),
     reason:
       trimmedReason.length > MAX_REASON_LENGTH
@@ -103,7 +103,7 @@ export function AllocateCreditsScreen() {
       }
     >
       <View className="gap-1">
-        <Text variant="overline">Organisation available</Text>
+        <Text variant="overline">Your credits available</Text>
         {available !== null ? (
           <Text className="font-sans-extrabold text-3xl text-foreground">
             {available.toLocaleString()} credits
@@ -113,7 +113,7 @@ export function AllocateCreditsScreen() {
             isLoading={balances.isLoading}
             error={balances.error}
             isEmpty={!balances.isLoading && !balances.error}
-            emptyText="The organisation’s balance is not available to you."
+            emptyText="Your balance could not be loaded."
             onRetry={balances.refetch}
           />
         )}
@@ -149,7 +149,7 @@ export function AllocateCreditsScreen() {
         title="Allocate credits?"
         message={
           recipient && available !== null
-            ? `${credits.toLocaleString()} credits to ${recipient.name}. The organisation will have ${(available - credits).toLocaleString()} credits available after.`
+            ? `${credits.toLocaleString()} credits to ${recipient.name}. You will have ${(available - credits).toLocaleString()} credits available after.`
             : ''
         }
         confirmLabel="Allocate"

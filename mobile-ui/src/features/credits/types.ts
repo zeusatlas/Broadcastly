@@ -6,6 +6,7 @@ export type CreditTransactionType =
   | 'allocation_in'
   | 'allocation_out'
   | 'reservation'
+  | 'release'
   | 'consumption'
   | 'refund'
   | 'reversal'
@@ -19,6 +20,7 @@ export interface CreditTransaction {
   // Signed: positive adds to the balance, negative takes from it.
   amount: number;
   occurredAt: string;
+  createdAt: string;
   initiatedBy: string;
 }
 
@@ -48,6 +50,7 @@ export interface CreditPeriodParams {
 export interface ListCreditTransactionsParams extends PageParams, CreditPeriodParams {
   wallet: 'mine' | 'organisation';
   type?: CreditTransactionType;
+  types?: CreditTransactionType[];
 }
 
 export interface ListCreditPurchasesParams extends PageParams, CreditPeriodParams {
@@ -61,7 +64,9 @@ export interface CreditWalletResponse {
 }
 
 export interface CreditBalancesResponse {
+  // Every executive's credits added up; null unless you may see the organisation's credits.
   organisation: CreditWalletResponse | null;
+  organisationTotal: CreditWalletResponse | null;
   mine: CreditWalletResponse;
 }
 
@@ -75,6 +80,8 @@ export interface CreditTransactionResponse {
   purchaseId: string | null;
   broadcastId: string | null;
   createdAt: string;
+  // Whose credits the row moved; set in the organisation-wide history.
+  walletOwner: string | null;
 }
 
 export interface CreateCreditPurchaseRequest {

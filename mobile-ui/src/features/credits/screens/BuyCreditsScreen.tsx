@@ -19,7 +19,7 @@ const MAX_CREDITS = 1_000_000;
 const cedis = (pesewas: number) =>
   `GHS ${(pesewas / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-// Credits are bought for the organisation wallet; they are added only when the payment provider
+// Credits go into the buyer's own wallet; they are added only when the payment provider
 // confirms the payment, never on the app's word (SRS 6.5).
 export function BuyCreditsScreen() {
   const pricing = useReadCreditPricingQuery();
@@ -79,7 +79,7 @@ export function BuyCreditsScreen() {
     >
       <View className="gap-6">
         <Text variant="bodyMuted">
-          Credits go into your organisation’s wallet. One credit sends one SMS segment.
+          Credits go into your own account. One credit sends one SMS segment.
         </Text>
         <View className="flex-row flex-wrap gap-2">
           {QUICK_AMOUNTS.map((value) => (
@@ -119,7 +119,7 @@ export function BuyCreditsScreen() {
       <ConfirmDialog
         isVisible={idempotencyKey !== null}
         title="Buy these credits?"
-        message={`${credits.toLocaleString()} credits for ${cedis(total)}, paid to your organisation’s wallet.`}
+        message={`${credits.toLocaleString()} credits for ${cedis(total)}, added to your own credits.`}
         confirmLabel="Buy credits"
         confirmingLabel="Starting payment…"
         confirmVariant="accent"

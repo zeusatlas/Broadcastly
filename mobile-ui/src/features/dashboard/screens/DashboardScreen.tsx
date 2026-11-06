@@ -1,4 +1,4 @@
-import { router, Tabs, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   Bell,
   BriefcaseBusiness,
@@ -13,11 +13,11 @@ import {
 import { useCallback, useEffect, useRef } from 'react';
 import { RefreshControl, View } from 'react-native';
 
-import { HeaderButton, ProfileButton } from '@/components/shared';
+import { HeaderButton, HomeHeader, ProfileButton } from '@/components/shared';
 import { QueryState, ScrollScreen, StatTile, Text } from '@/components/ui';
 import { GATED_ROUTES } from '@/constants/routes';
-import { useAccess, useCurrentUser, type AccessRule } from '@/features/auth';
-import { useReadCreditBalancesQuery } from '@/features/credits';
+import { useAccess, useCurrentUser, WorkspaceBanner, type AccessRule } from '@/features/auth';
+import { useSpendingWallet } from '@/features/credits';
 import { useReadUnreadCountQuery } from '@/features/notifications';
 import { useReadOrganisationOverviewQuery } from '@/features/organisation';
 
@@ -74,7 +74,8 @@ export function DashboardScreen() {
   const access = useAccess();
   const canViewOverview = Boolean(user?.organisation);
   const overview = useReadOrganisationOverviewQuery({ enabled: canViewOverview });
-  const balances = useReadCreditBalancesQuery();
+  const spending = useSpendingWallet();
+  const balances = spending.query;
   const unread = useReadUnreadCountQuery();
   const refetchUnread = useRef(unread.refetch);
   useEffect(() => {
@@ -92,34 +93,37 @@ export function DashboardScreen() {
     balances.refetch();
   };
 
+  const profileButton = (
+    <ProfileButton
+      name={user?.fullName ?? ''}
+      organisationName={user?.organisation?.name}
+      organisationLogoUrl={user?.organisation?.logoUrl}
+    />
+  );
+
   return (
     <ScrollScreen
       className="gap-7 pt-4"
       refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
     >
-      <Tabs.Screen
-        options={{
-          headerLeft: () => (
-            <ProfileButton
-              name={user?.fullName ?? ''}
-              organisationName={user?.organisation?.name}
-              organisationLogoUrl={user?.organisation?.logoUrl}
-            />
-          ),
-          headerRight: () => (
-            <HeaderButton
-              icon={Bell}
-              label="Notifications"
-              badgeCount={unread.data?.unread ?? 0}
-              onPress={() => router.push('/notifications')}
-            />
-          ),
-        }}
+      <HomeHeader
+        left={profileButton}
+        right={
+          <HeaderButton
+            icon={Bell}
+            label="Notifications"
+            badgeCount={unread.data?.unread ?? 0}
+            onPress={() => router.push('/notifications')}
+          />
+        }
       />
+      <WorkspaceBanner />
       <CreditBalanceCard
         organisationName={user?.organisation?.name ?? 'Your organisation'}
         role={role}
-        balance={balances.data?.mine.available}
+        balance={spending.available}
+        walletTitle={spending.title}
+        reserved={spending.reserved}
         isLoading={balances.isLoading}
         onPress={() => router.push('/credits')}
       />
