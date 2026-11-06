@@ -11,18 +11,15 @@ import {
 } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
 import { notify } from '@/lib/notify';
+import { describeUserAgent, type DeviceDescription } from '@/utils/helpers';
 
 import { formatShortDate } from '../utils/format';
 
-// The server only knows the client's user agent; these cover what our apps send.
-function describeDevice(userAgent: string | null): { name: string; icon: LucideIcon } {
-  const agent = userAgent ?? '';
-  if (/okhttp|android/i.test(agent)) return { name: 'Android phone', icon: Smartphone };
-  if (/iphone|ipad|darwin|cfnetwork|expo/i.test(agent))
-    return { name: 'iPhone or iPad', icon: Smartphone };
-  if (/mozilla|chrome|safari|firefox|edg/i.test(agent)) return { name: 'Web browser', icon: Globe };
-  return { name: 'Other device', icon: Monitor };
-}
+const ICON: Record<DeviceDescription['kind'], LucideIcon> = {
+  phone: Smartphone,
+  web: Globe,
+  other: Monitor,
+};
 
 interface SessionRowProps {
   session: SessionResponse;
@@ -32,7 +29,8 @@ interface SessionRowProps {
 
 function SessionRow({ session, isLast, onSignOut }: SessionRowProps) {
   const theme = useTheme();
-  const { name, icon: Icon } = describeDevice(session.userAgent);
+  const { name, detail, kind } = describeUserAgent(session.userAgent);
+  const Icon = ICON[kind];
   const lastActive = session.lastUsedAt ?? session.signedInAt;
 
   return (
@@ -44,6 +42,7 @@ function SessionRow({ session, isLast, onSignOut }: SessionRowProps) {
         <Text className="font-sans-semibold text-base text-foreground">
           {session.isCurrent ? `${name} · this device` : name}
         </Text>
+        {detail ? <Text variant="caption">{detail}</Text> : null}
         <Text variant="caption">Signed in {formatShortDate(session.signedInAt)}</Text>
         <Text variant="caption">Last active {formatShortDate(lastActive)}</Text>
       </View>
@@ -115,7 +114,7 @@ export function DevicesScreen() {
       <ConfirmDialog
         isVisible={target !== null}
         title="Sign out this device?"
-        message={`${describeDevice(target?.userAgent ?? null).name} will be signed out at once and need a new code to sign in.`}
+        message={`${describeUserAgent(target?.userAgent ?? null).name} will be signed out at once and need a new code to sign in.`}
         confirmLabel="Sign out"
         confirmingLabel="Signing out…"
         isConfirming={revoke.isPending}
