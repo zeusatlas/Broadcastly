@@ -24,8 +24,8 @@ export function DescriptionField({ value, onChangeText, error }: DescriptionFiel
         onChangeText={onChangeText}
         placeholder="Who they are and who they message"
         multiline
-        numberOfLines={5}
-        maxLength={2000}
+        numberOfLines={3}
+        maxLength={300}
         textAlignVertical="top"
         autoCapitalize="sentences"
         error={

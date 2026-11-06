@@ -1,12 +1,12 @@
 import { router } from 'expo-router';
 import { X } from 'lucide-react-native';
-import { useState } from 'react';
 import { View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
-import { Button, Text, TextField } from '@/components/ui';
+import { Button, Text } from '@/components/ui';
 import { notify } from '@/lib/notify';
 
+import { HeadFields, useHeadForm } from '../components/HeadFields';
 import { useAppointHeadMutation } from '../hooks/use_platform_api';
 
 interface AppointHeadScreenProps {
@@ -14,34 +14,21 @@ interface AppointHeadScreenProps {
   headTitle: string;
 }
 
-// The only way an organisation gets its head; a matching member ID promotes that member instead.
+// Appoints the head of an organisation created without one; a matching member ID promotes that member.
 export function AppointHeadScreen({ organisationId, headTitle }: AppointHeadScreenProps) {
   const appoint = useAppointHeadMutation();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [memberNumber, setPartyId] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const form = useHeadForm();
   const title = headTitle.toLowerCase();
-  const fieldError = (field: string) => appoint.error?.fieldError(field);
-  const isReady = [firstName, lastName, email, phone, dateOfBirth].every((value) => value.trim());
 
   const submit = async () => {
-    const response = await appoint.mutate({
-      uuid: organisationId,
-      credentials: {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        memberNumber: memberNumber.trim() || undefined,
-        email: email.trim(),
-        phone: phone.trim(),
-        dateOfBirth: dateOfBirth.trim(),
-      },
-    });
+    const credentials = form.toRequest();
+    const response = await appoint.mutate({ uuid: organisationId, credentials });
     if (!response) return;
     router.back();
-    notify.success(`${headTitle} appointed.`, `${firstName.trim()} can now sign in on the app.`);
+    notify.success(
+      `${headTitle} appointed.`,
+      `${credentials.firstName} can now sign in on the app.`,
+    );
   };
 
   return (
@@ -56,7 +43,7 @@ export function AppointHeadScreen({ organisationId, headTitle }: AppointHeadScre
             variant="accent"
             size="lg"
             fullWidth
-            disabled={!isReady}
+            disabled={!form.isReady}
             isLoading={appoint.isPending}
             loadingLabel="Appointing…"
             onPress={submit}
@@ -73,54 +60,8 @@ export function AppointHeadScreen({ organisationId, headTitle }: AppointHeadScre
         They sign in with this email and phone. If the member ID matches a member of this
         organisation, that member is promoted.
       </Text>
-      <View className="mt-6 gap-5">
-        <TextField
-          label="First name"
-          value={firstName}
-          onChangeText={setFirstName}
-          autoCapitalize="words"
-          error={fieldError('firstName')}
-        />
-        <TextField
-          label="Last name"
-          value={lastName}
-          onChangeText={setLastName}
-          autoCapitalize="words"
-          error={fieldError('lastName')}
-        />
-        <TextField
-          label="Member ID (optional)"
-          value={memberNumber}
-          onChangeText={setPartyId}
-          autoCapitalize="characters"
-          error={fieldError('memberNumber')}
-        />
-        <TextField
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="name@example.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          error={fieldError('email')}
-        />
-        <TextField
-          label="Phone"
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="e.g. 024 123 4567"
-          keyboardType="phone-pad"
-          error={fieldError('phone')}
-        />
-        <TextField
-          label="Date of birth"
-          value={dateOfBirth}
-          onChangeText={setDateOfBirth}
-          placeholder="YYYY-MM-DD"
-          keyboardType="numbers-and-punctuation"
-          error={fieldError('dateOfBirth')}
-        />
+      <View className="mt-6">
+        <HeadFields form={form} fieldError={(field) => appoint.error?.fieldError(field)} />
       </View>
     </PageScreen>
   );

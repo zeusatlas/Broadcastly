@@ -55,7 +55,7 @@ export function organisationTypeLabel(type: string) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-export const DESCRIPTION_MAX_WORDS = 200;
+export const DESCRIPTION_MAX_WORDS = 20;
 
 export const wordCount = (value: string) => {
   const trimmed = value.trim();
