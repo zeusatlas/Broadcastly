@@ -134,6 +134,7 @@ function executiveFilters(organisationId: string, filters: ExecutiveFilters) {
   const param = (value: unknown) => `$${params.push(value)}`;
 
   if (filters.id) clauses.push(`e.id = ${param(filters.id)}`);
+  if (filters.memberId) clauses.push(`m.id = ${param(filters.memberId)}`);
   if (filters.search) {
     const p = param(likePattern(filters.search));
     clauses.push(`(m.first_name || ' ' || m.last_name ILIKE ${p} OR e.email ILIKE ${p}

@@ -61,5 +61,7 @@ export interface MemberResponse {
   unitName: string | null;
   status: MemberStatus;
   isExecutive: boolean;
+  // Members have no email; an executive's is their sign-in email, required when they are appointed.
+  email: string | null;
   createdAt: Date;
 }

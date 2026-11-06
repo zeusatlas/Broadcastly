@@ -27,6 +27,7 @@ const MEMBER_SELECT = `
          u.name AS "unitName",
          m.status,
          EXISTS (SELECT 1 FROM organisation_executives e WHERE e.member_id = m.id) AS "isExecutive",
+         (SELECT e.email FROM organisation_executives e WHERE e.member_id = m.id LIMIT 1) AS email,
          m.created_at AS "createdAt"
     FROM members m
     LEFT JOIN memberships ms ON ms.member_id = m.id AND ms.status = 'active'

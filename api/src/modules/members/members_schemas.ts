@@ -90,6 +90,7 @@ export const memberResponseSchema = z
     unitName: z.string().nullable().openapi({ example: 'North Branch' }),
     status: z.enum(MEMBER_STATUSES),
     isExecutive: z.boolean(),
+    email: z.email().nullable().openapi({ example: null }),
     createdAt: z.iso.datetime(),
   })
   .openapi('MemberResponse');

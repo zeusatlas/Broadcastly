@@ -89,6 +89,7 @@ export const listPlatformAdminsSchema = pageQuerySchema.extend({
 export const listOrganisationExecutivesSchema = pageQuerySchema.extend({
   search: searchSchema,
   status: z.enum(EXECUTIVE_STATUSES).optional(),
+  memberId: z.uuid('Not a valid member id.').optional(),
 }) satisfies z.ZodType<ListOrganisationExecutivesRequest>;
 
 export const listBroadcastsSchema = pageQuerySchema

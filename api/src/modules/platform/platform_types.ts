@@ -29,6 +29,8 @@ export interface ListPlatformAdminsRequest extends PageParams {
 export interface ListOrganisationExecutivesRequest extends PageParams {
   search?: string;
   status?: ExecutiveStatus;
+  // The executive account of one member, when opening it from the member list.
+  memberId?: string;
 }
 
 // The head's details; the organisation comes from the path.
