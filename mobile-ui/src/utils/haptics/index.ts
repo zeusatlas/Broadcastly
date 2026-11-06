@@ -15,6 +15,9 @@ const fire = (ios: () => Promise<void>, android: Haptics.AndroidHaptics) => {
 export const haptics = {
   tick: () => fire(() => Haptics.selectionAsync(), AndroidHaptics.Clock_Tick),
   tap: () => fire(() => Haptics.impactAsync(ImpactFeedbackStyle.Light), AndroidHaptics.Virtual_Key),
+  // Tab presses: a click you can feel. Android's Virtual_Key is too faint on many phones.
+  press: () =>
+    fire(() => Haptics.impactAsync(ImpactFeedbackStyle.Medium), AndroidHaptics.Long_Press),
   step: () => fire(() => Haptics.impactAsync(ImpactFeedbackStyle.Heavy), AndroidHaptics.Long_Press),
   success: () =>
     fire(() => Haptics.notificationAsync(NotificationFeedbackType.Success), AndroidHaptics.Confirm),

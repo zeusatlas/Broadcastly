@@ -1,164 +1,128 @@
-import { Tabs } from 'expo-router';
-import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs/types';
-import {
-  Pressable,
-  Text as RNText,
-  type PressableProps,
-  type StyleProp,
-  type ViewStyle,
-  View,
-} from 'react-native';
-import {
-  Building2,
-  LayoutDashboard,
-  Menu,
-  Send,
-  ShieldCheck,
-  Users,
-  Wallet,
-  type LucideIcon,
-} from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { NativeTabs, type SFSymbolIcon } from 'expo-router/native-tabs';
+import { Tabs, useSegments } from 'expo-router';
+import { useEffect, useRef, type ComponentProps } from 'react';
+import { Platform } from 'react-native';
 
 import { Colors, Fonts } from '@/constants/theme';
-import { GlassSurface } from '@/components/ui/GlassSurface';
-import { useHeaderOptions } from '@/hooks/use_header_options';
 import { useThemeName } from '@/hooks/use_theme';
+import { haptics } from '@/utils/haptics';
+
+import { FloatingTabBar } from './FloatingTabBar';
 
 export interface TabDefinition {
   name: string;
   title: string;
-  icon: LucideIcon;
+  // SF Symbol on iOS (outline, filled when selected); Material icon on Android's FloatingTabBar.
+  sf: NonNullable<SFSymbolIcon['sf']>;
+  md: ComponentProps<typeof MaterialIcons>['name'];
 }
 
 // Per FR-IAM-03 this must become a derivation of the executive's permissions and scope.
 export const EXECUTIVE_TABS: TabDefinition[] = [
-  { name: 'index', title: 'Home', icon: LayoutDashboard },
-  { name: 'broadcasts', title: 'Broadcasts', icon: Send },
-  { name: 'members', title: 'Members', icon: Users },
-  { name: 'credits', title: 'Credits', icon: Wallet },
-  { name: 'more', title: 'More', icon: Menu },
+  { name: '(home)', title: 'Home', sf: { default: 'house', selected: 'house.fill' }, md: 'home' },
+  {
+    name: 'broadcasts',
+    title: 'Broadcasts',
+    sf: { default: 'paperplane', selected: 'paperplane.fill' },
+    md: 'send',
+  },
+  {
+    name: 'members',
+    title: 'Members',
+    sf: { default: 'person.2', selected: 'person.2.fill' },
+    md: 'group',
+  },
+  {
+    name: 'credits',
+    title: 'Credits',
+    sf: { default: 'creditcard', selected: 'creditcard.fill' },
+    md: 'account-balance-wallet',
+  },
+  {
+    name: 'more',
+    title: 'More',
+    sf: { default: 'ellipsis.circle', selected: 'ellipsis.circle.fill' },
+    md: 'more-horiz',
+  },
 ];
 
 export const ADMIN_TABS: TabDefinition[] = [
-  { name: 'index', title: 'Home', icon: LayoutDashboard },
-  { name: 'organisations', title: 'Organisations', icon: Building2 },
-  { name: 'admins', title: 'Admins', icon: ShieldCheck },
+  { name: '(home)', title: 'Home', sf: { default: 'house', selected: 'house.fill' }, md: 'home' },
+  {
+    name: 'organisations',
+    title: 'Organisations',
+    sf: { default: 'building.2', selected: 'building.2.fill' },
+    md: 'apartment',
+  },
+  {
+    name: 'admins',
+    title: 'Admins',
+    sf: { default: 'checkmark.shield', selected: 'checkmark.shield.fill' },
+    md: 'admin-panel-settings',
+  },
+  {
+    name: 'more',
+    title: 'More',
+    sf: { default: 'ellipsis.circle', selected: 'ellipsis.circle.fill' },
+    md: 'more-horiz',
+  },
 ];
 
-// Tab bar on the bottom. Home ('index') uses this header with no title and fills its sides itself;
-// every other tab is a TabStack with its own large, collapsing title.
+// iOS: the system tab bar, like WhatsApp and Telegram (native Liquid Glass on iOS 26). Android's
+// system bar is plain Material, so it gets our own floating glass pill instead (FloatingTabBar).
 export function AppTabs({ tabs }: { tabs: TabDefinition[] }) {
-  const themeName = useThemeName();
-  const palette = Colors[themeName];
-  const headerOptions = useHeaderOptions();
-  const insets = useSafeAreaInsets();
+  return Platform.OS === 'ios' ? <IosTabs tabs={tabs} /> : <AndroidTabs tabs={tabs} />;
+}
 
+function AndroidTabs({ tabs }: { tabs: TabDefinition[] }) {
   return (
     <Tabs
-      screenOptions={{
-        ...headerOptions,
-        animation: 'shift',
-        headerLeftContainerStyle: { paddingLeft: 12 },
-        headerRightContainerStyle: { paddingRight: 12 },
-        // Navy on light, gold on dark: each clears 4.5:1 against the `border` pill behind it.
-        tabBarActiveTintColor: themeName === 'light' ? palette.primary : palette.accentEmphasis,
-        tabBarInactiveTintColor: palette.mutedForeground,
-        tabBarItemStyle: { flex: 1, minWidth: 0 },
-        tabBarStyle: {
-          backgroundColor: palette.background,
-          borderTopColor: palette.border,
-          height: 60 + insets.bottom,
-          paddingHorizontal: 6,
-          paddingTop: 5,
-          paddingBottom: insets.bottom + 5,
-        },
-        tabBarLabelStyle: { fontSize: 10, fontFamily: Fonts.medium, marginTop: 1 },
-      }}
+      tabBar={(props) => <FloatingTabBar {...props} tabs={tabs} />}
+      screenOptions={{ headerShown: false, animation: 'shift' }}
     >
-      {tabs.map(({ name, title, icon: Icon }) => (
-        <Tabs.Screen
-          key={name}
-          name={name}
-          options={{
-            title,
-            headerShown: name === 'index',
-            headerTitle: '',
-            tabBarButton: (props) => (
-              <TabBarButton {...props} activeIndicatorColor={palette.accentEmphasis} />
-            ),
-            tabBarLabel: ({ color, focused }) => (
-              <RNText
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
-                style={{
-                  color,
-                  fontFamily: focused ? Fonts.bold : Fonts.semibold,
-                  fontSize: 11,
-                  marginTop: 2,
-                }}
-              >
-                {title}
-              </RNText>
-            ),
-            tabBarIcon: ({ color }) => <Icon color={color} size={20} strokeWidth={2.25} />,
-          }}
-        />
+      {tabs.map((tab) => (
+        <Tabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
       ))}
     </Tabs>
   );
 }
 
-interface TabBarButtonProps extends BottomTabBarButtonProps {
-  activeIndicatorColor: string;
+// The system bar does not reliably report taps as `tabPress`, so the haptic follows the active tab:
+// it plays whenever the selected tab changes, and never when leaving the tabs for a pushed page.
+function useTabChangeHaptic(tabs: TabDefinition[]) {
+  const segments = useSegments() as string[];
+  const active = segments.find((segment) => tabs.some((tab) => tab.name === segment));
+  const previous = useRef(active);
+
+  useEffect(() => {
+    if (active && previous.current && active !== previous.current) haptics.press();
+    previous.current = active;
+  }, [active]);
 }
 
-function TabBarButton({
-  activeIndicatorColor,
-  accessibilityState,
-  children,
-  href: _href,
-  onPress,
-  style,
-  ...props
-}: TabBarButtonProps) {
-  const isSelected = accessibilityState?.selected === true;
+function IosTabs({ tabs }: { tabs: TabDefinition[] }) {
+  useTabChangeHaptic(tabs);
+  const themeName = useThemeName();
+  const palette = Colors[themeName];
+  const activeColor = themeName === 'light' ? palette.primary : palette.accentEmphasis;
 
   return (
-    <Pressable
-      {...(props as PressableProps)}
-      onPress={onPress as PressableProps['onPress']}
-      style={[
-        style as StyleProp<ViewStyle>,
-        { flex: 1, alignItems: 'stretch', justifyContent: 'center', paddingHorizontal: 2 },
-      ]}
+    <NativeTabs
+      tintColor={activeColor}
+      iconColor={{ default: palette.mutedForeground, selected: activeColor }}
+      labelStyle={{
+        default: { fontFamily: Fonts.semibold, fontSize: 11, color: palette.mutedForeground },
+        selected: { fontFamily: Fonts.bold, fontSize: 11, color: activeColor },
+      }}
     >
-      {isSelected ? (
-        <GlassSurface
-          style={{
-            flex: 1,
-            borderRadius: 999,
-            overflow: 'hidden',
-            borderColor: activeIndicatorColor,
-            borderWidth: 1.5,
-          }}
-        >
-          {children}
-        </GlassSurface>
-      ) : (
-        <View
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 999,
-            paddingHorizontal: 8,
-          }}
-        >
-          {children}
-        </View>
-      )}
-    </Pressable>
+      {tabs.map((tab) => (
+        // Each tab is a TabStack that draws its own title, so automatic content insets stay off.
+        <NativeTabs.Trigger key={tab.name} name={tab.name} disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Icon sf={tab.sf} />
+          <NativeTabs.Trigger.Label>{tab.title}</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
+      ))}
+    </NativeTabs>
   );
 }
