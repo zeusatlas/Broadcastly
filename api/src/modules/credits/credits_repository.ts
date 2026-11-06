@@ -352,7 +352,7 @@ export const creditsRepository = {
     if (scope) clauses.push(inReach('e.member_id', param(scope)));
     if (search) {
       const p = param(likePattern(search));
-      clauses.push(`(m.first_name || ' ' || m.last_name ILIKE ${p} OR m.party_id ILIKE ${p})`);
+      clauses.push(`(m.first_name || ' ' || m.last_name ILIKE ${p} OR m.member_number ILIKE ${p})`);
     }
     const from = `FROM organisation_executives e JOIN members m ON m.id = e.member_id
                   WHERE ${clauses.join(' AND ')}`;

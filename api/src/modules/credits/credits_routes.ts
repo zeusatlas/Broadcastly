@@ -102,7 +102,7 @@ openApiRegistry.registerPath({
   tags,
   summary: 'List who you can allocate to',
   description:
-    'Active executives of your organisation within your reach, each with their positions and wallet. Excludes other heads, and excludes you unless you are the head (who funds their own wallet from the organisation’s). Search by name or party ID.',
+    'Active executives of your organisation within your reach, each with their positions and wallet. Excludes other heads, and excludes you unless you are the head (who funds their own wallet from the organisation’s). Search by name or member ID.',
   security,
   request: { query: listAllocationRecipientsSchema },
   responses: {

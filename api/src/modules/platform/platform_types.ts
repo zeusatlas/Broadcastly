@@ -92,6 +92,8 @@ export interface PlatformAdminParams {
 export interface OrganisationExecutiveResponse {
   id: string;
   memberId: string;
+  memberNumber: string | null;
+  // Old name for memberNumber, still read by the web app; drop once it switches.
   partyId: string | null;
   fullName: string;
   email: string;

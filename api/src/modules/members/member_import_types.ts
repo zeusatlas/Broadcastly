@@ -22,7 +22,7 @@ export type ImportResolution = (typeof IMPORT_RESOLUTIONS)[number];
 export const IMPORT_ROW_OUTCOMES = ['created', 'updated', 'skipped', 'rejected'] as const;
 export type ImportRowOutcome = (typeof IMPORT_ROW_OUTCOMES)[number];
 
-export const DUPLICATE_MATCHES = ['party_id', 'phone'] as const;
+export const DUPLICATE_MATCHES = ['member_number', 'phone'] as const;
 export type DuplicateMatch = (typeof DUPLICATE_MATCHES)[number];
 
 // The template's columns, in order. `key` is what the parser matches a header against.
@@ -30,7 +30,7 @@ export const IMPORT_COLUMNS = [
   { key: 'firstName', header: 'First name', isRequired: true },
   { key: 'middleName', header: 'Middle name', isRequired: false },
   { key: 'lastName', header: 'Last name', isRequired: true },
-  { key: 'partyId', header: 'Party ID', isRequired: false },
+  { key: 'memberNumber', header: 'Member ID', isRequired: false },
   { key: 'phone', header: 'Phone', isRequired: false },
   { key: 'dateOfBirth', header: 'Date of birth', isRequired: false },
   { key: 'unit', header: 'Unit', isRequired: false },

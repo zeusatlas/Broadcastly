@@ -20,7 +20,7 @@ import type {
 export interface ExecutiveRow {
   id: string;
   memberId: string;
-  partyId: string | null;
+  memberNumber: string | null;
   firstName: string;
   middleName: string | null;
   lastName: string;
@@ -59,7 +59,7 @@ const POSITION_SELECT = `
    WHERE (p.organisation_id = $1 OR p.organisation_id IS NULL)`;
 
 const EXECUTIVE_SELECT = `
-  SELECT e.id, m.id AS "memberId", m.party_id AS "partyId", m.first_name AS "firstName",
+  SELECT e.id, m.id AS "memberId", m.member_number AS "memberNumber", m.first_name AS "firstName",
          m.middle_name AS "middleName", m.last_name AS "lastName", e.email, m.phone, e.status,
          e.last_sign_in_at AS "lastSignInAt", e.created_at AS "createdAt",
          COALESCE((
@@ -99,7 +99,7 @@ function executiveWhere(organisationId: string, scope: Scope, filters: Executive
   if (filters.search) {
     const p = param(likePattern(filters.search));
     clauses.push(`(m.first_name || ' ' || m.last_name ILIKE ${p} OR e.email ILIKE ${p}
-                   OR m.party_id ILIKE ${p})`);
+                   OR m.member_number ILIKE ${p})`);
   }
   return { sql: `WHERE ${clauses.join(' AND ')}`, params };
 }

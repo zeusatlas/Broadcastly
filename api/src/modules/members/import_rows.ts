@@ -6,7 +6,7 @@ const MAX_LENGTH: Record<ImportColumnKey, number> = {
   firstName: 100,
   middleName: 100,
   lastName: 100,
-  partyId: 50,
+  memberNumber: 50,
   phone: 40,
   dateOfBirth: 40,
   unit: 120,
@@ -18,6 +18,9 @@ const LABEL = Object.fromEntries(IMPORT_COLUMNS.map((c) => [c.key, c.header])) a
 const HEADER_KEYS: Record<string, ImportColumnKey> = {
   ...Object.fromEntries(IMPORT_COLUMNS.map((c) => [simplify(c.header), c.key])),
   surname: 'lastName',
+  partyid: 'memberNumber',
+  memberno: 'memberNumber',
+  membershipnumber: 'memberNumber',
   phonenumber: 'phone',
   dob: 'dateOfBirth',
 };
@@ -28,7 +31,7 @@ export interface CheckedRow {
   firstName: string | null;
   middleName: string | null;
   lastName: string | null;
-  partyId: string | null;
+  memberNumber: string | null;
   phone: string | null;
   dateOfBirth: string | null;
   errors: Record<string, string[]>;
@@ -131,7 +134,7 @@ export function checkRow(rowNumber: number, values: ImportRowValues): CheckedRow
     firstName: text('firstName'),
     middleName: text('middleName'),
     lastName: text('lastName'),
-    partyId: text('partyId'),
+    memberNumber: text('memberNumber'),
     phone,
     dateOfBirth,
     errors,

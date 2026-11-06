@@ -51,15 +51,15 @@ const NO_PERMISSION: ErrorSpec = [
   'No member.manage permission, or the unit is outside your scope.',
 ];
 const NO_MEMBER: ErrorSpec = [404, 'No such member within your scope.', 'Member not found.'];
-const PARTY_ID_TAKEN: ErrorSpec = [
+const MEMBER_NUMBER_TAKEN: ErrorSpec = [
   409,
-  'The party ID is already used.',
-  'A member with this party ID already exists.',
+  'The member ID is already used.',
+  'Another member already has this member ID.',
 ];
 const MEMBER_EXAMPLE = {
   firstName: 'Akosua',
   lastName: 'Boateng',
-  partyId: 'MBR-0042',
+  memberNumber: 'MBR-0042',
   phone: '024 123 4567',
 };
 
@@ -78,7 +78,7 @@ document({
   summary: 'List members',
   description: `Members within your scope, sorted by surname.
 - Unit-scoped executives see only members of their units and the units below.
-- \`unitId\` includes the units below it; \`search\` matches name, party ID or phone.`,
+- \`unitId\` includes the units below it; \`search\` matches name, member ID or phone.`,
   request: { query: listMembersSchema },
   responses: {
     200: jsonResponse(
@@ -106,7 +106,7 @@ document({
       'The new member.',
       successEnvelope(memberResponseSchema, 'Member created.', 201),
     ),
-    ...errorResponses(401, NO_PERMISSION, PARTY_ID_TAKEN, 422),
+    ...errorResponses(401, NO_PERMISSION, MEMBER_NUMBER_TAKEN, 422),
   },
 });
 document({
@@ -137,7 +137,7 @@ document({
       'The updated member.',
       successEnvelope(memberResponseSchema, 'Member updated.'),
     ),
-    ...errorResponses(401, NO_PERMISSION, NO_MEMBER, PARTY_ID_TAKEN, 422),
+    ...errorResponses(401, NO_PERMISSION, NO_MEMBER, MEMBER_NUMBER_TAKEN, 422),
   },
 });
 document({

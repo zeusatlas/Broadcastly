@@ -177,7 +177,7 @@ export const executiveResponseSchema = z
   .object({
     id: z.uuid(),
     memberId: z.uuid(),
-    partyId: z.string().nullable().openapi({ example: 'M-004512' }),
+    memberNumber: z.string().nullable().openapi({ example: 'M-004512' }),
     fullName: z.string().openapi({ example: 'Kofi Asante' }),
     email: z.string().openapi({ example: 'kofi.asante@example.com' }),
     phone: z.string().nullable().openapi({ example: '+233241234567' }),

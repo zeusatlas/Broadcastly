@@ -25,7 +25,7 @@ export function toUserResponse(
     email: executive.email,
     phone: member.phone,
     memberId: member.id,
-    partyId: member.partyId,
+    memberNumber: member.memberNumber,
     dateOfBirth: member.dateOfBirth,
     organisation: {
       id: organisation.id,
@@ -53,7 +53,7 @@ export function toAdminUserResponse(admin: PlatformAdmin): UserResponse {
     email: admin.email,
     phone: admin.phone,
     memberId: null,
-    partyId: null,
+    memberNumber: null,
     dateOfBirth: null,
     organisation: null,
     permissions: platformPermissionsOf(admin),

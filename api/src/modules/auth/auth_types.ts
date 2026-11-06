@@ -111,7 +111,7 @@ export interface CreateExecutiveRequest {
   firstName: string;
   middleName?: string;
   lastName: string;
-  partyId?: string;
+  memberNumber?: string;
   email: string;
   phone: string;
   dateOfBirth: string;
@@ -171,7 +171,7 @@ export interface UserResponse {
   email: string;
   phone: string | null;
   memberId: string | null;
-  partyId: string | null;
+  memberNumber: string | null;
   dateOfBirth: string | null;
   organisation: OrganisationRef | null;
   permissions: AccessPermission[];

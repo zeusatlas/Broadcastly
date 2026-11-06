@@ -420,7 +420,7 @@ document({
   description: `
   Promote a member of this organisation to executive and appoint them as its head, in one step.
 
-- If \`partyId\` matches a member of this organisation, that member is promoted; otherwise one is created.
+- If \`memberNumber\` matches a member of this organisation, that member is promoted; otherwise one is created.
   - One head per organisation. They sign in on the mobile app, create positions and appoint executives.
 `,
   request: {
@@ -428,7 +428,7 @@ document({
     body: jsonBody(appointChairmanSchema, {
       firstName: 'Kofi',
       lastName: 'Asante',
-      partyId: 'M-004512',
+      memberNumber: 'M-004512',
       email: 'kofi.asante@example.com',
       phone: '0241234567',
       dateOfBirth: '1978-05-20',
@@ -454,7 +454,7 @@ document({
   operationId: 'listOrganisationExecutives',
   summary: "List an organisation's executives",
   description:
-    'Executives of this organisation with the positions they hold. `search` matches name, email or party ID.',
+    'Executives of this organisation with the positions they hold. `search` matches name, email or member ID.',
   request: { params: organisationParamsSchema, query: listOrganisationExecutivesSchema },
   response: successEnvelope(
     paginatedSchema(organisationExecutiveResponseSchema),

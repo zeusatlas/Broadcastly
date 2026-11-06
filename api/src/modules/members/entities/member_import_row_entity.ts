@@ -43,8 +43,8 @@ export class MemberImportRow extends BaseEntity {
   @Column({ type: 'varchar', length: 100, name: 'last_name', nullable: true })
   lastName: string | null;
 
-  @Column({ type: 'varchar', length: 50, name: 'party_id', nullable: true })
-  partyId: string | null;
+  @Column({ type: 'varchar', length: 50, name: 'member_number', nullable: true })
+  memberNumber: string | null;
 
   @Column({ type: 'varchar', length: 16, nullable: true })
   phone: string | null;

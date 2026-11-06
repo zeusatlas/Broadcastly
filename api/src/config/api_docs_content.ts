@@ -36,7 +36,7 @@ manage every organisation through **Platform**.
 ## Request and response format
 
 - Base URL: \`/api/v1\`. JSON in, JSON out.
-- Field names are **camelCase** (\`firstName\`, \`partyId\`, \`createdAt\`).
+- Field names are **camelCase** (\`firstName\`, \`memberNumber\`, \`createdAt\`).
 - IDs are **UUIDs**. Timestamps are **ISO 8601 in UTC**, e.g. \`2026-11-01T09:30:00.000Z\`.
 - Every response uses the same envelope:
 

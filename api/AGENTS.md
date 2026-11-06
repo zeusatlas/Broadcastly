@@ -85,7 +85,7 @@ unmaintained; choose deliberately).
 | Name          | Means                                                                 | Never call it      |
 | ------------- | --------------------------------------------------------------------- | ------------------ |
 | `Member`      | Any party member on record (`members`). Most only receive SMS.        | person, user, people |
-| `partyId`     | The party membership number (`party_id`), the key to look members up. | memberId, member number |
+| `memberNumber`| The organisation's own ID for a member (`member_number`), shown as "Member ID". | partyId, party ID |
 | `memberId`    | A member's own uuid, and every FK to `members` (`member_id`).         | personId           |
 | `OrganisationExecutive` | A member promoted to executive in their organisation (`organisation_executives`): login email, status. | account, user |
 | `Position`    | An office in an organisation, e.g. Constituency Organiser; the chairman creates them. | role, title |
@@ -103,8 +103,8 @@ Entities carry camelCase properties with an explicit snake_case column name, and
 (`<module>_mapper.ts`, e.g. `toUserResponse`) builds the response. Entities never leave a service.
 
 ```ts
-@Column({ type: 'varchar', length: 50, name: 'party_id', nullable: true })
-partyId: string | null;           // DB party_id  →  API partyId
+@Column({ type: 'varchar', length: 50, name: 'member_number', nullable: true })
+memberNumber: string | null;      // DB member_number  →  API memberNumber
 ```
 
 | Database          | API / app        |
@@ -113,7 +113,7 @@ partyId: string | null;           // DB party_id  →  API partyId
 | `first_name`      | `firstName`      |
 | `middle_name`     | `middleName`     |
 | `last_name`       | `lastName`       |
-| `party_id`        | `partyId`        |
+| `member_number`   | `memberNumber`   |
 | `created_at`      | `createdAt`      |
 | `updated_at`      | `updatedAt`      |
 
@@ -260,8 +260,9 @@ before any SMS is sent. Admin routes are admin-only regardless (`authorize({ rol
 
 **Model (owner's decision; table and column names are deliberate).**
 - `organisations` — the tenants (a constituency or other organisation; `type`, default `constituency`).
-- `members` — party members; `organisation_id` is required. `party_id` is unique **within** an
-  organisation (`uq_members_organisation_party_id`).
+- `members` — party members; `organisation_id` is required. `member_number` ("Member ID") is unique
+  **within** an organisation (`uq_members_organisation_member_number`). It was `party_id`; platform
+  executive responses still carry a deprecated `partyId` copy for the web app.
 - `organisation_executives` — a **member promoted to executive** in their organisation:
   `organisation_id`, `member_id`, login email, `status`; **no password**. A composite foreign key
   (`member_id`, `organisation_id`) → `members` guarantees the member belongs to that organisation.
@@ -383,7 +384,7 @@ messages on mobile. All routes are under `/api/v1/platform` and need a platform 
   (`uq_appointments_active_chairman`). The service checks first for a friendly message and locks the
   organisation row; the index catches races.
 - **Appointing is atomic:** member + executive + appointment + audit rows commit together. If
-  `partyId` matches a member of that organisation, that member is promoted instead of created.
+  `memberNumber` matches a member of that organisation, that member is promoted instead of created.
 - **Status changes** are a no-op if already in that status; suspension revokes every session at
   once; an executive's `deactivated` status is final and cannot be changed here.
 - **Organisation status (owner's decision, 2026-11-03).** `suspend` stops a whole organisation: every

@@ -336,7 +336,7 @@ export const chairmanService = {
     return toExecutiveResponse(row);
   },
 
-  // Promotes a member of this organisation (found by party ID, or created) and appoints them.
+  // Promotes a member of this organisation (found by member ID, or created) and appoints them.
   async createExecutive(
     auth: AccessContext,
     { positionId, unitId, permissions, ...details }: CreateOrganisationExecutiveRequest,

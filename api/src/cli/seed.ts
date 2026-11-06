@@ -237,9 +237,9 @@ async function seedAdmin() {
 async function ensureMembers(organisationId: string, fixture: OrganisationFixture) {
   const repository = dataSource.getRepository(Member);
   for (let index = 1; index <= fixture.memberCount; index += 1) {
-    const partyId = `${fixture.slug.toUpperCase()}-${pad(index)}`;
+    const memberNumber = `${fixture.slug.toUpperCase()}-${pad(index)}`;
     const phone = seedPhone('24', fixture.slug, index);
-    const existing = await repository.findOneBy({ organisationId, partyId });
+    const existing = await repository.findOneBy({ organisationId, memberNumber });
     if (existing) {
       if (existing.phone !== phone && !fixture.executives.some((e) => e.memberIndex === index)) {
         await repository.update({ id: existing.id }, { phone });
@@ -253,16 +253,16 @@ async function ensureMembers(organisationId: string, fixture: OrganisationFixtur
         firstName,
         middleName: null,
         lastName: `${fixture.slug === 'zeus' ? 'Member' : 'Associate'} ${pad(index)}`,
-        partyId,
+        memberNumber,
         phone,
         dateOfBirth: `198${index % 10}-0${(index % 9) + 1}-15`,
       }),
     );
   }
   for (const executive of fixture.executives) {
-    const partyId = `${fixture.slug.toUpperCase()}-${pad(executive.memberIndex)}`;
-    const member = await repository.findOneBy({ organisationId, partyId });
-    if (!member) throw new Error(`Seed member ${partyId} was not created.`);
+    const memberNumber = `${fixture.slug.toUpperCase()}-${pad(executive.memberIndex)}`;
+    const member = await repository.findOneBy({ organisationId, memberNumber });
+    if (!member) throw new Error(`Seed member ${memberNumber} was not created.`);
     member.firstName = executive.firstName;
     member.lastName = executive.lastName;
     member.phone = executivePhone(fixture.slug, executive.memberIndex);
@@ -279,7 +279,7 @@ async function ensureMemberships(organisationId: string) {
        SELECT id, row_number() OVER (ORDER BY name) - 1 AS slot, count(*) OVER () AS total
          FROM organisation_units WHERE organisation_id = $1 AND status = 'active'),
      loose AS (
-       SELECT m.id, row_number() OVER (ORDER BY m.party_id, m.id) - 1 AS n FROM members m
+       SELECT m.id, row_number() OVER (ORDER BY m.member_number, m.id) - 1 AS n FROM members m
         WHERE m.organisation_id = $1
           AND NOT EXISTS (SELECT 1 FROM memberships ms WHERE ms.member_id = m.id AND ms.status = 'active'))
      INSERT INTO memberships (organisation_id, member_id, unit_id, source)
@@ -338,7 +338,7 @@ async function ensureExecutive(
   const result = await authService.createExecutive(
     {
       organisationId,
-      partyId: `${fixture.slug.toUpperCase()}-${pad(executive.memberIndex)}`,
+      memberNumber: `${fixture.slug.toUpperCase()}-${pad(executive.memberIndex)}`,
       firstName: executive.firstName,
       lastName: executive.lastName,
       email,

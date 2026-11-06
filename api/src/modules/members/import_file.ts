@@ -149,7 +149,7 @@ function cellText(value: unknown): string {
   return String(value);
 }
 
-// Every cell as text; numbers stay exactly as typed so phones and party IDs keep their digits.
+// Every cell as text; numbers stay exactly as typed so phones and member IDs keep their digits.
 export async function readSpreadsheet(
   file: Buffer,
   fileType: MemberImportFileType,

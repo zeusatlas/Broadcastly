@@ -15,7 +15,8 @@ function executiveBase(row: ExecutiveRow) {
   return {
     id: row.id,
     memberId: row.memberId,
-    partyId: row.partyId,
+    memberNumber: row.memberNumber,
+    partyId: row.memberNumber,
     fullName: [row.firstName, row.middleName, row.lastName].filter(Boolean).join(' '),
     email: row.email,
     phone: row.phone,

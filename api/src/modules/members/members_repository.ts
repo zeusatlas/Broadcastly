@@ -20,7 +20,7 @@ const MEMBER_SELECT = `
          m.middle_name AS "middleName",
          m.last_name AS "lastName",
          ${fullName('m')} AS "fullName",
-         m.party_id AS "partyId",
+         m.member_number AS "memberNumber",
          m.phone,
          to_char(m.date_of_birth, 'YYYY-MM-DD') AS "dateOfBirth",
          ms.unit_id AS "unitId",
@@ -59,7 +59,7 @@ function memberWhere(
   if (filters.search) {
     const value = param(likePattern(filters.search));
     clauses.push(
-      `(${fullName('m')} ILIKE ${value} OR m.party_id ILIKE ${value} OR m.phone ILIKE ${value})`,
+      `(${fullName('m')} ILIKE ${value} OR m.member_number ILIKE ${value} OR m.phone ILIKE ${value})`,
     );
   }
   return { sql: `WHERE ${clauses.join(' AND ')}`, params };
@@ -111,7 +111,7 @@ export const membersRepository = {
   async lockMember(organisationId: string, scope: MemberScope, id: string, manager: EntityManager) {
     const where = memberWhere(organisationId, scope);
     const rows = (await manager.query(
-      `SELECT m.id, m.status, m.party_id AS "partyId", m.phone, ms.id AS "membershipId", ms.unit_id AS "unitId"
+      `SELECT m.id, m.status, m.member_number AS "memberNumber", m.phone, ms.id AS "membershipId", ms.unit_id AS "unitId"
          FROM members m LEFT JOIN memberships ms ON ms.member_id = m.id AND ms.status = 'active'
          ${where.sql} AND m.id = $${where.params.length + 1}
          FOR UPDATE OF m`,
@@ -119,7 +119,7 @@ export const membersRepository = {
     )) as {
       id: string;
       status: string;
-      partyId: string | null;
+      memberNumber: string | null;
       phone: string | null;
       membershipId: string | null;
       unitId: string | null;
@@ -139,15 +139,15 @@ export const membersRepository = {
     return rows.length > 0;
   },
 
-  async partyIdTaken(
+  async memberNumberTaken(
     organisationId: string,
-    partyId: string,
+    memberNumber: string,
     exceptId: string | null,
     manager: EntityManager,
   ) {
     const rows = (await manager.query(
-      `SELECT 1 FROM members WHERE organisation_id = $1 AND party_id = $2 AND ($3::uuid IS NULL OR id <> $3)`,
-      [organisationId, partyId, exceptId],
+      `SELECT 1 FROM members WHERE organisation_id = $1 AND member_number = $2 AND ($3::uuid IS NULL OR id <> $3)`,
+      [organisationId, memberNumber, exceptId],
     )) as unknown[];
     return rows.length > 0;
   },

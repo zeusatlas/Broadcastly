@@ -78,7 +78,7 @@ const ROW_SELECT = `
 
 export interface ExistingMemberMatch {
   id: string;
-  partyId: string | null;
+  memberNumber: string | null;
   phone: string | null;
 }
 
@@ -189,15 +189,15 @@ export const memberImportRepository = {
 
   async existingMatches(
     organisationId: string,
-    partyIds: string[],
+    memberNumbers: string[],
     phones: string[],
   ): Promise<ExistingMemberMatch[]> {
-    if (partyIds.length === 0 && phones.length === 0) return [];
+    if (memberNumbers.length === 0 && phones.length === 0) return [];
     return (await dataSource.query(
-      `SELECT id, party_id AS "partyId", phone FROM members
-        WHERE organisation_id = $1 AND (party_id = ANY($2::text[]) OR phone = ANY($3::text[]))
+      `SELECT id, member_number AS "memberNumber", phone FROM members
+        WHERE organisation_id = $1 AND (member_number = ANY($2::text[]) OR phone = ANY($3::text[]))
         ORDER BY created_at, id`,
-      [organisationId, partyIds, phones],
+      [organisationId, memberNumbers, phones],
     )) as ExistingMemberMatch[];
   },
 

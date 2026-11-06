@@ -60,7 +60,7 @@ describe('rows', () => {
         values: {
           firstName: 'Ama',
           lastName: 'Mensah',
-          partyId: 'P-1',
+          memberNumber: 'P-1',
           phone: '024 123 4567',
           dateOfBirth: '20/04/1990',
         },

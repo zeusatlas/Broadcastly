@@ -7,10 +7,10 @@ import { MEMBER_STATUSES, type MemberStatus } from '../members_types';
 // One record per party member, always inside one organisation. An executive is a member promoted
 // to a login, so appointing a member never duplicates them (FR-ORG-05, BR-04).
 @Entity({ name: 'members' })
-// A party ID is unique within its organisation; other organisations may reuse it.
-@Index('uq_members_organisation_party_id', ['organisationId', 'partyId'], {
+// A member ID is unique within its organisation; other organisations may reuse it.
+@Index('uq_members_organisation_member_number', ['organisationId', 'memberNumber'], {
   unique: true,
-  where: '"party_id" IS NOT NULL',
+  where: '"member_number" IS NOT NULL',
 })
 // Target of organisation_executives' composite key (member + organisation).
 @Unique('uq_members_id_organisation', ['id', 'organisationId'])
@@ -34,8 +34,8 @@ export class Member extends BaseEntity {
   @Column({ type: 'varchar', length: 100, name: 'last_name' })
   lastName: string;
 
-  @Column({ type: 'varchar', length: 50, name: 'party_id', nullable: true })
-  partyId: string | null;
+  @Column({ type: 'varchar', length: 50, name: 'member_number', nullable: true })
+  memberNumber: string | null;
 
   // E.164, e.g. +233241234567 (FR-MEM-05).
   @Column({ type: 'varchar', length: 16, nullable: true })

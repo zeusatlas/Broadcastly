@@ -26,7 +26,7 @@ export interface CreateMemberRequest {
   firstName: string;
   middleName?: string;
   lastName: string;
-  partyId?: string;
+  memberNumber?: string;
   phone?: string;
   dateOfBirth?: string;
   unitId?: string;
@@ -37,7 +37,7 @@ export interface UpdateMemberRequest {
   firstName?: string;
   middleName?: string | null;
   lastName?: string;
-  partyId?: string | null;
+  memberNumber?: string | null;
   phone?: string | null;
   dateOfBirth?: string | null;
   unitId?: string;
@@ -54,7 +54,7 @@ export interface MemberResponse {
   middleName: string | null;
   lastName: string;
   fullName: string;
-  partyId: string | null;
+  memberNumber: string | null;
   phone: string | null;
   dateOfBirth: string | null;
   unitId: string | null;

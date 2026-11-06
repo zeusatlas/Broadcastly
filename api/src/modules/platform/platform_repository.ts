@@ -16,7 +16,7 @@ import type {
 export interface ExecutiveRow {
   id: string;
   memberId: string;
-  partyId: string | null;
+  memberNumber: string | null;
   firstName: string;
   middleName: string | null;
   lastName: string;
@@ -89,7 +89,7 @@ type ExecutiveFilters = Omit<ListOrganisationExecutivesRequest, 'page' | 'pageSi
 };
 
 const EXECUTIVE_COLUMNS = `
-  e.id, m.id AS "memberId", m.party_id AS "partyId", m.first_name AS "firstName",
+  e.id, m.id AS "memberId", m.member_number AS "memberNumber", m.first_name AS "firstName",
   m.middle_name AS "middleName", m.last_name AS "lastName", e.email, m.phone, e.status,
   e.last_sign_in_at AS "lastSignInAt", e.created_at AS "createdAt",
   COALESCE((SELECT w.balance FROM wallets w WHERE w.executive_id = e.id), 0) AS "creditBalance"`;
@@ -137,7 +137,7 @@ function executiveFilters(organisationId: string, filters: ExecutiveFilters) {
   if (filters.search) {
     const p = param(likePattern(filters.search));
     clauses.push(`(m.first_name || ' ' || m.last_name ILIKE ${p} OR e.email ILIKE ${p}
-                   OR m.party_id ILIKE ${p})`);
+                   OR m.member_number ILIKE ${p})`);
   }
   if (filters.status) clauses.push(`e.status = ${param(filters.status)}`);
 

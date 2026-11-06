@@ -150,18 +150,18 @@ async function buildRows(record: ImportForWork, table: string[][], scope: Member
   const usable = checked.filter((row) => Object.keys(row.errors).length === 0);
   const matches = await repo.existingMatches(
     record.organisationId,
-    [...new Set(usable.flatMap((row) => (row.partyId ? [row.partyId] : [])))],
+    [...new Set(usable.flatMap((row) => (row.memberNumber ? [row.memberNumber] : [])))],
     [...new Set(usable.flatMap((row) => (row.phone ? [row.phone] : [])))],
   );
-  const memberByPartyId = new Map<string, string>();
+  const memberByNumber = new Map<string, string>();
   const memberByPhone = new Map<string, string>();
   for (const match of matches) {
-    if (match.partyId && !memberByPartyId.has(match.partyId))
-      memberByPartyId.set(match.partyId, match.id);
+    if (match.memberNumber && !memberByNumber.has(match.memberNumber))
+      memberByNumber.set(match.memberNumber, match.id);
     if (match.phone && !memberByPhone.has(match.phone)) memberByPhone.set(match.phone, match.id);
   }
 
-  const rowByPartyId = new Map<string, number>();
+  const rowByMemberNumber = new Map<string, number>();
   const rowByPhone = new Map<string, number>();
   return checked.map((row): Partial<MemberImportRow> => {
     let status: ImportRowStatus = Object.keys(row.errors).length > 0 ? 'invalid' : 'valid';
@@ -173,18 +173,18 @@ async function buildRows(record: ImportForWork, table: string[][], scope: Member
       duplicateMemberId: null,
       duplicateOfRow: null,
     };
-    const earlierParty = row.partyId ? rowByPartyId.get(row.partyId) : undefined;
-    if (status === 'valid' && earlierParty) {
+    const earlierNumber = row.memberNumber ? rowByMemberNumber.get(row.memberNumber) : undefined;
+    if (status === 'valid' && earlierNumber) {
       status = 'invalid';
-      row.errors.partyId = [`This party ID is already on row ${earlierParty}.`];
+      row.errors.memberNumber = [`This member ID is already on row ${earlierNumber}.`];
     } else if (status === 'valid') {
-      const byParty = row.partyId ? memberByPartyId.get(row.partyId) : undefined;
+      const byNumber = row.memberNumber ? memberByNumber.get(row.memberNumber) : undefined;
       const byPhone = row.phone ? memberByPhone.get(row.phone) : undefined;
       const earlierPhone = row.phone ? rowByPhone.get(row.phone) : undefined;
-      if (byParty)
+      if (byNumber)
         duplicate = {
-          duplicateMatch: 'party_id',
-          duplicateMemberId: byParty,
+          duplicateMatch: 'member_number',
+          duplicateMemberId: byNumber,
           duplicateOfRow: null,
         };
       else if (byPhone)
@@ -196,7 +196,7 @@ async function buildRows(record: ImportForWork, table: string[][], scope: Member
           duplicateOfRow: earlierPhone,
         };
       if (duplicate.duplicateMatch) status = 'duplicate';
-      if (row.partyId) rowByPartyId.set(row.partyId, row.rowNumber);
+      if (row.memberNumber) rowByMemberNumber.set(row.memberNumber, row.rowNumber);
       if (row.phone && !rowByPhone.has(row.phone)) rowByPhone.set(row.phone, row.rowNumber);
     }
     return {
@@ -206,7 +206,7 @@ async function buildRows(record: ImportForWork, table: string[][], scope: Member
       firstName: row.firstName,
       middleName: row.middleName,
       lastName: row.lastName,
-      partyId: row.partyId,
+      memberNumber: row.memberNumber,
       phone: row.phone,
       dateOfBirth: row.dateOfBirth,
       unitId: status === 'invalid' ? null : row.unitId,
@@ -224,7 +224,7 @@ interface WorkRow {
   firstName: string;
   middleName: string | null;
   lastName: string;
-  partyId: string | null;
+  memberNumber: string | null;
   phone: string | null;
   dateOfBirth: string | null;
   unitId: string | null;
@@ -238,7 +238,7 @@ interface RowResult {
   errors: Record<string, string[]> | null;
 }
 
-const PARTY_ID_TAKEN = { partyId: ['A member with this party ID already exists.'] };
+const MEMBER_NUMBER_TAKEN = { memberNumber: ['Another member already has this member ID.'] };
 
 async function placeFromImport(
   manager: EntityManager,
@@ -257,23 +257,28 @@ async function placeFromImport(
 }
 
 async function createMembers(manager: EntityManager, record: ImportForWork, rows: WorkRow[]) {
-  const partyIds = rows.flatMap((row) => (row.partyId ? [row.partyId] : []));
+  const memberNumbers = rows.flatMap((row) => (row.memberNumber ? [row.memberNumber] : []));
   const taken = new Set(
-    partyIds.length === 0
+    memberNumbers.length === 0
       ? []
       : (
           (await manager.query(
-            `SELECT party_id AS "partyId" FROM members WHERE organisation_id = $1 AND party_id = ANY($2::text[])`,
-            [record.organisationId, partyIds],
-          )) as { partyId: string }[]
-        ).map((row) => row.partyId),
+            `SELECT member_number AS "memberNumber" FROM members WHERE organisation_id = $1 AND member_number = ANY($2::text[])`,
+            [record.organisationId, memberNumbers],
+          )) as { memberNumber: string }[]
+        ).map((row) => row.memberNumber),
   );
   const results: RowResult[] = [];
   const members: Partial<Member>[] = [];
   const memberships: Partial<Membership>[] = [];
   for (const row of rows) {
-    if (row.partyId && taken.has(row.partyId)) {
-      results.push({ id: row.id, outcome: 'rejected', memberId: null, errors: PARTY_ID_TAKEN });
+    if (row.memberNumber && taken.has(row.memberNumber)) {
+      results.push({
+        id: row.id,
+        outcome: 'rejected',
+        memberId: null,
+        errors: MEMBER_NUMBER_TAKEN,
+      });
       continue;
     }
     const id = randomUUID();
@@ -283,7 +288,7 @@ async function createMembers(manager: EntityManager, record: ImportForWork, rows
       firstName: row.firstName,
       middleName: row.middleName,
       lastName: row.lastName,
-      partyId: row.partyId,
+      memberNumber: row.memberNumber,
       phone: row.phone,
       dateOfBirth: row.dateOfBirth,
     });
@@ -325,11 +330,16 @@ async function updateMember(
     };
   }
   if (
-    row.partyId &&
-    row.partyId !== current.partyId &&
-    (await membersRepository.partyIdTaken(record.organisationId, row.partyId, memberId, manager))
+    row.memberNumber &&
+    row.memberNumber !== current.memberNumber &&
+    (await membersRepository.memberNumberTaken(
+      record.organisationId,
+      row.memberNumber,
+      memberId,
+      manager,
+    ))
   ) {
-    return { id: row.id, outcome: 'rejected', memberId: null, errors: PARTY_ID_TAKEN };
+    return { id: row.id, outcome: 'rejected', memberId: null, errors: MEMBER_NUMBER_TAKEN };
   }
   // Blank cells leave the member's existing details as they are.
   const changes = Object.fromEntries(
@@ -337,7 +347,7 @@ async function updateMember(
       firstName: row.firstName,
       middleName: row.middleName,
       lastName: row.lastName,
-      partyId: row.partyId,
+      memberNumber: row.memberNumber,
       phone: row.phone,
       dateOfBirth: row.dateOfBirth,
     }).filter(([, value]) => value !== null),
@@ -356,7 +366,7 @@ async function applyBatch(manager: EntityManager, record: ImportForWork): Promis
   await manager.query(`SET LOCAL statement_timeout = '120s'`);
   const rows = (await manager.query(
     `SELECT id, status, resolution, first_name AS "firstName", middle_name AS "middleName",
-            last_name AS "lastName", party_id AS "partyId", phone,
+            last_name AS "lastName", member_number AS "memberNumber", phone,
             to_char(date_of_birth, 'YYYY-MM-DD') AS "dateOfBirth", unit_id AS "unitId",
             duplicate_member_id AS "duplicateMemberId"
        FROM member_import_rows WHERE import_id = $1 AND outcome IS NULL
@@ -549,9 +559,9 @@ export const memberImportService = {
           throw new ForbiddenError('That member is outside your assigned scope.');
         }
       }
-      if (resolution === 'create_new' && row.duplicateMatch === 'party_id' && row.memberId) {
+      if (resolution === 'create_new' && row.duplicateMatch === 'member_number' && row.memberId) {
         throw new ValidationError({
-          resolution: ['Party IDs are unique. Update the existing member or skip this row.'],
+          resolution: ['Member IDs are unique. Update the existing member or skip this row.'],
         });
       }
       await manager.query(

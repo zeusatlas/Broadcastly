@@ -545,8 +545,11 @@ export const authService = {
     }
 
     const members = manager.getRepository(Member);
-    let member = input.partyId
-      ? await members.findOneBy({ organisationId: input.organisationId, partyId: input.partyId })
+    let member = input.memberNumber
+      ? await members.findOneBy({
+          organisationId: input.organisationId,
+          memberNumber: input.memberNumber,
+        })
       : null;
 
     if (
@@ -569,7 +572,7 @@ export const authService = {
             firstName: input.firstName,
             middleName: input.middleName ?? null,
             lastName: input.lastName,
-            partyId: input.partyId ?? null,
+            memberNumber: input.memberNumber ?? null,
             phone: input.phone,
             dateOfBirth: input.dateOfBirth,
           }),

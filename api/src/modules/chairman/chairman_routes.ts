@@ -326,7 +326,7 @@ document({
   description: `
 Promote a member of your organisation to executive and appoint them to a position, in one step.
 
-- If \`partyId\` matches a member of this organisation, that member is promoted; otherwise one is created.
+- If \`memberNumber\` matches a member of this organisation, that member is promoted; otherwise one is created.
 - The position decides the place: organisation-wide (no \`unitId\`) or a unit of its type.
 - You can only grant permissions you hold. They sign in on the mobile app.
 `,
@@ -334,7 +334,7 @@ Promote a member of your organisation to executive and appoint them to a positio
     body: jsonBody(createOrganisationExecutiveSchema, {
       firstName: 'Ama',
       lastName: 'Boateng',
-      partyId: 'M-004513',
+      memberNumber: 'M-004513',
       email: 'ama.boateng@example.com',
       phone: '0241234568',
       dateOfBirth: '1990-04-12',

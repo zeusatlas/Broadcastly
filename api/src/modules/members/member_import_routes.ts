@@ -75,7 +75,7 @@ document({
   operationId: 'downloadMemberImportTemplate',
   summary: 'Download the import template',
   description: `A CSV file with the import columns (FR-MEM-03); required ones end in "(required)".
-- Columns: First name, Middle name, Last name, Party ID, Phone, Date of birth (YYYY-MM-DD), Unit.`,
+- Columns: First name, Middle name, Last name, Member ID, Phone, Date of birth (YYYY-MM-DD), Unit.`,
   responses: {
     200: {
       description: 'The template file.',
@@ -83,7 +83,7 @@ document({
         'text/csv': {
           schema: z.string().openapi({
             example:
-              'First name (required),Middle name,Last name (required),Party ID,Phone,Date of birth,Unit',
+              'First name (required),Middle name,Last name (required),Member ID,Phone,Date of birth,Unit',
           }),
         },
       },
@@ -173,7 +173,7 @@ document({
   summary: 'Preview rows',
   description: `The file's rows in order, with their problems (FR-MEM-04..06).
 - \`filter\` shows only \`valid\`, \`invalid\` or \`duplicate\` rows.
-- A duplicate matches an existing member (by party ID, then phone) or an earlier row (by phone).`,
+- A duplicate matches an existing member (by member ID, then phone) or an earlier row (by phone).`,
   request: { params: memberImportParamsSchema, query: listImportRowsSchema },
   responses: {
     200: jsonResponse(
@@ -189,7 +189,7 @@ document({
   operationId: 'resolveMemberImportRow',
   summary: 'Decide a duplicate',
   description: `Chooses what a confirm does with one duplicate row; undecided duplicates are skipped.
-- \`update_existing\` needs a matching member in your scope; \`create_new\` is refused for a party ID match.`,
+- \`update_existing\` needs a matching member in your scope; \`create_new\` is refused for a member ID match.`,
   request: {
     params: importRowParamsSchema,
     body: jsonBody(resolveImportRowSchema, { resolution: 'update_existing' }),

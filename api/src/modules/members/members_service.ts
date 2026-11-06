@@ -22,7 +22,7 @@ import type {
   UpdateMemberRequest,
 } from './members_types';
 
-const PARTY_ID_TAKEN = 'A member with this party ID already exists.';
+const MEMBER_NUMBER_TAKEN = 'Another member already has this member ID.';
 const NOT_FOUND = 'Member not found.';
 
 export const organisationOf = (auth: AccessContext) => {
@@ -139,17 +139,22 @@ export const membersService = {
     return dataSource.transaction(async (manager) => {
       await checkUnit(auth, request.unitId, manager);
       if (
-        request.partyId &&
-        (await membersRepository.partyIdTaken(organisationId, request.partyId, null, manager))
+        request.memberNumber &&
+        (await membersRepository.memberNumberTaken(
+          organisationId,
+          request.memberNumber,
+          null,
+          manager,
+        ))
       ) {
-        throw new ConflictError(PARTY_ID_TAKEN);
+        throw new ConflictError(MEMBER_NUMBER_TAKEN);
       }
       const { identifiers } = await manager.getRepository(Member).insert({
         organisationId,
         firstName: request.firstName,
         middleName: request.middleName || null,
         lastName: request.lastName,
-        partyId: request.partyId ?? null,
+        memberNumber: request.memberNumber ?? null,
         phone: request.phone ?? null,
         dateOfBirth: request.dateOfBirth ?? null,
       });
@@ -176,11 +181,16 @@ export const membersService = {
       );
       if (!member) throw new NotFoundError(NOT_FOUND);
       if (
-        request.partyId &&
-        request.partyId !== member.partyId &&
-        (await membersRepository.partyIdTaken(organisationId, request.partyId, memberId, manager))
+        request.memberNumber &&
+        request.memberNumber !== member.memberNumber &&
+        (await membersRepository.memberNumberTaken(
+          organisationId,
+          request.memberNumber,
+          memberId,
+          manager,
+        ))
       ) {
-        throw new ConflictError(PARTY_ID_TAKEN);
+        throw new ConflictError(MEMBER_NUMBER_TAKEN);
       }
 
       const { unitId, ...fields } = request;

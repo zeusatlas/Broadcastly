@@ -116,7 +116,7 @@ export interface ExecutiveAppointmentResponse {
 export interface ExecutiveResponse {
   id: string;
   memberId: string;
-  partyId: string | null;
+  memberNumber: string | null;
   fullName: string;
   email: string;
   phone: string | null;

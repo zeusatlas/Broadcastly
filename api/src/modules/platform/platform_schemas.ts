@@ -259,7 +259,8 @@ export const platformAdminParamsSchema = z.object({
 const executiveFields = {
   id: z.uuid(),
   memberId: z.uuid(),
-  partyId: z.string().nullable().openapi({ example: 'M-004512' }),
+  memberNumber: z.string().nullable().openapi({ example: 'M-004512' }),
+  partyId: z.string().nullable().openapi({ example: 'M-004512', deprecated: true }),
   fullName: z.string().openapi({ example: 'Kofi Asante' }),
   email: z.string().openapi({ example: 'kofi.asante@example.com' }),
   phone: z.string().nullable().openapi({ example: '+233241234567' }),
