@@ -100,6 +100,7 @@ export default function AppLayout() {
         <Stack.Screen name="admin/organisations/appoint" />
         <Stack.Screen name="admin/organisations/edit" />
         <Stack.Screen name="admin/organisations/executive" />
+        <Stack.Screen name="admin/organisations/members" />
         <Stack.Screen name="admin/organisations/replace-head" />
         <Stack.Screen name="admin/admins/[id]" />
         <Stack.Screen name="admin/admins/new" />

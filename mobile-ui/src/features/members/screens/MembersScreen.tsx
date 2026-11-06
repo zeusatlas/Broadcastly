@@ -1,11 +1,11 @@
-import { router, useFocusEffect } from 'expo-router';
-import { CloudOff, SearchX, Users } from 'lucide-react-native';
+import { router, Stack, useFocusEffect } from 'expo-router';
+import { ChevronLeft, CloudOff, SearchX, Users } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, SectionList, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useCollapsingTitle } from '@/components/shared';
+import { GlassHeaderButton, goBack, useCollapsingTitle } from '@/components/shared';
 import {
   EmptyState,
   FilterGroupsButton,
@@ -80,10 +80,16 @@ function MemberListSkeleton() {
   );
 }
 
-export function MembersScreen() {
+export interface MembersScreenProps {
+  // false when pushed as a page (the platform admin's), which adds a back button.
+  isTabRoot?: boolean;
+  onOpenExecutive?: (member: MemberResponse) => void;
+}
+
+export function MembersScreen({ isTabRoot = true, onOpenExecutive }: MembersScreenProps = {}) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const collapsing = useCollapsingTitle('Members', { header: 'tab' });
+  const collapsing = useCollapsingTitle('Members', { header: isTabRoot ? 'tab' : 'buttons' });
   // The import screen is also where one member is added by hand, so either permission opens it.
   const canAdd = useHasAnyPermission('member.import', 'member.manage');
   const listRef = useRef<SectionList<MemberResponse, MemberSection>>(null);
@@ -305,7 +311,20 @@ export function MembersScreen() {
         memberId={selectedId}
         onClose={() => setSelectedId(null)}
         onChanged={members.reload}
+        onOpenExecutive={onOpenExecutive}
       />
+      {isTabRoot ? null : (
+        <>
+          <Stack.Screen options={{ headerShown: false }} />
+          <View
+            pointerEvents="box-none"
+            className="absolute left-0 right-0 top-0 flex-row px-4"
+            style={{ paddingTop: insets.top + 4 }}
+          >
+            <GlassHeaderButton icon={ChevronLeft} label="Go back" onPress={goBack} />
+          </View>
+        </>
+      )}
       {isUnitSheetOpen ? (
         <UnitSheet
           selectedId={unit?.id}

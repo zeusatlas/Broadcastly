@@ -21,6 +21,7 @@ import { formatDateTime } from '@/utils/helpers';
 
 import {
   useReactivateExecutiveMutation,
+  useFindExecutiveByMemberQuery,
   useReadOrganisationExecutiveQuery,
   useSuspendExecutiveMutation,
 } from '../hooks/use_platform_api';
@@ -54,10 +55,18 @@ function DetailRow({
 
 // One executive of one organisation, as the platform admin sees them: no member records, no messages.
 export function AdminExecutiveScreen() {
-  const { organisationId, executiveId } = useLocalSearchParams<{
+  const params = useLocalSearchParams<{
     organisationId: string;
-    executiveId: string;
+    executiveId?: string;
+    memberId?: string;
   }>();
+  const { organisationId } = params;
+  // Opened from the member list, only the member is known; find their executive account.
+  const byMember = useFindExecutiveByMemberQuery(
+    organisationId,
+    params.executiveId ? undefined : params.memberId,
+  );
+  const executiveId = params.executiveId ?? byMember.data?.items[0]?.id ?? '';
   const canManage = useHasPermission('platform.executive.manage');
   const query = useReadOrganisationExecutiveQuery(organisationId, executiveId);
   const suspend = useSuspendExecutiveMutation();
@@ -68,7 +77,7 @@ export function AdminExecutiveScreen() {
   if (!executive) {
     return (
       <PageScreen title="Executive">
-        {query.isLoading ? (
+        {query.isLoading || byMember.isLoading ? (
           <LoadingState label="Loading executive" />
         ) : (
           <EmptyState

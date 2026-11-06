@@ -34,11 +34,14 @@ interface AuthState {
   // A platform admin working inside an organisation: `user` is the working profile (role head),
   // `admin` is their own, restored on exit. Never persisted: a relaunch starts as the admin.
   workspace: { organisationId: string; admin: User } | null;
+  // An admin screen showing one organisation's own data (its members) while staying in the admin app.
+  viewingOrganisationId: string | null;
 }
 
 interface AuthActions {
   enterOrganisation: (profile: User) => void;
   exitOrganisation: () => void;
+  viewOrganisation: (organisationId: string | null) => void;
   requestCode: (body: SignInRequest) => Promise<boolean>;
   verifyCode: (code: string) => Promise<boolean>;
   resendCode: () => Promise<boolean>;
@@ -62,6 +65,7 @@ const SIGNED_OUT: AuthState = {
   isSubmitting: false,
   error: null,
   workspace: null,
+  viewingOrganisationId: null,
 };
 
 const toPendingChallenge = (data: OtpChallengeResponse): PendingChallenge => ({
@@ -235,6 +239,8 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
     set({ user: workspace.admin, workspace: null });
   },
 
+  viewOrganisation: (organisationId) => set({ viewingOrganisationId: organisationId }),
+
   refreshUser: async () => {
     // The working profile comes from opening the organisation, not from /auth/me.
     if (get().workspace) return true;
@@ -255,7 +261,10 @@ async function endSession(reason: SessionEndReason | null = null): Promise<void>
 }
 
 setAuthTokenProvider(() => useAuthStore.getState().accessToken);
-setOrganisationProvider(() => useAuthStore.getState().workspace?.organisationId ?? null);
+setOrganisationProvider(() => {
+  const { workspace, viewingOrganisationId } = useAuthStore.getState();
+  return workspace?.organisationId ?? viewingOrganisationId;
+});
 
 setSessionRefresher(async () => {
   const refreshToken = await secureStorage.get(STORAGE_KEYS.refreshToken);

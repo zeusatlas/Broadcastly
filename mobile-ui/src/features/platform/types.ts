@@ -119,6 +119,7 @@ export interface ListOrganisationsParams extends PageParams {
 export interface ListOrganisationExecutivesParams extends PageParams {
   search?: string;
   status?: ExecutiveStatus;
+  memberId?: string;
 }
 
 export interface ListPlatformAdminsParams extends PageParams {

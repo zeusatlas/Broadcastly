@@ -1,5 +1,5 @@
 import { router, type Href } from 'expo-router';
-import { IdCard, MapPin, Phone, ShieldCheck } from 'lucide-react-native';
+import { IdCard, Mail, MapPin, Phone, ShieldCheck } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { View, type ColorValue } from 'react-native';
 
@@ -22,12 +22,15 @@ import {
   useReactivateMemberMutation,
   useReadMemberQuery,
 } from '../hooks/use_members';
+import type { MemberResponse } from '../types';
 
 interface MemberDetailSheetProps {
   memberId: string | null;
   onClose: () => void;
   // Called after a change, so the list behind the sheet can reload.
   onChanged?: () => void;
+  // The platform admin opens the executive account (access, credits) from here.
+  onOpenExecutive?: (member: MemberResponse) => void;
 }
 
 function DetailRow({
@@ -54,7 +57,12 @@ function DetailRow({
   );
 }
 
-export function MemberDetailSheet({ memberId, onClose, onChanged }: MemberDetailSheetProps) {
+export function MemberDetailSheet({
+  memberId,
+  onClose,
+  onChanged,
+  onOpenExecutive,
+}: MemberDetailSheetProps) {
   const theme = useTheme();
   const canManage = useHasPermission('member.manage');
   const member = useReadMemberQuery(memberId ?? '');
@@ -93,23 +101,38 @@ export function MemberDetailSheet({ memberId, onClose, onChanged }: MemberDetail
       description={data ? (data.isExecutive ? 'Executive' : 'Member') : undefined}
       closeLabel="Close member details"
       footer={
-        data && canManage ? (
+        data && (canManage || (data.isExecutive && onOpenExecutive)) ? (
           <>
-            <Button
-              label="Edit details"
-              variant="outline"
-              fullWidth
-              onPress={() => {
-                onClose();
-                router.push(`/members/edit/${data.id}` as Href);
-              }}
-            />
-            <Button
-              label={isActive ? 'Deactivate member' : 'Reactivate member'}
-              variant={isActive ? 'ghost' : 'primary'}
-              fullWidth
-              onPress={() => setIsConfirming(true)}
-            />
+            {data.isExecutive && onOpenExecutive ? (
+              <Button
+                label="Executive account"
+                variant="outline"
+                fullWidth
+                onPress={() => {
+                  onClose();
+                  onOpenExecutive(data);
+                }}
+              />
+            ) : null}
+            {canManage ? (
+              <>
+                <Button
+                  label="Edit details"
+                  variant="outline"
+                  fullWidth
+                  onPress={() => {
+                    onClose();
+                    router.push(`/members/edit/${data.id}` as Href);
+                  }}
+                />
+                <Button
+                  label={isActive ? 'Deactivate member' : 'Reactivate member'}
+                  variant={isActive ? 'ghost' : 'primary'}
+                  fullWidth
+                  onPress={() => setIsConfirming(true)}
+                />
+              </>
+            ) : null}
           </>
         ) : undefined
       }
@@ -151,6 +174,14 @@ export function MemberDetailSheet({ memberId, onClose, onChanged }: MemberDetail
               value={data.phone ?? 'Not recorded'}
               color={theme.mutedForeground}
             />
+            {data.isExecutive && data.email ? (
+              <DetailRow
+                icon={Mail}
+                label="Email (signs in with)"
+                value={data.email}
+                color={theme.mutedForeground}
+              />
+            ) : null}
             <DetailRow
               icon={ShieldCheck}
               label="Broadcasts"

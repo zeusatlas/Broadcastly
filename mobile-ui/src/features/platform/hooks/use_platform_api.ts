@@ -157,8 +157,21 @@ export const useUpdateOrganisationMutation = () => useMutation(api.platform.upda
 export const useReplaceHeadMutation = () => useMutation(api.platform.replaceHead);
 
 export const useReadOrganisationExecutiveQuery = (uuid: string, executiveId: string) =>
-  useQuery(['platform', 'organisation', uuid, 'executive', executiveId], (options) =>
-    api.platform.readOrganisationExecutive({ uuid, executiveId }, options),
+  useQuery(
+    ['platform', 'organisation', uuid, 'executive', executiveId],
+    (options) => api.platform.readOrganisationExecutive({ uuid, executiveId }, options),
+    { enabled: Boolean(executiveId) },
+  );
+
+export const useFindExecutiveByMemberQuery = (uuid: string, memberId: string | undefined) =>
+  useQuery(
+    ['platform', 'organisation', uuid, 'executive-of-member', memberId],
+    (options) =>
+      api.platform.readOrganisationExecutives(
+        { uuid, params: { memberId, page: 1, pageSize: 1 } },
+        options,
+      ),
+    { enabled: Boolean(memberId) },
   );
 
 export const useUploadOrganisationLogoMutation = () =>

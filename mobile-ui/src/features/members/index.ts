@@ -1,6 +1,6 @@
 // Public API of the members feature. Code outside this folder imports from here only.
 export { MemberImportScreen } from './screens';
-export { MembersScreen } from './screens/MembersScreen';
+export { MembersScreen, type MembersScreenProps } from './screens/MembersScreen';
 export { NewMemberScreen } from './screens/NewMemberScreen';
 export { EditMemberScreen } from './screens/EditMemberScreen';
 export { MemberDetailSheet } from './components/MemberDetailSheet';

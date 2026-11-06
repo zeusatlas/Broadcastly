@@ -2,6 +2,7 @@
 export { AdjustCreditsScreen } from './screens/AdjustCreditsScreen';
 export { AdminExecutiveScreen } from './screens/AdminExecutiveScreen';
 export { AdminHomeScreen } from './screens/AdminHomeScreen';
+export { AdminMembersScreen } from './screens/AdminMembersScreen';
 export { AdminNotificationsScreen } from './screens/AdminNotificationsScreen';
 export { AdminMoreScreen } from './screens/AdminMoreScreen';
 export { AuditLogScreen } from './screens/AuditLogScreen';

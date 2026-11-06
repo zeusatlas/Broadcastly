@@ -16,6 +16,8 @@ export interface MemberResponse {
   unitName: string | null;
   status: MemberStatus;
   isExecutive: boolean;
+  // Only executives have one: their sign-in email.
+  email: string | null;
   createdAt: string;
 }
 
