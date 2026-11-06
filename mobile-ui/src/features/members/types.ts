@@ -23,6 +23,10 @@ export interface ListMembersParams extends PageParams {
   search?: string;
   status?: MemberStatus;
   unitId?: string;
+  isExecutive?: boolean;
+  sort?: 'first_name' | 'last_name';
+  // unit: rows arrive unit by unit, so the list can show one section per unit.
+  groupBy?: 'unit';
 }
 
 export interface CreateMemberRequest {

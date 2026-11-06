@@ -1,15 +1,15 @@
 import { router } from 'expo-router';
-import { Check, ChevronDown, Plus, Trash2, X } from 'lucide-react-native';
+import { ChevronDown, Plus, Trash2, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Keyboard, Modal, Pressable, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Keyboard, Pressable, View } from 'react-native';
 
 import { PageScreen } from '@/components/shared';
-import { Button, Chip, ConfirmDialog, Text, TextField } from '@/components/ui';
+import { BottomSheet, Button, Chip, ConfirmDialog, Text, TextField } from '@/components/ui';
 import { useHasPermission } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
 import type { ApiError } from '@/lib/api';
 import { notify } from '@/lib/notify';
+import { cn } from '@/utils/helpers';
 
 import {
   useArchiveTemplateMutation,
@@ -34,55 +34,36 @@ interface CategorySheetProps {
 }
 
 function CategorySheet({ visible, selected, onSelect, onClose }: CategorySheetProps) {
-  const insets = useSafeAreaInsets();
-  const theme = useTheme();
-
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-backdrop/60">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close category selection"
-          onPress={onClose}
-          className="flex-1"
-        />
-        <View
-          className="rounded-t-3xl bg-background px-5 pt-5"
-          style={{ paddingBottom: insets.bottom + 16 }}
-        >
-          <View className="mb-4 flex-row items-center justify-between">
-            <View className="gap-0.5">
-              <Text variant="heading">Select category</Text>
-              <Text variant="caption">Choose the category that best describes the message.</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close category selection"
-              onPress={onClose}
-              className="h-11 w-11 items-center justify-center rounded-full bg-muted"
-            >
-              <X size={20} color={theme.foreground} />
-            </Pressable>
-          </View>
-          {TEMPLATE_CATEGORIES.map((item) => {
-            const isSelected = item.key === selected;
-            return (
-              <Pressable
-                key={item.key}
-                accessibilityRole="radio"
-                accessibilityLabel={item.label}
-                accessibilityState={{ checked: isSelected }}
-                onPress={() => onSelect(item.key)}
-                className="flex-row items-center justify-between border-b border-border py-4 active:opacity-60"
-              >
-                <Text className="font-sans-semibold text-base text-foreground">{item.label}</Text>
-                {isSelected ? <Check size={20} color={theme.accentEmphasis} /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    </Modal>
+    <BottomSheet
+      isVisible={visible}
+      onClose={onClose}
+      title="Select category"
+      description="Choose the category that best describes the message."
+      closeLabel="Close category selection"
+    >
+      {TEMPLATE_CATEGORIES.map((item) => {
+        const isSelected = item.key === selected;
+        return (
+          <Pressable
+            key={item.key}
+            accessibilityRole="radio"
+            accessibilityLabel={item.label}
+            accessibilityState={{ checked: isSelected }}
+            onPress={() => onSelect(item.key)}
+            className="flex-row items-center justify-between border-b border-border py-4 active:opacity-60"
+          >
+            <Text className="font-sans-semibold text-base text-foreground">{item.label}</Text>
+            <View
+              className={cn(
+                'h-6 w-6 rounded-full border',
+                isSelected ? 'border-primary bg-primary' : 'border-input',
+              )}
+            />
+          </Pressable>
+        );
+      })}
+    </BottomSheet>
   );
 }
 

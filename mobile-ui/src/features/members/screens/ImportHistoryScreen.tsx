@@ -1,12 +1,12 @@
 import { router, useFocusEffect } from 'expo-router';
 import { ChevronRight, FileSpreadsheet, Upload } from 'lucide-react-native';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { PageScreen } from '@/components/shared';
+import { SectionListPage } from '@/components/shared';
 import { Button, QueryState, Text } from '@/components/ui';
 import { useTheme } from '@/hooks/use_theme';
-import { cn } from '@/utils/helpers';
+import { cn, dateSectionTitle, groupIntoSections } from '@/utils/helpers';
 
 import { useImportPages } from '../hooks/use_members';
 import type { MemberImportResponse, MemberImportStatus } from '../types';
@@ -75,6 +75,10 @@ function ImportRow({
 
 export function ImportHistoryScreen() {
   const pages = useImportPages();
+  const sections = useMemo(
+    () => groupIntoSections(pages.items, (item) => dateSectionTitle(item.createdAt)),
+    [pages.items],
+  );
   const firstFocus = useRef(true);
   const reload = useRef(pages.reload);
   useEffect(() => {
@@ -90,8 +94,31 @@ export function ImportHistoryScreen() {
   );
 
   return (
-    <PageScreen
+    <SectionListPage
       title="Import activity"
+      sections={sections}
+      keyExtractor={(item) => item.id}
+      renderItem={(item, { isLast }) => (
+        <ImportRow
+          item={item}
+          isLast={isLast}
+          onPress={() => router.push({ pathname: '/members/import', params: { id: item.id } })}
+        />
+      )}
+      onEndReached={pages.loadMore}
+      isLoadingMore={pages.hasNextPage && pages.isFetching}
+      isRefreshing={pages.isFetching && !pages.isLoading}
+      onRefresh={pages.reload}
+      header={<Text variant="bodyMuted">What was imported, who imported it, and how it went.</Text>}
+      empty={
+        <QueryState
+          isLoading={pages.isLoading}
+          error={pages.error}
+          isEmpty
+          emptyText="No imports yet."
+          onRetry={pages.reload}
+        />
+      }
       footer={
         <Button
           label="New import"
@@ -102,37 +129,6 @@ export function ImportHistoryScreen() {
           onPress={() => router.push('/members/import')}
         />
       }
-    >
-      <Text variant="bodyMuted">What was imported, who imported it, and how it went.</Text>
-      <View className="mt-4">
-        {pages.items.map((item, index) => (
-          <ImportRow
-            key={item.id}
-            item={item}
-            isLast={index === pages.items.length - 1}
-            onPress={() => router.push({ pathname: '/members/import', params: { id: item.id } })}
-          />
-        ))}
-      </View>
-      {pages.items.length === 0 ? (
-        <QueryState
-          isLoading={pages.isLoading}
-          error={pages.error}
-          isEmpty
-          emptyText="No imports yet."
-          onRetry={pages.reload}
-        />
-      ) : null}
-      {pages.hasNextPage ? (
-        <Button
-          label="Show older"
-          variant="outline"
-          className="mt-4"
-          isLoading={pages.isFetching}
-          loadingLabel="Loading…"
-          onPress={pages.loadMore}
-        />
-      ) : null}
-    </PageScreen>
+    />
   );
 }

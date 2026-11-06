@@ -17,6 +17,7 @@ export function toBroadcastSummary(broadcast: BroadcastApiResponse): BroadcastSu
     title: broadcast.title ?? 'Untitled broadcast',
     audience: broadcast.audienceSummary ?? 'Selected recipients',
     sentAt: displayDate(broadcast),
+    createdAt: broadcast.createdAt,
     status: broadcast.status,
     delivered: broadcast.deliveredCount,
     recipients: broadcast.recipientCount,

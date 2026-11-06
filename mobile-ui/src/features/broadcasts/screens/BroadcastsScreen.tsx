@@ -1,112 +1,253 @@
 import { router, useFocusEffect } from 'expo-router';
-import { Inbox, ListFilter, SquarePen, X } from 'lucide-react-native';
+import { CloudOff, Inbox, Search, SearchX, SquarePen, X } from 'lucide-react-native';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
   Keyboard,
-  Modal,
   Pressable,
   RefreshControl,
+  SectionList,
   View,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCollapsingTitle } from '@/components/shared';
-import { Chip, IconButton, SearchField, Text } from '@/components/ui';
+import {
+  Button,
+  EmptyState,
+  FilterGroupsButton,
+  SearchField,
+  Text,
+  type FilterGroup,
+} from '@/components/ui';
 import { enterRow } from '@/constants/motion';
 import { MaxContentWidth } from '@/constants/theme';
 import { useHasPermission } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
+import { cn } from '@/utils/helpers';
 
 import { BroadcastListSkeleton } from '../components/BroadcastListSkeleton';
 import { BroadcastRow } from '../components/BroadcastRow';
-import { useReadBroadcastsQuery } from '../hooks/use_broadcasts';
-import type { BroadcastStatus, BroadcastSummary, ListBroadcastsParams } from '../types';
+import { useBroadcastPages, type BroadcastListFilters } from '../hooks/use_broadcasts';
+import type { BroadcastStatus, BroadcastSummary } from '../types';
 import { toBroadcastSummary } from '../utils/broadcast_mapper';
 
-type Filter = 'all' | 'drafts' | 'pending' | 'scheduled' | 'sent' | 'failed';
+type GroupBy = 'date' | 'stage';
+type SortBy = 'newest' | 'oldest';
+type Owner = 'all' | 'mine';
+type StatusFilter = 'all' | 'drafts' | 'pending' | 'scheduled' | 'sent' | 'failed';
 
-const FILTERS: { key: Filter; label: string; statuses?: BroadcastStatus[] }[] = [
-  { key: 'all', label: 'All' },
+interface BroadcastSection {
+  title: string;
+  data: BroadcastSummary[];
+}
+
+const STATUS_FILTERS: { key: StatusFilter; label: string; statuses?: BroadcastStatus[] }[] = [
+  { key: 'all', label: 'Any status' },
   { key: 'drafts', label: 'Drafts', statuses: ['draft'] },
-  { key: 'pending', label: 'Pending', statuses: ['pending_approval', 'approved'] },
+  { key: 'pending', label: 'Waiting for approval', statuses: ['pending_approval', 'approved'] },
   { key: 'scheduled', label: 'Scheduled', statuses: ['scheduled'] },
   { key: 'sent', label: 'Sent', statuses: ['processing', 'submitted', 'completed'] },
-  { key: 'failed', label: 'Failed', statuses: ['partially_failed', 'failed', 'cancelled'] },
+  { key: 'failed', label: 'Not fully sent', statuses: ['partially_failed', 'failed', 'cancelled'] },
 ];
 
+// Same stages, in the same order, as the API's group-by-status sort: work to finish comes first.
+const STAGE_OF: Record<BroadcastStatus, string> = {
+  draft: 'Drafts to finish',
+  pending_approval: 'Waiting for approval',
+  approved: 'Waiting for approval',
+  partially_failed: 'Not fully sent',
+  failed: 'Not fully sent',
+  cancelled: 'Not fully sent',
+  scheduled: 'Scheduled',
+  processing: 'Sending now',
+  submitted: 'Sending now',
+  completed: 'Sent',
+};
+
+const AnimatedSectionList = Animated.createAnimatedComponent(
+  SectionList<BroadcastSummary, BroadcastSection>,
+);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dateSection(iso: string, now: Date) {
+  const date = new Date(iso);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  if (day === today) return 'Today';
+  if (day === today - DAY_MS) return 'Yesterday';
+  if (day > today - 7 * DAY_MS) return 'This week';
+  if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {
+    return 'Earlier this month';
+  }
+  return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+// Pages arrive already ordered by the server, so sections are runs of equal titles.
+function toSections(items: BroadcastSummary[], groupBy: GroupBy) {
+  const now = new Date();
+  const sections: BroadcastSection[] = [];
+  for (const item of items) {
+    const title = groupBy === 'stage' ? STAGE_OF[item.status] : dateSection(item.createdAt, now);
+    const last = sections.at(-1);
+    if (last?.title === title) last.data.push(item);
+    else sections.push({ title, data: [item] });
+  }
+  return sections;
+}
+
 export function BroadcastsScreen() {
+  const insets = useSafeAreaInsets();
   const collapsing = useCollapsingTitle('Broadcasts', { header: 'tab' });
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const canDraft = useHasPermission('broadcast.draft');
-  const [filter, setFilter] = useState<Filter>('all');
+  const [groupBy, setGroupBy] = useState<GroupBy>('date');
+  const [sortBy, setSortBy] = useState<SortBy>('newest');
+  const [owner, setOwner] = useState<Owner>('all');
+  const [status, setStatus] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const deferredSearch = useDeferredValue(search);
+  const [isSearching, setIsSearching] = useState(false);
+  const deferredSearch = useDeferredValue(search.trim());
+  const filters: BroadcastListFilters = {
+    statuses: STATUS_FILTERS.find((item) => item.key === status)?.statuses,
+    mine: owner === 'mine' ? true : undefined,
+    sort: sortBy === 'oldest' ? 'oldest' : undefined,
+    groupBy: groupBy === 'stage' ? 'status' : undefined,
+  };
+  const broadcasts = useBroadcastPages(deferredSearch, filters);
+  const items = useMemo(() => broadcasts.items.map(toBroadcastSummary), [broadcasts.items]);
+  const sections = useMemo(() => toSections(items, groupBy), [items, groupBy]);
+  const reload = useRef(broadcasts.reload);
   const hasFocusedOnce = useRef(false);
   const hasMountedOnce = useRef(false);
-  const params: ListBroadcastsParams = {
-    page: 1,
-    pageSize: 20,
-    statuses: FILTERS.find((f) => f.key === filter)?.statuses,
-    search: deferredSearch.trim() || undefined,
-  };
-  const broadcasts = useReadBroadcastsQuery(params);
-  const refetch = useRef(broadcasts.refetch);
-  const items = useMemo<BroadcastSummary[]>(
-    () => broadcasts.data?.items.map(toBroadcastSummary) ?? [],
-    [broadcasts.data?.items],
-  );
 
   useEffect(() => {
-    refetch.current = broadcasts.refetch;
-  }, [broadcasts.refetch]);
+    reload.current = broadcasts.reload;
+  });
 
   useFocusEffect(
     useCallback(() => {
-      if (hasFocusedOnce.current) refetch.current();
+      if (hasFocusedOnce.current) reload.current();
       hasFocusedOnce.current = true;
     }, []),
   );
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && hasMountedOnce.current) refetch.current();
+      if (state === 'active' && hasMountedOnce.current) reload.current();
       hasMountedOnce.current = true;
     });
     return () => subscription.remove();
   }, []);
 
+  const groups: FilterGroup[] = [
+    {
+      title: 'Group by',
+      options: [
+        { key: 'date', label: 'Date' },
+        { key: 'stage', label: 'What needs doing' },
+      ],
+      value: groupBy,
+      defaultValue: 'date',
+      onChange: (value) => setGroupBy(value as GroupBy),
+    },
+    {
+      title: 'Order',
+      options: [
+        { key: 'newest', label: 'Newest first' },
+        { key: 'oldest', label: 'Oldest first' },
+      ],
+      value: sortBy,
+      defaultValue: 'newest',
+      onChange: (value) => setSortBy(value as SortBy),
+    },
+    {
+      title: 'Show',
+      options: [
+        { key: 'all', label: 'All I can see' },
+        { key: 'mine', label: 'Only mine' },
+      ],
+      value: owner,
+      defaultValue: 'all',
+      onChange: (value) => setOwner(value as Owner),
+    },
+    {
+      title: 'Status',
+      options: STATUS_FILTERS,
+      value: status,
+      defaultValue: 'all',
+      onChange: (value) => setStatus(value as StatusFilter),
+    },
+  ];
+  const isFiltered = groups.some((group) => group.value !== group.defaultValue);
+
+  const resetFilters = () => {
+    setGroupBy('date');
+    setSortBy('newest');
+    setOwner('all');
+    setStatus('all');
+  };
+
+  const closeSearch = () => {
+    setSearch('');
+    setIsSearching(false);
+    Keyboard.dismiss();
+  };
+
   return (
     <>
-      <Animated.FlatList<BroadcastSummary>
-        data={items}
+      <AnimatedSectionList
+        sections={sections}
+        stickySectionHeadersEnabled={false}
         onScroll={collapsing.onScroll}
         scrollEventThrottle={16}
         onLayout={collapsing.onLayout}
         className="flex-1 bg-background"
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={broadcasts.isFetching && !broadcasts.isLoading}
-            onRefresh={broadcasts.refetch}
+            onRefresh={broadcasts.reload}
           />
         }
         keyExtractor={(item) => item.id}
+        onEndReached={broadcasts.loadMore}
+        onEndReachedThreshold={0.4}
         contentContainerStyle={{
           width: '100%',
           maxWidth: MaxContentWidth,
           alignSelf: 'center',
           minHeight: collapsing.minHeight,
           paddingHorizontal: 20,
-          paddingBottom: canDraft ? 104 : 24,
+          paddingBottom: insets.bottom + 84,
         }}
         ListHeaderComponent={
-          <View className="gap-3 pb-2">
+          <View className="gap-3 pb-1">
             {collapsing.largeTitle}
+            {isSearching ? (
+              <View className="flex-row items-center gap-2">
+                <View className="flex-1">
+                  <SearchField
+                    value={search}
+                    onChangeText={setSearch}
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                    placeholder="Search title, message or audience"
+                    autoFocus
+                  />
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close search"
+                  onPress={closeSearch}
+                  className="h-12 w-12 items-center justify-center rounded-full bg-card active:opacity-70"
+                >
+                  <X size={20} color={theme.foreground} />
+                </Pressable>
+              </View>
+            ) : null}
             {broadcasts.error && items.length > 0 ? (
               <View className="flex-row items-center justify-between gap-3 rounded-lg border border-border bg-muted px-3 py-2">
                 <Text variant="caption" className="flex-1">
@@ -116,7 +257,7 @@ export function BroadcastsScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Retry refreshing broadcasts"
-                    onPress={broadcasts.refetch}
+                    onPress={broadcasts.reload}
                     className="min-h-11 justify-center px-2"
                   >
                     <Text className="font-sans-semibold text-primary">Retry</Text>
@@ -126,8 +267,8 @@ export function BroadcastsScreen() {
             ) : null}
             <View className="flex-row items-center gap-2">
               <Text variant="caption">
-                {(broadcasts.data?.total ?? 0).toLocaleString()}{' '}
-                {broadcasts.data?.total === 1 ? 'broadcast' : 'broadcasts'}
+                {broadcasts.total.toLocaleString()}{' '}
+                {broadcasts.total === 1 ? 'broadcast' : 'broadcasts'}
               </Text>
               {broadcasts.isFetching && items.length > 0 ? (
                 <ActivityIndicator
@@ -138,11 +279,22 @@ export function BroadcastsScreen() {
             </View>
           </View>
         }
-        renderItem={({ item, index }) => (
+        renderSectionHeader={({ section }) => (
+          <View className="flex-row items-baseline justify-between bg-background pb-1 pt-5">
+            <Text
+              accessibilityRole="header"
+              className="font-sans-bold text-xs uppercase tracking-widest text-accent-emphasis"
+            >
+              {section.title}
+            </Text>
+            <Text variant="caption">{section.data.length}</Text>
+          </View>
+        )}
+        renderItem={({ item, index, section }) => (
           <Animated.View entering={enterRow(index)}>
             <BroadcastRow
               broadcast={item}
-              isLast={index === items.length - 1}
+              isLast={index === section.data.length - 1}
               onPress={() => router.push({ pathname: '/broadcasts/[id]', params: { id: item.id } })}
             />
           </Animated.View>
@@ -151,146 +303,91 @@ export function BroadcastsScreen() {
           broadcasts.isLoading ? (
             <BroadcastListSkeleton />
           ) : broadcasts.error ? (
-            <View className="items-center gap-3 py-16">
-              <Text variant="bodyMuted" className="text-center">
-                {broadcasts.error.message}
-              </Text>
-              {broadcasts.error.isRetryable ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Retry loading broadcasts"
-                  onPress={broadcasts.refetch}
-                  className="min-h-11 justify-center rounded-lg border border-border px-4"
-                >
-                  <Text className="font-sans-semibold">Try again</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : (
-            <View className="items-center gap-3 py-16">
-              <View className="h-14 w-14 items-center justify-center rounded-full bg-muted">
-                <Inbox size={24} color={theme.mutedForeground} />
-              </View>
-              <Text variant="bodyMuted">
-                {search.trim()
+            <EmptyState
+              icon={CloudOff}
+              title="Couldn’t load broadcasts"
+              description={broadcasts.error.message}
+              action={
+                broadcasts.error.isRetryable
+                  ? { label: 'Try again', onPress: broadcasts.reload }
+                  : undefined
+              }
+            />
+          ) : deferredSearch || isFiltered ? (
+            <EmptyState
+              icon={SearchX}
+              title="Nothing matches"
+              description={
+                deferredSearch
                   ? 'No broadcasts match your search.'
-                  : filter === 'all'
-                    ? 'No broadcasts yet.'
-                    : `No ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} broadcasts.`}
-              </Text>
-              {filter === 'all' && !search.trim() && canDraft ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Create your first broadcast"
-                  onPress={() => router.push('/broadcasts/new')}
-                  className="min-h-11 justify-center rounded-lg bg-primary px-4"
-                >
-                  <Text className="font-sans-semibold text-primary-foreground">
-                    Create broadcast
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
+                  : 'No broadcasts match these filters.'
+              }
+              action={isFiltered ? { label: 'Clear filters', onPress: resetFilters } : undefined}
+            />
+          ) : (
+            <EmptyState
+              icon={Inbox}
+              title="No broadcasts yet"
+              description="Messages you write, send or approve will show up here."
+              action={
+                canDraft
+                  ? {
+                      label: 'Create broadcast',
+                      variant: 'primary',
+                      onPress: () => router.push('/broadcasts/new'),
+                    }
+                  : undefined
+              }
+            />
           )
+        }
+        ListFooterComponent={
+          broadcasts.hasNextPage && broadcasts.isFetching ? (
+            <View className="py-4">
+              <ActivityIndicator color={theme.mutedForeground} />
+            </View>
+          ) : undefined
         }
       />
       {collapsing.bar}
 
       <View
         pointerEvents="box-none"
-        className="absolute bottom-5 right-5 flex-row items-center gap-3"
+        className="absolute bottom-0 left-0 right-0 flex-row items-center justify-between gap-3 px-5"
+        style={{ paddingBottom: insets.bottom + 12 }}
       >
-        <IconButton
-          icon={ListFilter}
-          label="Open broadcast filters"
-          variant="outline"
-          size="lg"
-          onPress={() => setIsSheetOpen(true)}
+        <FilterGroupsButton
+          groups={groups}
+          onReset={resetFilters}
+          title="Filter broadcasts"
+          description="Group, order and narrow your messages."
+          accessibilityLabel="Open broadcast filters"
         />
-        {canDraft ? (
-          <IconButton
-            icon={SquarePen}
-            label="New broadcast"
-            variant="accent"
-            size="lg"
-            onPress={() => router.push('/broadcasts/new')}
-          />
-        ) : null}
-      </View>
-
-      <Modal
-        visible={isSheetOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsSheetOpen(false)}
-      >
-        <View className="flex-1 justify-end bg-backdrop/60">
+        <View className="flex-row items-center gap-3">
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Close broadcast filters"
-            onPress={() => setIsSheetOpen(false)}
-            className="flex-1"
-          />
-          <KeyboardAwareScrollView
-            bottomOffset={24}
-            mode="layout"
-            extraKeyboardSpace={insets.bottom + 16}
-            keyboardShouldPersistTaps="handled"
-            className="max-h-[80%] rounded-t-3xl bg-background px-5 pt-5"
-            contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+            accessibilityLabel={isSearching ? 'Hide search' : 'Search broadcasts'}
+            accessibilityState={{ selected: isSearching }}
+            onPress={() => (isSearching ? closeSearch() : setIsSearching(true))}
+            className={cn(
+              'h-14 w-14 items-center justify-center rounded-full active:opacity-70',
+              isSearching ? 'bg-primary' : 'bg-card',
+            )}
           >
-            <View className="mb-5 flex-row items-center justify-between">
-              <View className="gap-1">
-                <Text variant="heading">Find a broadcast</Text>
-                <Text variant="caption">Search or filter your messages.</Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close broadcast filters"
-                onPress={() => setIsSheetOpen(false)}
-                className="h-11 w-11 items-center justify-center rounded-full bg-muted"
-              >
-                <X size={20} color={theme.foreground} />
-              </Pressable>
-            </View>
-            <SearchField
-              value={search}
-              onChangeText={setSearch}
-              onSubmitEditing={() => Keyboard.dismiss()}
-              placeholder="Search broadcasts"
+            <Search size={21} color={isSearching ? theme.primaryForeground : theme.foreground} />
+          </Pressable>
+          {canDraft ? (
+            <Button
+              label="New"
+              accessibilityLabel="New broadcast"
+              icon={SquarePen}
+              variant="accent"
+              shape="pill"
+              onPress={() => router.push('/broadcasts/new')}
             />
-            {search.trim() || filter !== 'all' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Clear broadcast search and filters"
-                onPress={() => {
-                  setSearch('');
-                  setFilter('all');
-                }}
-                className="min-h-11 justify-center self-start"
-              >
-                <Text className="font-sans-semibold text-primary">Clear search and filters</Text>
-              </Pressable>
-            ) : null}
-            <Text variant="overline" className="mt-6">
-              Status
-            </Text>
-            <View className="mt-3 flex-row flex-wrap gap-2">
-              {FILTERS.map((item) => (
-                <Chip
-                  key={item.key}
-                  label={item.label}
-                  isSelected={item.key === filter}
-                  onPress={() => {
-                    setFilter(item.key);
-                    setIsSheetOpen(false);
-                  }}
-                />
-              ))}
-            </View>
-          </KeyboardAwareScrollView>
+          ) : null}
         </View>
-      </Modal>
+      </View>
     </>
   );
 }

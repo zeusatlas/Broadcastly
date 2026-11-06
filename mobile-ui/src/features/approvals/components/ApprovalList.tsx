@@ -1,75 +1,54 @@
+import { CloudOff, ShieldCheck } from 'lucide-react-native';
 import { View } from 'react-native';
 
-import { Button, Skeleton, Text } from '@/components/ui';
+import { EmptyState, Skeleton } from '@/components/ui';
+import { dateSectionTitle, groupIntoSections } from '@/utils/helpers';
 
 import type { useApprovalPages } from '../hooks/use_approvals';
-import type { ApprovalBroadcastResponse } from '../types';
-import { ApprovalRow } from './ApprovalRow';
+import type { ApprovalBroadcastResponse, ApprovalFilter } from '../types';
 
-interface ApprovalListProps {
+interface ApprovalListEmptyProps {
   pages: ReturnType<typeof useApprovalPages>;
   emptyText: string;
-  onSelect: (approval: ApprovalBroadcastResponse) => void;
 }
 
-function ApprovalSkeleton() {
-  return (
-    <View accessibilityLabel="Loading approvals">
-      {Array.from({ length: 5 }, (_, index) => (
-        <View key={index} className="flex-row gap-3 border-b border-border py-4">
-          <Skeleton className="h-11 w-11 rounded-full" />
-          <View className="flex-1 gap-2">
-            <Skeleton className="h-4 w-44 rounded-md" />
-            <Skeleton className="h-3 w-full rounded-md" />
-          </View>
-        </View>
-      ))}
-    </View>
+// Waiting approvals group by when they were submitted; decided ones by when the decision was made.
+export function approvalSections(items: ApprovalBroadcastResponse[], filter: ApprovalFilter) {
+  return groupIntoSections(items, (item) =>
+    dateSectionTitle(
+      filter === 'decided'
+        ? (item.latestDecision?.decidedAt ?? item.submittedAt)
+        : (item.submittedAt ?? item.createdAt),
+    ),
   );
 }
 
-export function ApprovalList({ pages, emptyText, onSelect }: ApprovalListProps) {
-  if (pages.isLoading) return <ApprovalSkeleton />;
-  if (pages.error && pages.items.length === 0) {
+// What the list shows when it has no rows: a skeleton, a retryable error, or the empty message.
+export function ApprovalListEmpty({ pages, emptyText }: ApprovalListEmptyProps) {
+  if (pages.isLoading) {
     return (
-      <View className="items-center gap-3 py-16">
-        <Text variant="bodyMuted" className="text-center">
-          {pages.error.message}
-        </Text>
-        {pages.error.isRetryable ? (
-          <Button label="Try again" variant="outline" onPress={pages.reload} />
-        ) : null}
+      <View accessibilityLabel="Loading approvals">
+        {Array.from({ length: 5 }, (_, index) => (
+          <View key={index} className="flex-row gap-3 border-b border-border py-4">
+            <Skeleton className="h-11 w-11 rounded-full" />
+            <View className="flex-1 gap-2">
+              <Skeleton className="h-4 w-44 rounded-md" />
+              <Skeleton className="h-3 w-full rounded-md" />
+            </View>
+          </View>
+        ))}
       </View>
     );
   }
-  if (pages.items.length === 0) {
+  if (pages.error) {
     return (
-      <Text variant="bodyMuted" className="py-16 text-center">
-        {emptyText}
-      </Text>
+      <EmptyState
+        icon={CloudOff}
+        title="Couldn’t load approvals"
+        description={pages.error.message}
+        action={pages.error.isRetryable ? { label: 'Try again', onPress: pages.reload } : undefined}
+      />
     );
   }
-
-  return (
-    <View>
-      {pages.items.map((approval, index) => (
-        <ApprovalRow
-          key={approval.id}
-          approval={approval}
-          isLast={index === pages.items.length - 1}
-          onPress={() => onSelect(approval)}
-        />
-      ))}
-      {pages.hasNextPage ? (
-        <Button
-          label="Show more"
-          variant="outline"
-          className="mt-4"
-          isLoading={pages.isFetching}
-          loadingLabel="Loading…"
-          onPress={pages.loadMore}
-        />
-      ) : null}
-    </View>
-  );
+  return <EmptyState icon={ShieldCheck} title={emptyText} />;
 }

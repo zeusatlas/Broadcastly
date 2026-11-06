@@ -1,5 +1,6 @@
 // Public API of the broadcasts feature. Code outside this folder imports from here only.
 export { BroadcastRow } from './components/BroadcastRow';
+export { toBroadcastSummary } from './utils/broadcast_mapper';
 export { BroadcastStatusBadge } from './components/BroadcastStatusBadge';
 export { BroadcastDetailScreen } from './screens/BroadcastDetailScreen';
 export { BroadcastsScreen } from './screens/BroadcastsScreen';

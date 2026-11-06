@@ -1,15 +1,14 @@
-import { ChevronLeft, ListFilter, Plus, Search, X } from 'lucide-react-native';
+import { ChevronLeft, Plus, Search } from 'lucide-react-native';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useCollapsingTitle } from '@/components/shared';
 import { GlassHeaderButton } from '@/components/shared/HeaderButton';
-import { Button, Text } from '@/components/ui';
+import { Button, FilterButton, Text } from '@/components/ui';
 import { useHasPermission } from '@/features/auth';
 import { useTheme } from '@/hooks/use_theme';
-import { cn } from '@/utils/helpers';
 
 import { TemplateList } from '../components/TemplateList';
 import type { TemplateCategory } from '../types';
@@ -28,7 +27,7 @@ export function TemplatesScreen() {
   const collapsing = useCollapsingTitle('Templates', { header: 'buttons' });
   const canDraft = useHasPermission('broadcast.draft');
   const [filter, setFilter] = useState<TemplateFilter>('all');
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [total, setTotal] = useState(0);
   const selectedFilter = FILTERS.find((item) => item.key === filter)?.label ?? 'All templates';
 
   return (
@@ -38,6 +37,7 @@ export function TemplatesScreen() {
         filters={{ category: filter === 'all' ? undefined : filter }}
         collapsing={collapsing}
         paddingBottom={insets.bottom + 96}
+        onTotalChange={setTotal}
         emptyText={
           filter === 'all' ? 'No templates yet.' : `No ${selectedFilter.toLowerCase()} templates.`
         }
@@ -65,33 +65,16 @@ export function TemplatesScreen() {
         className="absolute bottom-0 left-0 right-0 flex-row items-center justify-between gap-3 px-5"
         style={{ paddingBottom: insets.bottom + 16 }}
       >
-        <View
-          className={cn(
-            'flex-row items-center gap-2 rounded-full',
-            filter !== 'all' && 'bg-card pr-3',
-          )}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open template filters"
-            accessibilityState={{ selected: filter !== 'all' }}
-            onPress={() => setIsFilterOpen(true)}
-            className={cn(
-              'h-14 w-14 items-center justify-center rounded-full active:opacity-70',
-              filter !== 'all' ? 'bg-primary' : 'bg-card',
-            )}
-          >
-            <ListFilter
-              size={21}
-              color={filter !== 'all' ? theme.primaryForeground : theme.foreground}
-            />
-          </Pressable>
-          {filter !== 'all' ? (
-            <Text className="px-1 font-sans-semibold text-base text-foreground">
-              {selectedFilter}
-            </Text>
-          ) : null}
-        </View>
+        <FilterButton
+          options={FILTERS}
+          value={filter}
+          onChange={setFilter}
+          defaultValue="all"
+          title="Filter templates"
+          description="Choose a template category."
+          accessibilityLabel="Open template filters"
+          total={total}
+        />
         <View className="flex-row items-center gap-3">
           <Pressable
             accessibilityRole="button"
@@ -112,65 +95,6 @@ export function TemplatesScreen() {
           ) : null}
         </View>
       </View>
-
-      <Modal
-        visible={isFilterOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsFilterOpen(false)}
-      >
-        <View className="flex-1 justify-end bg-backdrop/60">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close template filters"
-            onPress={() => setIsFilterOpen(false)}
-            className="flex-1"
-          />
-          <View
-            className="max-h-[72%] rounded-t-3xl bg-background px-5 pt-5"
-            style={{ paddingBottom: insets.bottom + 16 }}
-          >
-            <View className="mb-4 flex-row items-center justify-between">
-              <View className="gap-0.5">
-                <Text variant="heading">Filter templates</Text>
-                <Text variant="caption">Choose a template category.</Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close template filters"
-                onPress={() => setIsFilterOpen(false)}
-                className="h-11 w-11 items-center justify-center rounded-full bg-muted"
-              >
-                <X size={20} color={theme.foreground} />
-              </Pressable>
-            </View>
-            {FILTERS.map((item) => {
-              const isSelected = item.key === filter;
-              return (
-                <Pressable
-                  key={item.key}
-                  accessibilityRole="radio"
-                  accessibilityLabel={item.label}
-                  accessibilityState={{ checked: isSelected }}
-                  onPress={() => {
-                    setFilter(item.key);
-                    setIsFilterOpen(false);
-                  }}
-                  className="flex-row items-center justify-between border-b border-border py-4 active:opacity-60"
-                >
-                  <Text className="font-sans-semibold text-base text-foreground">{item.label}</Text>
-                  <View
-                    className={cn(
-                      'h-6 w-6 rounded-full border',
-                      isSelected ? 'border-primary bg-primary' : 'border-input',
-                    )}
-                  />
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }

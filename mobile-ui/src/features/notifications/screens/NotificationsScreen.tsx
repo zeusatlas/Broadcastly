@@ -1,14 +1,14 @@
 import { router, type Href } from 'expo-router';
-import { BellOff, CheckCheck, ChevronDown, ListFilter, Search, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { BellOff, CheckCheck, CloudOff, Search, SearchX, X } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { PageScreen } from '@/components/shared';
-import { Button, SearchField, Skeleton, Text } from '@/components/ui';
+import { SectionListPage } from '@/components/shared';
+import { EmptyState, FILTER_THRESHOLD, FilterButton, SearchField, Skeleton } from '@/components/ui';
 import { useDebouncedValue } from '@/hooks/use_pages';
 import { useTheme } from '@/hooks/use_theme';
 import { notify } from '@/lib/notify';
-import { cn } from '@/utils/helpers';
+import { cn, dateSectionTitle, groupIntoSections } from '@/utils/helpers';
 
 import { NotificationItem } from '../components/NotificationItem';
 import {
@@ -17,7 +17,6 @@ import {
   useNotificationPages,
 } from '../hooks/use_notifications';
 import type { NotificationFilter, NotificationResponse } from '../types';
-import { isToday } from '../utils/notification_time';
 
 const FILTERS: { key: NotificationFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -68,10 +67,10 @@ export function NotificationsScreen() {
   const markRead = useMarkNotificationReadMutation();
   const markAll = useMarkAllNotificationsReadMutation();
 
-  const groups = [
-    { title: 'Today', items: pages.items.filter((item) => isToday(item.createdAt)) },
-    { title: 'Earlier', items: pages.items.filter((item) => !isToday(item.createdAt)) },
-  ].filter((group) => group.items.length > 0);
+  const sections = useMemo(
+    () => groupIntoSections(pages.items, (item) => dateSectionTitle(item.createdAt)),
+    [pages.items],
+  );
 
   const open = async (notification: NotificationResponse) => {
     if (!notification.isRead) {
@@ -93,9 +92,68 @@ export function NotificationsScreen() {
   };
 
   return (
-    <PageScreen
+    <SectionListPage
       title="Notifications"
       headerRight={{ icon: CheckCheck, label: 'Mark all as read', onPress: markAllRead }}
+      sections={sections}
+      showsCounts={false}
+      keyExtractor={(item) => item.id}
+      renderItem={(item, { isLast }) => (
+        <NotificationItem notification={item} isLast={isLast} onPress={() => open(item)} />
+      )}
+      onEndReached={pages.loadMore}
+      isLoadingMore={pages.hasNextPage && pages.isFetching}
+      isRefreshing={pages.isFetching && !pages.isLoading}
+      onRefresh={pages.reload}
+      header={
+        isSearching ? (
+          <View className="flex-row items-center gap-2">
+            <View className="flex-1">
+              <SearchField
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search notifications"
+                autoFocus
+              />
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close search"
+              onPress={() => {
+                setSearch('');
+                setIsSearching(false);
+              }}
+              className="h-12 w-12 items-center justify-center rounded-full bg-card active:opacity-70"
+            >
+              <X size={20} color={theme.foreground} />
+            </Pressable>
+          </View>
+        ) : null
+      }
+      empty={
+        pages.isLoading ? (
+          <NotificationSkeleton />
+        ) : pages.error ? (
+          <EmptyState
+            icon={CloudOff}
+            title="Couldn’t load notifications"
+            description={pages.error.message}
+            action={
+              pages.error.isRetryable ? { label: 'Try again', onPress: pages.reload } : undefined
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={query ? SearchX : BellOff}
+            title={query ? 'Nothing matches' : EMPTY_TEXT[filter]}
+            description={
+              query
+                ? 'No notifications match your search.'
+                : 'Approvals, imports and delivery updates will appear here.'
+            }
+          />
+        )
+      }
       footer={
         <NotificationFilterBar
           filter={filter}
@@ -105,83 +163,10 @@ export function NotificationsScreen() {
             setIsSearching((current) => !current);
           }}
           isSearching={isSearching}
+          total={pages.total}
         />
       }
-    >
-      {isSearching ? (
-        <View className="mb-4 flex-row items-center gap-2">
-          <View className="flex-1">
-            <SearchField
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search notifications"
-              autoFocus
-            />
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close search"
-            onPress={() => {
-              setSearch('');
-              setIsSearching(false);
-            }}
-            className="h-12 w-12 items-center justify-center rounded-full bg-card active:opacity-70"
-          >
-            <X size={20} color={theme.foreground} />
-          </Pressable>
-        </View>
-      ) : null}
-      {pages.isLoading ? (
-        <NotificationSkeleton />
-      ) : pages.error && pages.items.length === 0 ? (
-        <View className="items-center gap-3 py-16">
-          <Text variant="bodyMuted" className="text-center">
-            {pages.error.message}
-          </Text>
-          {pages.error.isRetryable ? (
-            <Button label="Try again" variant="outline" onPress={pages.reload} />
-          ) : null}
-        </View>
-      ) : groups.length === 0 ? (
-        <View className="items-center gap-3 py-16">
-          <View className="h-14 w-14 items-center justify-center rounded-full bg-muted">
-            <BellOff size={24} color={theme.mutedForeground} />
-          </View>
-          <Text variant="bodyMuted">
-            {query ? 'No notifications match your search.' : EMPTY_TEXT[filter]}
-          </Text>
-        </View>
-      ) : (
-        groups.map((group, groupIndex) => (
-          <View key={group.title} className={groupIndex === 0 ? undefined : 'mt-6'}>
-            <Text
-              accessibilityRole="header"
-              className="font-sans-bold text-xs uppercase tracking-widest text-muted-foreground"
-            >
-              {group.title}
-            </Text>
-            {group.items.map((item, index) => (
-              <NotificationItem
-                key={item.id}
-                notification={item}
-                isLast={index === group.items.length - 1}
-                onPress={() => open(item)}
-              />
-            ))}
-          </View>
-        ))
-      )}
-      {pages.hasNextPage ? (
-        <Button
-          label="Show older"
-          variant="outline"
-          className="mt-4"
-          isLoading={pages.isFetching}
-          loadingLabel="Loading…"
-          onPress={pages.loadMore}
-        />
-      ) : null}
-    </PageScreen>
+    />
   );
 }
 
@@ -190,6 +175,7 @@ interface NotificationFilterBarProps {
   onChange: (filter: NotificationFilter) => void;
   onSearch: () => void;
   isSearching: boolean;
+  total: number;
 }
 
 function NotificationFilterBar({
@@ -197,80 +183,23 @@ function NotificationFilterBar({
   onChange,
   onSearch,
   isSearching,
+  total,
 }: NotificationFilterBarProps) {
   const theme = useTheme();
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedLabel = FILTERS.find((item) => item.key === filter)?.label ?? 'All';
 
   return (
-    <View className="gap-2">
-      {isOpen ? (
-        <View className="flex-row items-center gap-1 rounded-full bg-card p-1">
-          {FILTERS.map((item) => {
-            const isSelected = filter === item.key;
-            return (
-              <Pressable
-                key={item.key}
-                accessibilityRole="button"
-                accessibilityLabel={`Show ${item.label.toLowerCase()} notifications`}
-                accessibilityState={{ selected: isSelected }}
-                onPress={() => {
-                  onChange(item.key);
-                  setIsOpen(false);
-                }}
-                className={cn(
-                  'h-11 flex-1 items-center justify-center rounded-full px-3 active:opacity-70',
-                  isSelected && 'bg-primary',
-                )}
-              >
-                <Text
-                  className={cn(
-                    'font-sans-semibold text-sm',
-                    isSelected ? 'text-primary-foreground' : 'text-foreground',
-                  )}
-                >
-                  {item.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-
-      <View className="flex-row items-center justify-between gap-3">
-        <View
-          className={cn(
-            'flex-row items-center gap-2 rounded-full',
-            filter !== 'all' && 'bg-card pr-3',
-          )}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open notification filters"
-            accessibilityState={{ selected: filter !== 'all' }}
-            onPress={() => setIsOpen((current) => !current)}
-            className={cn(
-              'h-14 w-14 items-center justify-center rounded-full active:opacity-70',
-              filter !== 'all' ? 'bg-primary' : 'bg-card',
-            )}
-          >
-            <ListFilter
-              size={21}
-              color={filter !== 'all' ? theme.primaryForeground : theme.foreground}
-            />
-          </Pressable>
-          {filter !== 'all' ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Current filter: ${selectedLabel}`}
-              onPress={() => setIsOpen((current) => !current)}
-              className="flex-row items-center gap-1 px-1 active:opacity-70"
-            >
-              <Text className="font-sans-semibold text-base text-foreground">{selectedLabel}</Text>
-              <ChevronDown size={17} color={theme.mutedForeground} />
-            </Pressable>
-          ) : null}
-        </View>
+    <View className="flex-row items-center justify-between gap-3">
+      <FilterButton
+        options={FILTERS}
+        value={filter}
+        onChange={onChange}
+        defaultValue="all"
+        title="Filter notifications"
+        description="Show all, unread or read notifications."
+        accessibilityLabel="Open notification filters"
+        total={total}
+      />
+      {isSearching || total > FILTER_THRESHOLD ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={isSearching ? 'Hide search' : 'Search notifications'}
@@ -283,7 +212,7 @@ function NotificationFilterBar({
         >
           <Search size={21} color={isSearching ? theme.primaryForeground : theme.foreground} />
         </Pressable>
-      </View>
+      ) : null}
     </View>
   );
 }

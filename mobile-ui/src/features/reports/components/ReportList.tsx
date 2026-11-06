@@ -1,72 +1,43 @@
+import { CloudOff, ChartNoAxesColumn } from 'lucide-react-native';
 import { View } from 'react-native';
 
-import { Button, Skeleton, Text } from '@/components/ui';
+import { EmptyState, Skeleton } from '@/components/ui';
+import { dateSectionTitle, groupIntoSections } from '@/utils/helpers';
 
 import type { useReportPages } from '../hooks/use_reports';
 import type { ReportBroadcastResponse } from '../types';
-import { ReportRow } from './ReportRow';
 
-interface ReportListProps {
+interface ReportListEmptyProps {
   pages: ReturnType<typeof useReportPages>;
   emptyText: string;
-  onSelect: (report: ReportBroadcastResponse) => void;
 }
 
-function ReportSkeleton() {
-  return (
-    <View accessibilityLabel="Loading reports">
-      {Array.from({ length: 5 }, (_, index) => (
-        <View key={index} className="gap-2 border-b border-border py-4">
-          <Skeleton className="h-4 w-48 rounded-md" />
-          <Skeleton className="h-3 w-full rounded-md" />
-        </View>
-      ))}
-    </View>
-  );
-}
+export const reportSections = (items: ReportBroadcastResponse[]) =>
+  groupIntoSections(items, (item) => dateSectionTitle(item.submittedAt ?? item.createdAt));
 
-export function ReportList({ pages, emptyText, onSelect }: ReportListProps) {
-  if (pages.isLoading) return <ReportSkeleton />;
-  if (pages.error && pages.items.length === 0) {
+// What the list shows when it has no rows: a skeleton, a retryable error, or the empty message.
+export function ReportListEmpty({ pages, emptyText }: ReportListEmptyProps) {
+  if (pages.isLoading) {
     return (
-      <View className="items-center gap-3 py-16">
-        <Text variant="bodyMuted" className="text-center">
-          {pages.error.message}
-        </Text>
-        {pages.error.isRetryable ? (
-          <Button label="Try again" variant="outline" onPress={pages.reload} />
-        ) : null}
+      <View accessibilityLabel="Loading reports">
+        {Array.from({ length: 5 }, (_, index) => (
+          <View key={index} className="gap-2 border-b border-border py-4">
+            <Skeleton className="h-4 w-48 rounded-md" />
+            <Skeleton className="h-3 w-full rounded-md" />
+          </View>
+        ))}
       </View>
     );
   }
-  if (pages.items.length === 0) {
+  if (pages.error) {
     return (
-      <Text variant="bodyMuted" className="py-16 text-center">
-        {emptyText}
-      </Text>
+      <EmptyState
+        icon={CloudOff}
+        title="Couldn’t load reports"
+        description={pages.error.message}
+        action={pages.error.isRetryable ? { label: 'Try again', onPress: pages.reload } : undefined}
+      />
     );
   }
-
-  return (
-    <View>
-      {pages.items.map((report, index) => (
-        <ReportRow
-          key={report.id}
-          report={report}
-          isLast={index === pages.items.length - 1}
-          onPress={() => onSelect(report)}
-        />
-      ))}
-      {pages.hasNextPage ? (
-        <Button
-          label="Show more"
-          variant="outline"
-          className="mt-4"
-          isLoading={pages.isFetching}
-          loadingLabel="Loading…"
-          onPress={pages.loadMore}
-        />
-      ) : null}
-    </View>
-  );
+  return <EmptyState icon={ChartNoAxesColumn} title={emptyText} />;
 }

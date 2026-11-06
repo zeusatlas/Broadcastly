@@ -1,10 +1,18 @@
-import { X } from 'lucide-react-native';
+import { Users } from 'lucide-react-native';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, View } from 'react-native';
 
-import { Button, Chip, FigureRow, PageSection, QueryState, Text } from '@/components/ui';
-import { useTheme } from '@/hooks/use_theme';
+import {
+  BottomSheet,
+  Button,
+  Chip,
+  FigureRow,
+  LoadingState,
+  PageSection,
+  QueryState,
+  Text,
+} from '@/components/ui';
+import { notify } from '@/lib/notify';
 import { cn, formatDateTime } from '@/utils/helpers';
 
 import { useDeliveryPages, useExportReportMutation } from '../hooks/use_reports';
@@ -44,81 +52,92 @@ function ReportDetail({
   report: ReportBroadcastResponse;
   onClose: () => void;
 }) {
-  const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const [status, setStatus] = useState<DeliveryStatus | 'all'>('all');
   const deliveries = useDeliveryPages(report.id, status);
   const exportReport = useExportReportMutation();
   const title = report.title ?? 'Untitled broadcast';
   const unknown = Math.max(0, report.submittedCount - report.deliveredCount - report.failedCount);
   const fileName = `${title.replace(/[^\w-]+/g, '-')}-delivery-report.csv`;
+  // The first page decides what the sheet shows; until then one loading state, so nothing jumps.
+  const isFirstLoad = status === 'all' && deliveries.isLoading;
+
+  const exportAndClose = async () => {
+    const uri = await exportReport.mutate({ broadcastId: report.id, fileName });
+    if (!uri) return;
+    onClose();
+    notify.success('Report exported', fileName);
+  };
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-backdrop/60">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close report"
-          onPress={onClose}
-          className="flex-1"
-        />
-        <View
-          className="rounded-t-3xl bg-background px-5 pt-5"
-          style={{ maxHeight: '88%', paddingBottom: insets.bottom + 16 }}
-        >
-          <View className="mb-5 flex-row items-start justify-between gap-4">
-            <View className="flex-1 gap-0.5">
-              <Text variant="heading">{title}</Text>
-              <Text variant="caption">
-                {report.audienceSummary ?? 'Audience not set'} ·{' '}
-                {formatDateTime(report.completedAt ?? report.submittedAt ?? report.createdAt)}
+    <BottomSheet
+      isVisible
+      onClose={onClose}
+      title={title}
+      description={`${report.audienceSummary ?? 'Audience not set'} · ${formatDateTime(report.completedAt ?? report.submittedAt ?? report.createdAt)}`}
+      closeLabel="Close report"
+      size="tall"
+      footer={
+        isFirstLoad ? undefined : (
+          <>
+            <Button
+              label="Export report"
+              variant="outline"
+              size="lg"
+              fullWidth
+              isLoading={exportReport.isPending}
+              loadingLabel="Preparing file…"
+              onPress={exportAndClose}
+            />
+            {exportReport.error ? (
+              <Text className="text-center font-sans-medium text-sm text-destructive">
+                {exportReport.error.message}
               </Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close report"
-              onPress={onClose}
-              className="h-11 w-11 items-center justify-center rounded-full bg-muted"
-            >
-              <X size={20} color={theme.foreground} />
-            </Pressable>
-          </View>
+            ) : null}
+          </>
+        )
+      }
+    >
+      {isFirstLoad ? (
+        <LoadingState label="Loading report" className="flex-1" />
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <PageSection title="Delivery summary" className="mt-0">
+            <FigureRow
+              figures={[
+                { label: 'Submitted', value: report.submittedCount },
+                { label: 'Delivered', value: report.deliveredCount },
+                { label: 'Failed', value: report.failedCount },
+                { label: 'Unknown', value: unknown },
+              ]}
+            />
+            <Text variant="caption">
+              Delivered means the network reached the phone, not that it was read.
+            </Text>
+          </PageSection>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <PageSection title="Delivery summary" className="mt-0">
-              <FigureRow
-                figures={[
-                  { label: 'Submitted', value: report.submittedCount },
-                  { label: 'Delivered', value: report.deliveredCount },
-                  { label: 'Failed', value: report.failedCount },
-                  { label: 'Unknown', value: unknown },
-                ]}
-              />
-              <Text variant="caption">
-                Delivered means the network reached the phone, not that it was read.
-              </Text>
-            </PageSection>
-
-            <PageSection title="Recipients">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View className="flex-row gap-2">
-                  {DELIVERY_FILTERS.map((item) => (
-                    <Chip
-                      key={item.key}
-                      label={item.label}
-                      isSelected={status === item.key}
-                      onPress={() => setStatus(item.key)}
-                    />
-                  ))}
-                </View>
-              </ScrollView>
-              <QueryState
-                isLoading={deliveries.isLoading}
-                error={deliveries.items.length === 0 ? deliveries.error : null}
-                isEmpty={deliveries.items.length === 0}
-                emptyText="No recipients with this status."
-                onRetry={deliveries.reload}
-              />
+          <PageSection title="Recipients">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View className="flex-row gap-2">
+                {DELIVERY_FILTERS.map((item) => (
+                  <Chip
+                    key={item.key}
+                    label={item.label}
+                    isSelected={status === item.key}
+                    onPress={() => setStatus(item.key)}
+                  />
+                ))}
+              </View>
+            </ScrollView>
+            <QueryState
+              isLoading={deliveries.isLoading}
+              error={deliveries.items.length === 0 ? deliveries.error : null}
+              isEmpty={deliveries.items.length === 0}
+              emptyText="No recipients here"
+              emptyDescription="No one in this broadcast has this delivery status."
+              emptyIcon={Users}
+              onRetry={deliveries.reload}
+            />
+            {deliveries.isLoading ? null : (
               <View>
                 {deliveries.items.map((item, index) => (
                   <DeliveryRow
@@ -128,37 +147,20 @@ function ReportDetail({
                   />
                 ))}
               </View>
-              {deliveries.hasNextPage ? (
-                <Button
-                  label="Show more"
-                  variant="outline"
-                  isLoading={deliveries.isFetching}
-                  loadingLabel="Loading…"
-                  onPress={deliveries.loadMore}
-                />
-              ) : null}
-            </PageSection>
-          </ScrollView>
-
-          <View className="gap-2 pt-4">
-            <Button
-              label="Export report"
-              variant="outline"
-              size="lg"
-              fullWidth
-              isLoading={exportReport.isPending}
-              loadingLabel="Preparing file…"
-              onPress={() => exportReport.mutate({ broadcastId: report.id, fileName })}
-            />
-            {exportReport.error ? (
-              <Text className="text-center font-sans-medium text-sm text-destructive">
-                {exportReport.error.message}
-              </Text>
+            )}
+            {deliveries.hasNextPage ? (
+              <Button
+                label="Show more"
+                variant="outline"
+                isLoading={deliveries.isFetching}
+                loadingLabel="Loading…"
+                onPress={deliveries.loadMore}
+              />
             ) : null}
-          </View>
-        </View>
-      </View>
-    </Modal>
+          </PageSection>
+        </ScrollView>
+      )}
+    </BottomSheet>
   );
 }
 

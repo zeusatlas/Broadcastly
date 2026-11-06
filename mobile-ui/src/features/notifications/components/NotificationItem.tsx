@@ -1,4 +1,5 @@
 import {
+  Bell,
   CheckCheck,
   CircleAlert,
   CircleX,
@@ -16,7 +17,8 @@ import { cn } from '@/utils/helpers';
 import type { NotificationResponse, NotificationType } from '../types';
 import { notificationTime } from '../utils/notification_time';
 
-type Tone = 'accent' | 'success' | 'warning' | 'primary' | 'destructive';
+export type NotificationTone = 'accent' | 'success' | 'warning' | 'primary' | 'destructive';
+type Tone = NotificationTone;
 
 const TYPE_STYLE: Record<NotificationType, { icon: LucideIcon; tone: Tone }> = {
   approval_request: { icon: ShieldCheck, tone: 'accent' },
@@ -37,14 +39,27 @@ const TILE: Record<Tone, string> = {
 };
 
 interface NotificationItemProps {
-  notification: NotificationResponse;
+  notification: Pick<NotificationResponse, 'title' | 'body' | 'isRead' | 'createdAt'> & {
+    type: string;
+  };
+  // For notifications that are not an executive's (the platform admin's), pass the look directly.
+  icon?: LucideIcon;
+  tone?: Tone;
   isLast?: boolean;
   onPress?: () => void;
 }
 
-export function NotificationItem({ notification, isLast = false, onPress }: NotificationItemProps) {
+export function NotificationItem({
+  notification,
+  icon,
+  tone: toneOverride,
+  isLast = false,
+  onPress,
+}: NotificationItemProps) {
   const theme = useTheme();
-  const { icon: Icon, tone } = TYPE_STYLE[notification.type];
+  const known = TYPE_STYLE[notification.type as NotificationType];
+  const Icon = icon ?? known?.icon ?? Bell;
+  const tone = toneOverride ?? known?.tone ?? 'primary';
   const iconColor: Record<Tone, string> = {
     accent: theme.accentEmphasis,
     success: theme.success,

@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, RefreshControl, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ActivityIndicator, RefreshControl, SectionList, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import type { useCollapsingTitle } from '@/components/shared';
@@ -8,6 +8,7 @@ import { QueryState, Skeleton, Text } from '@/components/ui';
 import { enterRow } from '@/constants/motion';
 import { MaxContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use_theme';
+import { dateSectionTitle, groupIntoSections, type ListSection } from '@/utils/helpers';
 
 import { useTemplatePages } from '../hooks/use_templates';
 import { TemplatePreviewSheet } from '../screens/TemplatePreviewSheet';
@@ -16,6 +17,10 @@ import { TemplateRow } from './TemplateRow';
 
 type Collapsing = ReturnType<typeof useCollapsingTitle>;
 
+const AnimatedSectionList = Animated.createAnimatedComponent(
+  SectionList<TemplateResponse, ListSection<TemplateResponse>>,
+);
+
 interface TemplateListProps {
   filters: Omit<ListTemplatesParams, 'page' | 'pageSize'>;
   header: ReactNode;
@@ -23,6 +28,7 @@ interface TemplateListProps {
   collapsing?: Pick<Collapsing, 'onScroll' | 'onLayout' | 'minHeight'>;
   paddingTop?: number;
   paddingBottom: number;
+  onTotalChange?: (total: number) => void;
 }
 
 function TemplateListSkeleton() {
@@ -48,9 +54,13 @@ export function TemplateList({
   collapsing,
   paddingTop = 0,
   paddingBottom,
+  onTotalChange,
 }: TemplateListProps) {
   const theme = useTheme();
   const templates = useTemplatePages(filters);
+  useEffect(() => {
+    onTotalChange?.(templates.total);
+  }, [onTotalChange, templates.total]);
   const [selected, setSelected] = useState<TemplateResponse | null>(null);
   const reload = useRef(templates.reload);
   const hasFocusedOnce = useRef(false);
@@ -68,11 +78,17 @@ export function TemplateList({
   );
 
   const { items } = templates;
+  // The API returns the most recently updated first, so sections follow that order.
+  const sections = useMemo(
+    () => groupIntoSections(items, (item) => dateSectionTitle(item.updatedAt)),
+    [items],
+  );
 
   return (
     <>
-      <Animated.FlatList<TemplateResponse>
-        data={items}
+      <AnimatedSectionList
+        sections={sections}
+        stickySectionHeadersEnabled={false}
         keyExtractor={(item) => item.id}
         onScroll={collapsing?.onScroll}
         scrollEventThrottle={16}
@@ -112,11 +128,22 @@ export function TemplateList({
             ) : null}
           </View>
         }
-        renderItem={({ item, index }) => (
+        renderSectionHeader={({ section }) => (
+          <View className="flex-row items-baseline justify-between bg-background pb-1 pt-5">
+            <Text
+              accessibilityRole="header"
+              className="font-sans-bold text-xs uppercase tracking-widest text-accent-emphasis"
+            >
+              {section.title}
+            </Text>
+            <Text variant="caption">{section.data.length}</Text>
+          </View>
+        )}
+        renderItem={({ item, index, section }) => (
           <Animated.View entering={enterRow(index)}>
             <TemplateRow
               template={item}
-              isLast={index === items.length - 1}
+              isLast={index === section.data.length - 1}
               onPress={() => setSelected(item)}
             />
           </Animated.View>

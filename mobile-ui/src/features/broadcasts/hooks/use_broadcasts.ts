@@ -1,10 +1,12 @@
 import { useMutation } from '@/hooks/use_mutation';
+import { PAGE_SIZE, usePages } from '@/hooks/use_pages';
 import { useQuery } from '@/hooks/use_query';
 import { api } from '@/lib/api/apiSlice';
 
 import type {
   CreateBroadcastRequest,
   DispatchBroadcastRequest,
+  BroadcastApiResponse,
   EstimateBroadcastRequest,
   ListBroadcastsParams,
   UpdateBroadcastRequest,
@@ -13,6 +15,19 @@ import type {
 export const useReadBroadcastsQuery = (params: ListBroadcastsParams) =>
   useQuery(['broadcasts', 'list', params], (options) =>
     api.broadcasts.readBroadcasts(params, options),
+  );
+
+export type BroadcastListFilters = Omit<ListBroadcastsParams, 'page' | 'pageSize' | 'search'>;
+
+// The broadcasts tab: every page loaded so far for one search and set of filters.
+export const useBroadcastPages = (search: string, filters: BroadcastListFilters = {}) =>
+  usePages<BroadcastApiResponse>(
+    `broadcasts:${search}:${JSON.stringify(filters)}`,
+    (page, options) =>
+      api.broadcasts.readBroadcasts(
+        { ...filters, page, pageSize: PAGE_SIZE, search: search || undefined },
+        options,
+      ),
   );
 
 export const useReadBroadcastQuery = (broadcastId: string) =>

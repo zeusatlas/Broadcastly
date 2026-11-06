@@ -56,6 +56,10 @@ export interface UpdateBroadcastRequest {
 export interface ListBroadcastsParams extends PageParams {
   statuses?: BroadcastStatus[];
   search?: string;
+  mine?: boolean;
+  sort?: 'newest' | 'oldest';
+  // status: rows arrive stage by stage, work to finish first, so the list can show one section per stage.
+  groupBy?: 'status';
 }
 
 export interface BroadcastAudienceRequest {
@@ -98,6 +102,7 @@ export interface BroadcastSummary {
   title: string;
   audience: string;
   sentAt: string;
+  createdAt: string;
   status: BroadcastStatus;
   delivered: number;
   recipients: number;

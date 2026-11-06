@@ -32,9 +32,14 @@ export const useDeactivateMemberMutation = () => useMutation(api.members.deactiv
 export const useReactivateMemberMutation = () => useMutation(api.members.reactivateMember);
 
 // The members tab list: every page loaded so far for one search.
-export const useMemberPages = (search: string) =>
-  usePages<MemberResponse>(`members:${search}`, (page, options) =>
-    api.members.readMembers({ page, pageSize: PAGE_SIZE, search: search || undefined }, options),
+export type MemberListFilters = Omit<ListMembersParams, 'page' | 'pageSize' | 'search'>;
+
+export const useMemberPages = (search: string, filters: MemberListFilters = {}) =>
+  usePages<MemberResponse>(`members:${search}:${JSON.stringify(filters)}`, (page, options) =>
+    api.members.readMembers(
+      { ...filters, page, pageSize: PAGE_SIZE, search: search || undefined },
+      options,
+    ),
   );
 
 export const useImportPages = () =>
