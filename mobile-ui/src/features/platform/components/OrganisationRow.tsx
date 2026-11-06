@@ -1,7 +1,7 @@
 import { Building2, ChevronRight } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
-import { Text } from '@/components/ui';
+import { Avatar, Text } from '@/components/ui';
 import { useTheme } from '@/hooks/use_theme';
 import { cn } from '@/utils/helpers';
 
@@ -35,23 +35,27 @@ export function OrganisationRow({ organisation, onPress, isLast = false }: Organ
         !isLast && 'border-b border-border',
       )}
     >
-      <View
-        className={cn(
-          'h-11 w-11 items-center justify-center rounded-xl',
-           isInactive ? 'bg-muted' : needsHead ? 'bg-warning' : 'bg-success',
-        )}
-      >
-        <Building2
-          size={20}
-          color={
-            isInactive
-              ? theme.mutedForeground
+      {organisation.logoUrl ? (
+        <Avatar name={name} imageUrl={organisation.logoUrl} size="sm" />
+      ) : (
+        <View
+          className={cn(
+            'h-11 w-11 items-center justify-center rounded-xl',
+            isInactive ? 'bg-muted' : needsHead ? 'bg-warning' : 'bg-success',
+          )}
+        >
+          <Building2
+            size={20}
+            color={
+              isInactive
+                ? theme.mutedForeground
                 : needsHead
-                ? theme.warningForeground
-                : theme.successForeground
-          }
-        />
-      </View>
+                  ? theme.warningForeground
+                  : theme.successForeground
+            }
+          />
+        </View>
+      )}
       <View className="flex-1 gap-1">
         <Text className="font-sans-bold text-base text-foreground" numberOfLines={1}>
           {name}

@@ -9,6 +9,7 @@ import { ENV } from '@/config/env';
 import { logger } from '@/lib/logger';
 
 import { ApiError } from './errors';
+import { clientUserAgent } from '@/utils/helpers';
 
 const REQUEST_TIMEOUT_MS = 20_000;
 
@@ -25,6 +26,7 @@ type SessionRefresher = () => Promise<string | null>;
 let getAccessToken: TokenProvider = () => null;
 let refreshSession: SessionRefresher | null = null;
 let onUnauthorized: () => void = () => {};
+let getOrganisationId: () => string | null = () => null;
 let pendingRefresh: Promise<string | null> | null = null;
 
 // Injected rather than imported, so the network layer never depends on a feature module.
@@ -39,6 +41,14 @@ export function setSessionRefresher(refresher: SessionRefresher | null): void {
 export function setUnauthorizedHandler(handler: () => void): void {
   onUnauthorized = handler;
 }
+
+// A platform admin working inside an organisation: everything except their own account and the
+// admin tools runs as that organisation's head (the API checks the permission).
+export function setOrganisationProvider(provider: () => string | null): void {
+  getOrganisationId = provider;
+}
+
+const OWN_ACCOUNT_PATHS = /^\/?(auth|platform)(\/|$)/;
 
 // Concurrent 401s share one refresh call instead of racing and invalidating each other's tokens.
 function refreshOnce(): Promise<string | null> {
@@ -57,12 +67,16 @@ logger.debug(`API base URL: ${ENV.apiUrl}`);
 export const axiosClient: AxiosInstance = create({
   baseURL: ENV.apiUrl,
   timeout: REQUEST_TIMEOUT_MS,
-  headers: { Accept: 'application/json' },
+  headers: { Accept: 'application/json', 'User-Agent': clientUserAgent() },
 });
 
 axiosClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   const token = await getAccessToken();
   if (token) config.headers.set('Authorization', `Bearer ${token}`);
+  const organisationId = getOrganisationId();
+  if (organisationId && !OWN_ACCOUNT_PATHS.test(config.url ?? '')) {
+    config.headers.set('X-Organisation-Id', organisationId);
+  }
 
   return config;
 });

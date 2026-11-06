@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import {
   ApiError,
   setAuthTokenProvider,
+  setOrganisationProvider,
   setSessionRefresher,
   setUnauthorizedHandler,
 } from '@/lib/api';
@@ -30,9 +31,14 @@ interface AuthState {
   challenge: PendingChallenge | null;
   isSubmitting: boolean;
   error: ApiError | null;
+  // A platform admin working inside an organisation: `user` is the working profile (role head),
+  // `admin` is their own, restored on exit. Never persisted: a relaunch starts as the admin.
+  workspace: { organisationId: string; admin: User } | null;
 }
 
 interface AuthActions {
+  enterOrganisation: (profile: User) => void;
+  exitOrganisation: () => void;
   requestCode: (body: SignInRequest) => Promise<boolean>;
   verifyCode: (code: string) => Promise<boolean>;
   resendCode: () => Promise<boolean>;
@@ -55,6 +61,7 @@ const SIGNED_OUT: AuthState = {
   challenge: null,
   isSubmitting: false,
   error: null,
+  workspace: null,
 };
 
 const toPendingChallenge = (data: OtpChallengeResponse): PendingChallenge => ({
@@ -211,7 +218,26 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
   clearEndReason: () => set({ endReason: null }),
   clearError: () => set({ error: null }),
 
+  enterOrganisation: (profile) => {
+    const { user, workspace } = get();
+    if (!user || !profile.organisation) return;
+    resetAllStores();
+    set({
+      user: profile,
+      workspace: { organisationId: profile.organisation.id, admin: workspace?.admin ?? user },
+    });
+  },
+
+  exitOrganisation: () => {
+    const { workspace } = get();
+    if (!workspace) return;
+    resetAllStores();
+    set({ user: workspace.admin, workspace: null });
+  },
+
   refreshUser: async () => {
+    // The working profile comes from opening the organisation, not from /auth/me.
+    if (get().workspace) return true;
     try {
       const { data: user } = await api.auth.getCurrentUser();
       if (get().status === 'signed_in') set({ user });
@@ -229,6 +255,7 @@ async function endSession(reason: SessionEndReason | null = null): Promise<void>
 }
 
 setAuthTokenProvider(() => useAuthStore.getState().accessToken);
+setOrganisationProvider(() => useAuthStore.getState().workspace?.organisationId ?? null);
 
 setSessionRefresher(async () => {
   const refreshToken = await secureStorage.get(STORAGE_KEYS.refreshToken);

@@ -1,13 +1,18 @@
-import { router, Tabs } from 'expo-router';
-import { Building2, ShieldAlert, UserRoundPlus, UsersRound } from 'lucide-react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Bell, Building2, ShieldAlert, UserRoundPlus, UsersRound } from 'lucide-react-native';
+import { useCallback, useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
-import { ProfileButton } from '@/components/shared';
+import { HeaderButton, HomeHeader, ProfileButton } from '@/components/shared';
 import { ListCard, QueryState, ScrollScreen, StatTile, Text } from '@/components/ui';
 import { useCurrentUser } from '@/features/auth';
 
 import { OrganisationRow } from '../components/OrganisationRow';
-import { useReadOrganisationsQuery, useReadPlatformOverviewQuery } from '../hooks/use_platform_api';
+import {
+  useReadOrganisationsQuery,
+  useReadPlatformOverviewQuery,
+  useReadPlatformUnreadCountQuery,
+} from '../hooks/use_platform_api';
 
 // Tiles show a dash until the totals arrive, so the layout never jumps.
 const count = (value: number | undefined) => (value === undefined ? '—' : value.toLocaleString());
@@ -18,12 +23,31 @@ export function AdminHomeScreen() {
   const user = useCurrentUser();
   const overview = useReadPlatformOverviewQuery();
   const recent = useReadOrganisationsQuery({ pageSize: 4 });
+  const unread = useReadPlatformUnreadCountQuery();
+  const refetchUnread = useRef(unread.refetch);
+  useEffect(() => {
+    refetchUnread.current = unread.refetch;
+  });
+  // Coming back from notifications clears the badge for what was read there.
+  useFocusEffect(useCallback(() => refetchUnread.current(), []));
   const totals = overview.data;
   const organisations = recent.data?.items ?? [];
 
+  const profileButton = <ProfileButton name={user?.fullName ?? ''} />;
+
   return (
     <ScrollScreen className="gap-6 pt-4">
-      <Tabs.Screen options={{ headerLeft: () => <ProfileButton name={user?.fullName ?? ''} /> }} />
+      <HomeHeader
+        left={profileButton}
+        right={
+          <HeaderButton
+            icon={Bell}
+            label="Notifications"
+            badgeCount={unread.data?.unread ?? 0}
+            onPress={() => router.push('/admin/notifications')}
+          />
+        }
+      />
       <View className="gap-3">
         <View className="flex-row gap-3">
           <StatTile

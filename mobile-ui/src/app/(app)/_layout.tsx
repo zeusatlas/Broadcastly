@@ -74,6 +74,20 @@ export default function AppLayout() {
       <Stack.Protected guard={isPlatformAdmin}>
         <Stack.Screen name="admin/(tabs)" options={TABS} />
         <Stack.Screen name="admin/organisations/[id]" />
+        <Stack.Screen name="admin/organisations/new" />
+        <Stack.Screen name="admin/organisations/appoint" />
+        <Stack.Screen name="admin/organisations/edit" />
+        <Stack.Screen name="admin/organisations/executive" />
+        <Stack.Screen name="admin/organisations/replace-head" />
+        <Stack.Screen name="admin/admins/[id]" />
+        <Stack.Screen name="admin/admins/new" />
+        <Stack.Screen name="admin/payments" />
+        <Stack.Screen name="admin/credit-history" />
+        <Stack.Screen name="admin/adjust-credits" />
+        <Stack.Screen name="admin/broadcasts" />
+        <Stack.Screen name="admin/audit" />
+        <Stack.Screen name="admin/settings" />
+        <Stack.Screen name="admin/notifications" />
       </Stack.Protected>
       <Stack.Screen
         name="profile"

@@ -21,6 +21,7 @@ export {
 export { useSessionExpiry } from './hooks/use_session_expiry';
 export { useReadSessionsQuery, useRevokeSessionMutation } from './hooks/use_sessions';
 export { useAuthStore } from './store/auth_store';
+export { WorkspaceBanner } from './components/WorkspaceBanner';
 export type {
   AuthTokensResponse,
   SessionResponse,
