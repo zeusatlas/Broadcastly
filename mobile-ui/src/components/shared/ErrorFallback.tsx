@@ -23,6 +23,12 @@ export function ErrorFallback({ error, retry }: ErrorBoundaryProps) {
       <Text variant="bodyMuted" className="text-center">
         The screen could not be displayed. Your data has not been changed.
       </Text>
+      {__DEV__ ? (
+        // Development only: the real message, since the log line points at the logger, not the cause.
+        <Text variant="caption" className="text-center text-destructive" selectable>
+          {error.name}: {error.message}
+        </Text>
+      ) : null}
       <Button label="Try again" onPress={retry} accessibilityLabel="Try loading the screen again" />
     </Screen>
   );

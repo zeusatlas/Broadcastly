@@ -1,4 +1,4 @@
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { ChevronLeft, type LucideIcon } from 'lucide-react-native';
 import type { ReactElement, ReactNode } from 'react';
 import { ActivityIndicator, RefreshControl, SectionList, View } from 'react-native';
@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use_theme';
 import type { ListSection } from '@/utils/helpers';
 
 import { useCollapsingTitle } from './CollapsingTitle';
+import { goBack } from './PageScreen';
 import { GLASS_BUTTON_SIZE, GlassHeaderButton, type HeaderButtonProps } from './HeaderButton';
 
 const AnimatedSectionList = Animated.createAnimatedComponent(
@@ -147,7 +148,7 @@ export function SectionListPage<T>({
           className="absolute left-0 right-0 top-0 flex-row items-center justify-between px-4"
           style={{ paddingTop: insets.top + 4 }}
         >
-          <GlassHeaderButton icon={backIcon} label={backLabel} onPress={() => router.back()} />
+          <GlassHeaderButton icon={backIcon} label={backLabel} onPress={goBack} />
           {headerRight ? <GlassHeaderButton {...headerRight} /> : null}
         </View>
       )}

@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { LogOut } from 'lucide-react-native';
 import { View } from 'react-native';
 
@@ -13,14 +12,6 @@ export function WorkspaceBanner() {
   const exit = useAuthStore((state) => state.exitOrganisation);
   if (!workspace || !organisation) return null;
 
-  const leave = () => {
-    exit();
-    router.replace({
-      pathname: '/admin/organisations/[id]',
-      params: { id: workspace.organisationId },
-    });
-  };
-
   return (
     <View className="flex-row items-center gap-3 rounded-xl bg-accent/15 px-4 py-3">
       <View className="flex-1 gap-0.5">
@@ -31,7 +22,7 @@ export function WorkspaceBanner() {
           As a Broadcastly admin, with everything its head can do. Your actions are logged.
         </Text>
       </View>
-      <Button label="Exit" icon={LogOut} variant="outline" size="sm" shape="pill" onPress={leave} />
+      <Button label="Exit" icon={LogOut} variant="outline" size="sm" shape="pill" onPress={exit} />
     </View>
   );
 }

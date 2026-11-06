@@ -15,7 +15,7 @@ import { View } from 'react-native';
 import { PageScreen } from '@/components/shared';
 import { Avatar, Text } from '@/components/ui';
 import { GATED_ROUTES } from '@/constants/routes';
-import { useAccess, useCurrentUser, WorkspaceBanner } from '@/features/auth';
+import { useAccess, useCurrentUser } from '@/features/auth';
 
 import { SettingsRow } from '../components/SettingsRow';
 import { SettingsSection } from '../components/SettingsSection';
@@ -84,7 +84,6 @@ export function MoreScreen() {
 
   return (
     <PageScreen title="More" isTabRoot>
-      <WorkspaceBanner />
       <View className="mt-0 flex-row items-center gap-4 rounded-xl border border-border bg-card p-4">
         <Avatar
           name={user?.organisation?.name ?? user?.fullName ?? ''}

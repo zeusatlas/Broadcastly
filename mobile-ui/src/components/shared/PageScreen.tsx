@@ -1,4 +1,4 @@
-import { router, Stack } from 'expo-router';
+import { router, Stack, type Href } from 'expo-router';
 import { ChevronLeft, type LucideIcon } from 'lucide-react-native';
 import { useState, type PropsWithChildren, type ReactNode } from 'react';
 import { View } from 'react-native';
@@ -32,12 +32,25 @@ interface PageScreenProps extends PropsWithChildren {
 
 // The one wrapper for titled pages. No native bar (too tall for the owner): round glass back/action
 // buttons float under the status bar, the big title sits below them and collapses into a compact bar.
+let homeHref: Href = '/';
+
+// The (app) layout sets this per role: the admin's home is /admin, everyone else's is /.
+export function setBackFallback(href: Href) {
+  homeHref = href;
+}
+
+// Back with nothing behind (e.g. after switching apps) goes home instead of doing nothing.
+export function goBack() {
+  if (router.canGoBack()) router.back();
+  else router.replace(homeHref);
+}
+
 export function PageScreen({
   title,
   headerRight,
   backIcon = ChevronLeft,
   backLabel = 'Go back',
-  onBack = () => router.back(),
+  onBack = goBack,
   contentClassName,
   footer,
   actions,

@@ -1,8 +1,9 @@
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
+import { useEffect, useRef } from 'react';
 
-import { androidHeaderBack } from '@/components/shared';
+import { androidHeaderBack, setBackFallback } from '@/components/shared';
 import { GATED_ROUTES } from '@/constants/routes';
-import { useAccess, useHasRole } from '@/features/auth';
+import { useAccess, useAuthStore, useHasRole } from '@/features/auth';
 import { useStackHeaderOptions } from '@/hooks/use_header_options';
 
 // Every route in this group requires a session (guarded in app/_layout.tsx). The role picks the
@@ -53,6 +54,22 @@ export default function AppLayout() {
   const access = useAccess();
   const isPlatformAdmin = useHasRole('platform_admin');
   const headerOptions = useStackHeaderOptions();
+  const workspaceId = useAuthStore((state) => state.workspace?.organisationId ?? null);
+  const exitOrganisation = useAuthStore((state) => state.exitOrganisation);
+  const lastWorkspaceId = useRef(workspaceId);
+  const isInWorkspace = workspaceId !== null;
+
+  useEffect(() => setBackFallback(isPlatformAdmin ? '/admin' : '/'), [isPlatformAdmin]);
+
+  // Working inside an organisation keeps the admin's screens underneath: entering pushes its Home
+  // once those screens exist (one slide); leaving removes them, revealing the page it came from.
+  useEffect(() => {
+    const previous = lastWorkspaceId.current;
+    lastWorkspaceId.current = workspaceId;
+    if (!workspaceId || previous === workspaceId) return;
+    const frame = requestAnimationFrame(() => router.push('/'));
+    return () => cancelAnimationFrame(frame);
+  }, [workspaceId]);
 
   return (
     <Stack
@@ -64,14 +81,19 @@ export default function AppLayout() {
       }}
     >
       <Stack.Protected guard={!isPlatformAdmin}>
-        <Stack.Screen name="(tabs)" options={TABS} />
+        <Stack.Screen
+          name="(tabs)"
+          options={TABS}
+          // Swipe-back or Android back off the organisation's Home leaves the organisation.
+          listeners={{ removed: () => exitOrganisation() }}
+        />
         {GATED_ROUTES.map(({ name, access: rule }) => (
           <Stack.Protected key={name} guard={access.check(rule)}>
             <Stack.Screen name={name} options={PAGE_OPTIONS[name]} />
           </Stack.Protected>
         ))}
       </Stack.Protected>
-      <Stack.Protected guard={isPlatformAdmin}>
+      <Stack.Protected guard={isPlatformAdmin || isInWorkspace}>
         <Stack.Screen name="admin/(tabs)" options={TABS} />
         <Stack.Screen name="admin/organisations/[id]" />
         <Stack.Screen name="admin/organisations/new" />

@@ -4,12 +4,13 @@ export { ErrorFallback } from './ErrorFallback';
 export { ExternalLink } from './ExternalLink';
 export {
   androidHeaderBack,
+  GlassHeaderButton,
   HeaderButton,
   ProfileButton,
   type HeaderButtonProps,
 } from './HeaderButton';
 export { useCollapsingTitle } from './CollapsingTitle';
-export { PageScreen } from './PageScreen';
+export { goBack, PageScreen, setBackFallback } from './PageScreen';
 export { TabStack } from './TabStack';
 export { SystemBars } from './SystemBars';
 export { SectionListPage, type SectionListPageProps } from './SectionListPage';
