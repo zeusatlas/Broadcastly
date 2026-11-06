@@ -2,15 +2,21 @@ import { ConflictError, NotFoundError } from '../../common/errors/app_error';
 import { toPaginated, type Paginated } from '../../common/http/pagination';
 import { resolvePeriod, type PeriodParams } from '../../common/http/period';
 import { removeUpload } from '../../common/uploads/image_upload';
+import type { RequestContext } from '../../common/http/request_context';
 import { dataSource } from '../../config/database';
 import { AUDIT_ACTIONS, auditService } from '../audit';
 import {
+  actAsHead,
   auditActor,
   authService,
+  loadProfileAccess,
+  type AccessContext,
+  type UserResponse,
   type ActionActor,
   type CreatePlatformAdminRequest,
   type ManageableStatus,
   type PlatformAdminResponse,
+  type PlatformPermission,
 } from '../auth';
 import type { BroadcastResponse } from '../broadcasts';
 import { creditsService, type CreditTransactionResponse, type PurchaseResponse } from '../credits';
@@ -32,6 +38,8 @@ import type {
   ListOrganisationExecutivesRequest,
   ListOrganisationsRequest,
   ListPlatformAdminsRequest,
+  ReplaceHeadRequest,
+  UpdateOrganisationRequest,
   OrganisationExecutiveResponse,
   OrganisationResponse,
   PlatformOverviewResponse,
@@ -46,6 +54,42 @@ const NAME_TAKEN = 'An organisation with this name already exists.';
 
 // The platform admin is the super admin: every organisation, its executives, and every admin.
 export const platformService = {
+  // The profile the app switches to while an admin works inside an organisation: the admin's own
+  // name, the head's office and permissions. Each opening is audited.
+  async openWorkspace(
+    organisationId: string,
+    admin: AccessContext,
+    context: RequestContext,
+  ): Promise<UserResponse> {
+    const head = await actAsHead(admin, organisationId);
+    const [user, access, organisation] = await Promise.all([
+      authService.getUser('platform_admin', admin.accountId),
+      loadProfileAccess(head.memberId!),
+      platformService.getOrganisation(organisationId),
+    ]);
+    await auditService.record({
+      action: AUDIT_ACTIONS.organisationOpened,
+      targetType: 'organisation',
+      targetId: organisationId,
+      metadata: { organisationId },
+      ...auditActor({ platformAdminId: admin.accountId, context }),
+    });
+    return {
+      ...user,
+      id: head.accountId,
+      role: 'head',
+      memberId: head.memberId,
+      organisation: {
+        id: organisation.id,
+        name: organisation.name,
+        type: organisation.type,
+        logoUrl: organisation.logoUrl,
+      },
+      permissions: [...head.permissions],
+      appointments: access.appointments,
+    };
+  },
+
   async getSettings(): Promise<PlatformSettingsResponse> {
     const [settings] = (await dataSource.query(
       `SELECT max_file_size_mb AS "maxFileSizeMb", max_rows_per_file AS "maxRowsPerFile",
@@ -77,11 +121,16 @@ export const platformService = {
         `SELECT id FROM platform_settings ORDER BY created_at LIMIT 1 FOR UPDATE`,
       )) as Array<{ id: string }>;
       if (!row) throw new ConflictError('Platform settings are not configured.');
-      const settings = await manager.getRepository(PlatformSettings).findOneByOrFail({ id: row.id });
+      const settings = await manager
+        .getRepository(PlatformSettings)
+        .findOneByOrFail({ id: row.id });
       if (input.importLimits) {
-        if (input.importLimits.maxFileSizeMb !== undefined) settings.maxFileSizeMb = input.importLimits.maxFileSizeMb;
-        if (input.importLimits.maxRowsPerFile !== undefined) settings.maxRowsPerFile = input.importLimits.maxRowsPerFile;
-        if (input.importLimits.allowedFileTypes) settings.allowedFileTypes = input.importLimits.allowedFileTypes;
+        if (input.importLimits.maxFileSizeMb !== undefined)
+          settings.maxFileSizeMb = input.importLimits.maxFileSizeMb;
+        if (input.importLimits.maxRowsPerFile !== undefined)
+          settings.maxRowsPerFile = input.importLimits.maxRowsPerFile;
+        if (input.importLimits.allowedFileTypes)
+          settings.allowedFileTypes = input.importLimits.allowedFileTypes;
       }
       if (input.notificationPreferences) {
         settings.notificationPreferences = {
@@ -150,7 +199,7 @@ export const platformService = {
           action: AUDIT_ACTIONS.organisationCreated,
           targetType: 'organisation',
           targetId: organisation.id,
-          metadata: { type: input.type },
+          metadata: { organisationId: organisation.id, type: input.type },
           ...auditActor(actor),
         },
         manager,
@@ -161,7 +210,7 @@ export const platformService = {
     return platformService.getOrganisation(id);
   },
 
-  // The chairman is a member of this organisation promoted to executive; all rows commit together.
+  // The head is a member of this organisation promoted to executive; all rows commit together.
   async appointChairman(
     organisationId: string,
     details: AppointChairmanRequest,
@@ -174,7 +223,7 @@ export const platformService = {
         throw new ConflictError('This organisation is inactive.');
       }
       if (await organisationService.hasActiveChairman(organisationId, manager)) {
-         throw new ConflictError('This organisation already has a head.');
+        throw new ConflictError('This organisation already has a head.');
       }
 
       const { executiveId, memberId } = await authService.createExecutive(
@@ -205,6 +254,116 @@ export const platformService = {
       );
     });
 
+    return platformService.getOrganisation(organisationId);
+  },
+
+  async updateOrganisation(
+    organisationId: string,
+    { name, headTitle, description }: UpdateOrganisationRequest,
+    actor: ActionActor,
+  ): Promise<OrganisationResponse> {
+    await dataSource.transaction(async (manager) => {
+      const organisation = await organisationService.lockOrganisation(organisationId, manager);
+      if (!organisation) throw new NotFoundError(ORGANISATION_NOT_FOUND);
+      if (name && (await platformRepository.nameTakenByAnother(name, organisationId, manager))) {
+        throw new ConflictError(NAME_TAKEN, { errors: { name: [NAME_TAKEN] } });
+      }
+      const changes = {
+        ...(name && name !== organisation.name ? { name } : {}),
+        ...(headTitle && headTitle !== organisation.headTitle ? { headTitle } : {}),
+        ...(description !== undefined && description !== organisation.description
+          ? { description }
+          : {}),
+      };
+      if (Object.keys(changes).length === 0) return;
+      await organisationService.updateDetails(organisationId, changes, manager);
+      await auditService.record(
+        {
+          action: AUDIT_ACTIONS.organisationUpdated,
+          targetType: 'organisation',
+          targetId: organisationId,
+          metadata: {
+            ...(changes.name ? { previousName: organisation.name, name: changes.name } : {}),
+            ...(changes.headTitle
+              ? { previousHeadTitle: organisation.headTitle, headTitle: changes.headTitle }
+              : {}),
+            ...('description' in changes ? { descriptionChanged: true } : {}),
+          },
+          ...auditActor(actor),
+        },
+        manager,
+      );
+    });
+    return platformService.getOrganisation(organisationId);
+  },
+
+  // Ends the current head's appointment and appoints the new head in one transaction. The old head
+  // keeps their account, other positions and own credits; head-only access stops on their next request.
+  async replaceHead(
+    organisationId: string,
+    request: ReplaceHeadRequest,
+    actor: ActionActor,
+  ): Promise<OrganisationResponse> {
+    await dataSource.transaction(async (manager) => {
+      const organisation = await organisationService.lockOrganisation(organisationId, manager);
+      if (!organisation) throw new NotFoundError(ORGANISATION_NOT_FOUND);
+      if (organisation.status !== 'active')
+        throw new ConflictError('This organisation is inactive.');
+      const current = await platformRepository.lockActiveHead(organisationId, manager);
+      if (!current) {
+        throw new ConflictError('This organisation has no head yet. Appoint one instead.');
+      }
+
+      let next: { executiveId: string; memberId: string };
+      if ('executiveId' in request) {
+        const executive = await platformRepository.findExecutiveInOrganisation(
+          organisationId,
+          request.executiveId,
+          manager,
+        );
+        if (!executive) throw new NotFoundError(EXECUTIVE_NOT_FOUND);
+        if (executive.id === current.executiveId) {
+          throw new ConflictError('This executive is already the head.');
+        }
+        if (executive.status !== 'active') {
+          throw new ConflictError('Only an active executive can become the head.');
+        }
+        next = { executiveId: executive.id, memberId: executive.memberId };
+      } else {
+        next = await authService.createExecutive({ ...request, organisationId }, actor, manager);
+      }
+
+      await organisationService.endAppointment(
+        current.appointmentId,
+        actor.executiveId ?? null,
+        'Replaced as head by Broadcastly',
+        manager,
+      );
+      const appointment = await organisationService.createAppointment(
+        {
+          memberId: next.memberId,
+          positionId: CHAIRMAN_POSITION_ID,
+          organisationId,
+          unitId: null,
+          appointedByExecutiveId: actor.executiveId ?? null,
+        },
+        manager,
+      );
+      await auditService.record(
+        {
+          action: AUDIT_ACTIONS.headReplaced,
+          targetType: 'appointment',
+          targetId: appointment.id,
+          metadata: {
+            organisationId,
+            previousExecutiveId: current.executiveId,
+            executiveId: next.executiveId,
+          },
+          ...auditActor(actor),
+        },
+        manager,
+      );
+    });
     return platformService.getOrganisation(organisationId);
   },
 
@@ -353,6 +512,10 @@ export const platformService = {
     return toPaginated(rows.map(toPlatformAdminSummary), total, { page, pageSize });
   },
 
+  getPlatformAdmin(platformAdminId: string) {
+    return authService.getPlatformAdmin(platformAdminId);
+  },
+
   createPlatformAdmin(input: CreatePlatformAdminRequest, actor: ActionActor) {
     return authService.createPlatformAdmin(input, actor);
   },
@@ -363,6 +526,15 @@ export const platformService = {
     actor: ActionActor,
   ): Promise<PlatformAdminResponse> {
     await authService.setPlatformAdminStatus(platformAdminId, status, actor);
+    return authService.getPlatformAdmin(platformAdminId);
+  },
+
+  async updatePlatformAdminPermissions(
+    platformAdminId: string,
+    permissions: PlatformPermission[],
+    actor: ActionActor,
+  ): Promise<PlatformAdminResponse> {
+    await authService.updatePlatformAdminPermissions(platformAdminId, permissions, actor);
     return authService.getPlatformAdmin(platformAdminId);
   },
 };

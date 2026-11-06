@@ -5,16 +5,19 @@ import type { WalletBalanceResponse } from '../credits';
 import type { CreditTransactionType } from '../credits';
 import type { AuditEventResponse, ListAuditEventsRequest } from '../audit';
 import type { CreateExecutiveRequest, ExecutiveStatus, PlatformAdminStatus } from '../auth';
-import type { OrganisationStatus } from '../organisation';
+import type { OrganisationStatus, OrganisationType } from '../organisation';
 
 export interface CreateOrganisationRequest {
   name: string;
-  type: string;
+  type: OrganisationType;
+  description: string | null;
 }
 
 export interface ListOrganisationsRequest extends PageParams {
   search?: string;
   status?: OrganisationStatus;
+  hasHead?: boolean;
+  // Older name for hasHead, kept for the web app.
   hasChairman?: boolean;
 }
 
@@ -28,8 +31,51 @@ export interface ListOrganisationExecutivesRequest extends PageParams {
   status?: ExecutiveStatus;
 }
 
-// The chairman's details; the organisation comes from the path.
+// The head's details; the organisation comes from the path.
 export type AppointChairmanRequest = Omit<CreateExecutiveRequest, 'organisationId'>;
+
+export interface UpdateOrganisationRequest {
+  name?: string;
+  // What this organisation calls its head: Head, Director, Manager…
+  headTitle?: string;
+  // null clears it.
+  description?: string | null;
+}
+
+// The new head: an executive already in this organisation, or a person to promote or add.
+export type ReplaceHeadRequest = { executiveId: string } | AppointChairmanRequest;
+
+export const PLATFORM_NOTIFICATION_TYPES = [
+  'purchase',
+  'purchase_failed',
+  'credits',
+  'organisation',
+  'organisation_suspended',
+  'head',
+  'admin',
+  'security',
+] as const;
+export type PlatformNotificationType = (typeof PLATFORM_NOTIFICATION_TYPES)[number];
+
+export interface ListPlatformNotificationsRequest extends PageParams {
+  status?: 'unread' | 'read';
+  search?: string;
+}
+
+export interface PlatformNotificationParams {
+  notificationId: string;
+}
+
+// Built from the audit log for one admin: what others did that this admin may see.
+export interface PlatformNotificationResponse {
+  id: string;
+  type: PlatformNotificationType;
+  title: string;
+  body: string;
+  organisationId: string | null;
+  isRead: boolean;
+  createdAt: Date;
+}
 
 export interface OrganisationParams {
   organisationId: string;
@@ -72,6 +118,7 @@ export interface OrganisationResponse {
   name: string;
   type: string;
   status: OrganisationStatus;
+  description: string | null;
   logoUrl: string | null;
   credits: WalletBalanceResponse;
   headTitle: string;

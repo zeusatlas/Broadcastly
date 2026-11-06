@@ -8,7 +8,11 @@ import { createExecutiveSchema, EXECUTIVE_STATUSES, PLATFORM_ADMIN_STATUSES } fr
 import { BROADCAST_STATUSES } from '../broadcasts';
 import { CREDIT_PURCHASE_STATUSES, walletBalanceSchema } from '../credits';
 import { CREDIT_TRANSACTION_TYPES, creditTransactionResponseSchema } from '../credits';
-import { ORGANISATION_STATUSES } from '../organisation';
+import {
+  ORGANISATION_DESCRIPTION_MAX_WORDS,
+  ORGANISATION_STATUSES,
+  ORGANISATION_TYPES,
+} from '../organisation';
 
 import type {
   AppointChairmanRequest,
@@ -20,6 +24,8 @@ import type {
   ListOrganisationExecutivesRequest,
   ListOrganisationsRequest,
   ListPlatformAdminsRequest,
+  ReplaceHeadRequest,
+  UpdateOrganisationRequest,
   ListPlatformCreditTransactionsRequest,
   CreateCreditAdjustmentRequest,
   UpdatePlatformSettingsRequest,
@@ -27,7 +33,10 @@ import type {
   OrganisationExecutiveParams,
   OrganisationParams,
   PlatformAdminParams,
+  ListPlatformNotificationsRequest,
+  PlatformNotificationParams,
 } from './platform_types';
+import { PLATFORM_NOTIFICATION_TYPES } from './platform_types';
 
 const searchSchema = z
   .string()
@@ -36,26 +45,39 @@ const searchSchema = z
   .optional()
   .transform((value) => value || undefined);
 
+// Inner whitespace collapsed, so "Central  North" and "Central North" count as the same name.
+const organisationNameSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.replace(/\s+/g, ' '))
+  .pipe(z.string().min(2, 'Enter at least 2 characters.').max(150));
+
+const wordCount = (value: string) => (value ? value.split(/\s+/).length : 0);
+
+// Blank becomes null. Counted in words so the limit reads the same in every language.
+const descriptionSchema = z
+  .string()
+  .trim()
+  .max(2000, 'Keep it under 2,000 characters.')
+  .refine((value) => wordCount(value) <= ORGANISATION_DESCRIPTION_MAX_WORDS, {
+    message: `Keep it to ${ORGANISATION_DESCRIPTION_MAX_WORDS} words or fewer.`,
+  })
+  .transform((value) => value || null);
+
 export const createOrganisationSchema = z
   .object({
-    // Inner whitespace collapsed, so "Central  North" and "Central North" count as the same name.
-    name: z
-      .string()
-      .trim()
-      .transform((value) => value.replace(/\s+/g, ' '))
-      .pipe(z.string().min(2, 'Enter at least 2 characters.').max(150)),
+    name: organisationNameSchema,
     type: z
-      .string()
-      .trim()
-      .toLowerCase()
-      .regex(/^[a-z_]{2,40}$/, 'Use letters and underscores, e.g. constituency.')
+      .enum(ORGANISATION_TYPES, 'Choose what kind of organisation it is.')
       .default('constituency'),
+    description: descriptionSchema.nullish().transform((value) => value ?? null),
   })
   .openapi('CreateOrganisationRequest') satisfies z.ZodType<CreateOrganisationRequest>;
 
 export const listOrganisationsSchema = pageQuerySchema.extend({
   search: searchSchema,
   status: z.enum(ORGANISATION_STATUSES).optional(),
+  hasHead: z.stringbool().optional(),
   hasChairman: z.stringbool().optional(),
 }) satisfies z.ZodType<ListOrganisationsRequest>;
 
@@ -143,9 +165,14 @@ export const platformCreditTransactionResponseSchema = creditTransactionResponse
 export const createCreditAdjustmentSchema = z
   .object({
     organisationId: z.uuid('Not a valid organisation id.'),
-    amount: z.number().int().min(-1_000_000).max(1_000_000).refine((value) => value !== 0, {
-      message: 'Amount cannot be zero.',
-    }),
+    amount: z
+      .number()
+      .int()
+      .min(-1_000_000)
+      .max(1_000_000)
+      .refine((value) => value !== 0, {
+        message: 'Amount cannot be zero.',
+      }),
     reason: z.string().trim().min(2).max(255),
   })
   .openapi('CreateCreditAdjustmentRequest') satisfies z.ZodType<CreateCreditAdjustmentRequest>;
@@ -169,9 +196,12 @@ export const updatePlatformSettingsSchema = z
       .optional(),
     notificationPreferences: notificationPreferencesSchema.partial().optional(),
   })
-  .refine((value) => value.importLimits !== undefined || value.notificationPreferences !== undefined, {
-    message: 'Send importLimits or notificationPreferences.',
-  })
+  .refine(
+    (value) => value.importLimits !== undefined || value.notificationPreferences !== undefined,
+    {
+      message: 'Send importLimits or notificationPreferences.',
+    },
+  )
   .openapi('UpdatePlatformSettingsRequest') satisfies z.ZodType<UpdatePlatformSettingsRequest>;
 
 export const platformSettingsResponseSchema = z
@@ -188,6 +218,31 @@ export const platformSettingsResponseSchema = z
 export const appointChairmanSchema = createExecutiveSchema
   .omit({ organisationId: true })
   .openapi('AppointChairmanRequest') satisfies z.ZodType<AppointChairmanRequest>;
+
+export const updateOrganisationSchema = z
+  .object({
+    name: organisationNameSchema.optional(),
+    headTitle: z
+      .string()
+      .trim()
+      .transform((value) => value.replace(/\s+/g, ' '))
+      .pipe(z.string().min(2, 'Enter at least 2 characters.').max(40))
+      .optional(),
+    description: descriptionSchema.nullable().optional(),
+  })
+  .refine(
+    (value) =>
+      value.name !== undefined || value.headTitle !== undefined || value.description !== undefined,
+    { message: 'Send a new name, head title or description.' },
+  )
+  .openapi('UpdateOrganisationRequest') satisfies z.ZodType<UpdateOrganisationRequest>;
+
+export const replaceHeadSchema = z
+  .union([
+    z.object({ executiveId: z.uuid('Not a valid executive id.') }).strict(),
+    appointChairmanSchema,
+  ])
+  .openapi('ReplaceHeadRequest') satisfies z.ZodType<ReplaceHeadRequest>;
 
 export const organisationParamsSchema = z.object({
   organisationId: z.uuid('Not a valid organisation id.'),
@@ -237,6 +292,10 @@ export const organisationResponseSchema = z
       .openapi({ example: 'https://api.example.com/uploads/organisation-logos/3f2a.png' }),
     credits: walletBalanceSchema,
     headTitle: z.string().openapi({ example: 'Head' }),
+    description: z
+      .string()
+      .nullable()
+      .openapi({ example: 'The party office for Central constituency.' }),
     head: headResponseSchema.nullable(),
     memberCount: z.number().int().openapi({ example: 8412 }),
     executiveCount: z.number().int().openapi({ example: 37 }),
@@ -269,3 +328,28 @@ export const platformOverviewResponseSchema = z
 export const purchaseSummaryResponseSchema = z
   .object(purchaseSummaryFields)
   .openapi('PurchaseSummaryResponse');
+
+export const listPlatformNotificationsSchema = pageQuerySchema.extend({
+  status: z.enum(['unread', 'read']).optional(),
+  search: searchSchema,
+}) satisfies z.ZodType<ListPlatformNotificationsRequest>;
+
+export const platformNotificationParamsSchema = z.object({
+  notificationId: z.uuid('Not a valid notification id.'),
+}) satisfies z.ZodType<PlatformNotificationParams>;
+
+export const platformNotificationResponseSchema = z
+  .object({
+    id: z.uuid(),
+    type: z.enum(PLATFORM_NOTIFICATION_TYPES),
+    title: z.string().openapi({ example: 'Credits bought' }),
+    body: z.string().openapi({ example: 'Central Constituency bought 5,000 credits.' }),
+    organisationId: z.uuid().nullable(),
+    isRead: z.boolean(),
+    createdAt: z.iso.datetime(),
+  })
+  .openapi('PlatformNotificationResponse');
+
+export const platformUnreadCountResponseSchema = z
+  .object({ unread: z.number().int().openapi({ example: 3 }) })
+  .openapi('PlatformUnreadCountResponse');

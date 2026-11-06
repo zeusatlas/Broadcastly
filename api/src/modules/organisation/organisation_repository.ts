@@ -93,7 +93,10 @@ export const organisationRepository = {
     return rows.length > 0;
   },
 
-  insertOrganisation(input: { name: string; type: string }, manager: EntityManager) {
+  insertOrganisation(
+    input: { name: string; type: string; description: string | null },
+    manager: EntityManager,
+  ) {
     const organisations = manager.getRepository(Organisation);
     return organisations.save(organisations.create(input));
   },
@@ -101,7 +104,14 @@ export const organisationRepository = {
   // Row lock: concurrent appointments to the same organisation wait for each other.
   lockOrganisation(organisationId: string, manager: EntityManager) {
     return manager.getRepository(Organisation).findOne({
-      select: { id: true, status: true, logoPath: true },
+      select: {
+        id: true,
+        name: true,
+        headTitle: true,
+        status: true,
+        logoPath: true,
+        description: true,
+      },
       where: { id: organisationId },
       lock: { mode: 'pessimistic_write' },
     });

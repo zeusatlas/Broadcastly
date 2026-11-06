@@ -5,7 +5,9 @@ export { OrganisationNotificationPreferences } from './entities/organisation_not
 export { organisationService } from './organisation_service';
 export {
   CHAIRMAN_POSITION_ID,
+  ORGANISATION_DESCRIPTION_MAX_WORDS,
   ORGANISATION_STATUSES,
+  ORGANISATION_TYPES,
   UNIT_STATUSES,
   type AccessIncludes,
   type AppointmentRecord,
@@ -16,4 +18,5 @@ export {
   type AppointmentSummaryResponse,
   type OrganisationRef,
   type OrganisationStatus,
+  type OrganisationType,
 } from './organisation_types';

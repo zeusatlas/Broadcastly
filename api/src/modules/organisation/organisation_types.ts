@@ -2,6 +2,27 @@
 export const ORGANISATION_STATUSES = ['active', 'inactive', 'suspended'] as const;
 export type OrganisationStatus = (typeof ORGANISATION_STATUSES)[number];
 
+// What kind of organisation it is. The apps show these as words; add new kinds at the end.
+export const ORGANISATION_TYPES = [
+  'constituency',
+  'party_branch',
+  'regional_office',
+  'church',
+  'mosque',
+  'association',
+  'trade_union',
+  'cooperative',
+  'school',
+  'alumni',
+  'ngo',
+  'business',
+  'community',
+  'club',
+  'other',
+] as const;
+export type OrganisationType = (typeof ORGANISATION_TYPES)[number];
+export const ORGANISATION_DESCRIPTION_MAX_WORDS = 200;
+
 export const UNIT_STATUSES = ['active', 'inactive'] as const;
 export type UnitStatus = (typeof UNIT_STATUSES)[number];
 
@@ -23,7 +44,7 @@ export interface AppointmentSummaryResponse {
   positionTitle: string;
   organisationId: string;
   organisationName: string;
-  // Null for organisation-wide offices such as chairman.
+  // Null for organisation-wide offices such as head.
   unitId: string | null;
   unitName: string | null;
   unitType: string | null;

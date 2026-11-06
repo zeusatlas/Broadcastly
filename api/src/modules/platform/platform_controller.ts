@@ -6,14 +6,22 @@ import type { PeriodParams } from '../../common/http/period';
 import { sendCreated, sendSuccess } from '../../common/http/respond';
 import { toStoredPath } from '../../common/uploads/image_upload';
 import { validated } from '../../common/middleware/validate';
-import { actorFrom, requireAuth, type CreatePlatformAdminRequest } from '../auth';
+import {
+  actorFrom,
+  requireAuth,
+  type CreatePlatformAdminRequest,
+  type UpdatePlatformAdminPermissionsRequest,
+} from '../auth';
 import { auditService } from '../audit';
 import { creditsService } from '../credits';
 
+import { platformNotifications } from './platform_notifications';
 import { platformService } from './platform_service';
 import type {
   AppointChairmanRequest,
   CreateOrganisationRequest,
+  ListPlatformNotificationsRequest,
+  PlatformNotificationParams,
   ListBroadcastsRequest,
   ListOrganisationBroadcastsRequest,
   ListOrganisationCreditTransactionsRequest,
@@ -21,6 +29,8 @@ import type {
   ListOrganisationExecutivesRequest,
   ListOrganisationsRequest,
   ListPlatformAdminsRequest,
+  ReplaceHeadRequest,
+  UpdateOrganisationRequest,
   OrganisationExecutiveParams,
   OrganisationParams,
   PlatformAdminParams,
@@ -32,7 +42,34 @@ import type {
 
 const actorOf = (req: Request) => actorFrom(requireAuth(req), getRequestContext(req));
 
+const viewerOf = (req: Request) => {
+  const auth = requireAuth(req);
+  return { adminId: auth.accountId, permissions: auth.permissions };
+};
+
 export const platformController = {
+  async listNotifications(req: Request, res: Response) {
+    const query = validated<ListPlatformNotificationsRequest>(res, 'query');
+    const data = await platformNotifications.list(viewerOf(req), query);
+    return sendSuccess(res, { data, message: 'Notifications retrieved.' });
+  },
+
+  async getUnreadNotificationCount(req: Request, res: Response) {
+    const data = await platformNotifications.unreadCount(viewerOf(req));
+    return sendSuccess(res, { data, message: 'Unread count retrieved.' });
+  },
+
+  async markNotificationRead(req: Request, res: Response) {
+    const { notificationId } = validated<PlatformNotificationParams>(res, 'params');
+    const data = await platformNotifications.markRead(viewerOf(req), notificationId);
+    return sendSuccess(res, { data, message: 'Notification marked as read.' });
+  },
+
+  async markAllNotificationsRead(req: Request, res: Response) {
+    const data = await platformNotifications.markAllRead(viewerOf(req));
+    return sendSuccess(res, { data, message: 'All notifications marked as read.' });
+  },
+
   async getSettings(_req: Request, res: Response) {
     const data = await platformService.getSettings();
     return sendSuccess(res, { data, message: 'Platform settings retrieved.' });
@@ -42,6 +79,16 @@ export const platformController = {
     const body = validated<UpdatePlatformSettingsRequest>(res, 'body');
     const data = await platformService.updateSettings(body, actorOf(req));
     return sendSuccess(res, { data, message: 'Platform settings updated.' });
+  },
+
+  async openWorkspace(req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const data = await platformService.openWorkspace(
+      organisationId,
+      requireAuth(req),
+      getRequestContext(req),
+    );
+    return sendSuccess(res, { data, message: 'Organisation opened.' });
   },
 
   async getOverview(_req: Request, res: Response) {
@@ -78,6 +125,20 @@ export const platformController = {
     const body = validated<AppointChairmanRequest>(res, 'body');
     const data = await platformService.appointChairman(organisationId, body, actorOf(req));
     return sendCreated(res, data, 'Organisation head appointed.');
+  },
+
+  async updateOrganisation(req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const body = validated<UpdateOrganisationRequest>(res, 'body');
+    const data = await platformService.updateOrganisation(organisationId, body, actorOf(req));
+    return sendSuccess(res, { data, message: 'Organisation updated.' });
+  },
+
+  async replaceHead(req: Request, res: Response) {
+    const { organisationId } = validated<OrganisationParams>(res, 'params');
+    const body = validated<ReplaceHeadRequest>(res, 'body');
+    const data = await platformService.replaceHead(organisationId, body, actorOf(req));
+    return sendSuccess(res, { data, message: 'Head replaced.' });
   },
 
   async listOrganisationExecutives(_req: Request, res: Response) {
@@ -213,6 +274,12 @@ export const platformController = {
     return sendSuccess(res, { data, message: 'Platform admins retrieved.' });
   },
 
+  async getPlatformAdmin(_req: Request, res: Response) {
+    const { platformAdminId } = validated<PlatformAdminParams>(res, 'params');
+    const data = await platformService.getPlatformAdmin(platformAdminId);
+    return sendSuccess(res, { data, message: 'Platform admin retrieved.' });
+  },
+
   async createPlatformAdmin(req: Request, res: Response) {
     const body = validated<CreatePlatformAdminRequest>(res, 'body');
     const data = await platformService.createPlatformAdmin(body, actorOf(req));
@@ -227,6 +294,17 @@ export const platformController = {
       actorOf(req),
     );
     return sendSuccess(res, { data, message: 'Account suspended.' });
+  },
+
+  async updatePlatformAdminPermissions(req: Request, res: Response) {
+    const { platformAdminId } = validated<PlatformAdminParams>(res, 'params');
+    const { permissions } = validated<UpdatePlatformAdminPermissionsRequest>(res, 'body');
+    const data = await platformService.updatePlatformAdminPermissions(
+      platformAdminId,
+      permissions,
+      actorOf(req),
+    );
+    return sendSuccess(res, { data, message: 'Permissions updated.' });
   },
 
   async reactivatePlatformAdmin(req: Request, res: Response) {

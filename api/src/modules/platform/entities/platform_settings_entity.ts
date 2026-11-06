@@ -10,13 +10,17 @@ export class PlatformSettings extends BaseEntity {
   @Column({ type: 'integer', name: 'max_rows_per_file', default: 10000 })
   maxRowsPerFile: number;
 
-  @Column({ type: 'jsonb', name: 'allowed_file_types', default: () => "'{\"csv\":true,\"xlsx\":true}'::jsonb" })
+  @Column({
+    type: 'jsonb',
+    name: 'allowed_file_types',
+    default: () => '\'{"csv":true,"xlsx":true}\'::jsonb',
+  })
   allowedFileTypes: { csv: boolean; xlsx: boolean };
 
   @Column({
     type: 'jsonb',
     name: 'notification_preferences',
-    default: () => "'{\"security\":true,\"payments\":true,\"service\":true,\"digest\":false}'::jsonb",
+    default: () => '\'{"security":true,"payments":true,"service":true,"digest":false}\'::jsonb',
   })
   notificationPreferences: {
     security: boolean;

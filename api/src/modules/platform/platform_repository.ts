@@ -1,3 +1,4 @@
+import type { EntityManager } from 'typeorm';
 import { toSkipTake, type PageParams } from '../../common/http/pagination';
 import type { DateRange } from '../../common/http/period';
 import { dataSource } from '../../config/database';
@@ -33,6 +34,7 @@ export interface OrganisationRow {
   name: string;
   type: string;
   headTitle: string;
+  description: string | null;
   status: OrganisationStatus;
   logoPath: string | null;
   creditBalance: number;
@@ -51,6 +53,8 @@ export interface PlatformAdminRow {
   email: string;
   phone: string;
   status: PlatformAdminStatus;
+  isSuperAdmin: boolean;
+  permissions: string[];
   lastSignInAt: Date | null;
   createdAt: Date;
 }
@@ -90,9 +94,10 @@ const EXECUTIVE_COLUMNS = `
   e.last_sign_in_at AS "lastSignInAt", e.created_at AS "createdAt",
   COALESCE((SELECT w.balance FROM wallets w WHERE w.executive_id = e.id), 0) AS "creditBalance"`;
 
-// $1 = chairman position id.
+// $1 = head position id.
 const ORGANISATION_SELECT = `
-  SELECT o.id, o.name, o.type, o.head_title AS "headTitle", o.status, o.logo_path AS "logoPath",
+  SELECT o.id, o.name, o.type, o.description, o.head_title AS "headTitle", o.status,
+         o.logo_path AS "logoPath",
          COALESCE(w.balance, 0) AS "creditBalance", COALESCE(w.reserved, 0) AS "creditReserved",
          o.created_at AS "createdAt", o.updated_at AS "updatedAt",
          (SELECT count(*) FROM members mm WHERE mm.organisation_id = o.id)::int AS "memberCount",
@@ -100,7 +105,8 @@ const ORGANISATION_SELECT = `
            AS "executiveCount",
           CASE WHEN c.id IS NULL THEN NULL ELSE to_jsonb(c) END AS head
     FROM organisations o
-    LEFT JOIN wallets w ON w.organisation_id = o.id AND w.owner_type = 'organisation'
+    LEFT JOIN LATERAL (SELECT SUM(balance)::int AS balance, SUM(reserved)::int AS reserved
+                         FROM wallets WHERE organisation_id = o.id) w ON true
     LEFT JOIN LATERAL (
       SELECT ${EXECUTIVE_COLUMNS}, a.id AS "appointmentId", a.effective_from AS "appointedAt"
         FROM appointments a
@@ -141,16 +147,20 @@ function executiveFilters(organisationId: string, filters: ExecutiveFilters) {
 type OrganisationFilters = Omit<ListOrganisationsRequest, 'page' | 'pageSize'>;
 
 // `base` holds parameters the surrounding query already uses, so numbering continues after them.
-function organisationWhere({ search, status, hasChairman }: OrganisationFilters, base: unknown[]) {
+function organisationWhere(
+  { search, status, hasHead: hasHeadFilter, hasChairman }: OrganisationFilters,
+  base: unknown[],
+) {
+  const hasHead = hasHeadFilter ?? hasChairman;
   const params = [...base];
   const param = (value: unknown) => `$${params.push(value)}`;
   const clauses: string[] = [];
   if (search) clauses.push(`o.name ILIKE ${param(likePattern(search))}`);
   if (status) clauses.push(`o.status = ${param(status)}`);
-  if (hasChairman !== undefined) {
+  if (hasHead !== undefined) {
     clauses.push(`EXISTS (SELECT 1 FROM appointments a WHERE a.organisation_id = o.id
                    AND a.position_id = ${param(CHAIRMAN_POSITION_ID)} AND a.status = 'active')
-                  = ${param(hasChairman)}`);
+                  = ${param(hasHead)}`);
   }
   return { sql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '', params };
 }
@@ -176,6 +186,40 @@ async function paged<T>(
 }
 
 export const platformRepository = {
+  async nameTakenByAnother(name: string, organisationId: string, manager: EntityManager) {
+    const rows = (await manager.query(
+      `SELECT 1 FROM organisations WHERE lower(name) = lower($1) AND id <> $2 LIMIT 1`,
+      [name, organisationId],
+    )) as unknown[];
+    return rows.length > 0;
+  },
+
+  // The organisation's current head appointment, locked so two admins cannot replace them at once.
+  async lockActiveHead(organisationId: string, manager: EntityManager) {
+    const [row] = (await manager.query(
+      `SELECT a.id AS "appointmentId", e.id AS "executiveId"
+         FROM appointments a
+         JOIN organisation_executives e ON e.member_id = a.member_id AND e.organisation_id = a.organisation_id
+        WHERE a.organisation_id = $1 AND a.position_id = $2 AND a.status = 'active'
+        FOR UPDATE OF a`,
+      [organisationId, CHAIRMAN_POSITION_ID],
+    )) as { appointmentId: string; executiveId: string }[];
+    return row ?? null;
+  },
+
+  async findExecutiveInOrganisation(
+    organisationId: string,
+    executiveId: string,
+    manager: EntityManager,
+  ) {
+    const [row] = (await manager.query(
+      `SELECT id, member_id AS "memberId", status FROM organisation_executives
+        WHERE id = $1 AND organisation_id = $2`,
+      [executiveId, organisationId],
+    )) as { id: string; memberId: string; status: string }[];
+    return row ?? null;
+  },
+
   async getOverview(): Promise<OverviewCounts> {
     const [row] = (await dataSource.query(
       `SELECT
@@ -283,8 +327,9 @@ export const platformRepository = {
 
     return paged<PlatformAdminRow>(
       `SELECT id, first_name AS "firstName", last_name AS "lastName", email, phone, status,
+              is_super_admin AS "isSuperAdmin", permissions,
               last_sign_in_at AS "lastSignInAt", created_at AS "createdAt"
-         FROM platform_admins ${where} ORDER BY first_name, last_name, id`,
+         FROM platform_admins ${where} ORDER BY is_super_admin DESC, first_name, last_name, id`,
       `SELECT count(*)::int AS total FROM platform_admins ${where}`,
       params,
       params,

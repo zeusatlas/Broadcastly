@@ -16,6 +16,8 @@ import {
   authorize,
   createPlatformAdminSchema,
   platformAdminResponseSchema,
+  updatePlatformAdminPermissionsSchema,
+  userResponseSchema,
 } from '../auth';
 import { broadcastResponseSchema } from '../broadcasts';
 import {
@@ -34,6 +36,8 @@ import {
   listOrganisationExecutivesSchema,
   listPlatformPurchasesSchema,
   periodQuerySchema,
+  replaceHeadSchema,
+  updateOrganisationSchema,
   purchaseSummaryResponseSchema,
   listOrganisationsSchema,
   listPlatformAdminsSchema,
@@ -50,6 +54,10 @@ import {
   organisationResponseSchema,
   platformAdminParamsSchema,
   platformOverviewResponseSchema,
+  listPlatformNotificationsSchema,
+  platformNotificationParamsSchema,
+  platformNotificationResponseSchema,
+  platformUnreadCountResponseSchema,
 } from './platform_schemas';
 
 export const platformRouter = Router();
@@ -63,11 +71,42 @@ const admin = validate({ params: platformAdminParamsSchema });
 const EXECUTIVES = '/organisations/:organisationId/executives';
 const ORGANISATION = '/organisations/:organisationId';
 const logoUpload = imageUpload('organisation-logos', 'logo');
+const canManageOrganisations = authorize({ permission: 'platform.organisation.manage' });
+const canManageExecutives = authorize({ permission: 'platform.executive.manage' });
+const canManageCredits = authorize({ permission: 'platform.credit.manage' });
+const canViewFinance = authorize({ permission: 'platform.finance.view' });
+const canViewBroadcasts = authorize({ permission: 'platform.broadcast.view' });
+const canViewAudit = authorize({ permission: 'platform.audit.view' });
+const canManageSettings = authorize({ permission: 'platform.settings.manage' });
+const canManageAdmins = authorize({ permission: 'platform.admin.manage' });
+const canOperate = authorize({ permission: 'platform.organisation.operate' });
 
 platformRouter.get('/overview', c.getOverview);
+platformRouter.get(
+  '/notifications',
+  validate({ query: listPlatformNotificationsSchema }),
+  c.listNotifications,
+);
+platformRouter.get('/notifications/unread-count', c.getUnreadNotificationCount);
+platformRouter.post('/notifications/read-all', c.markAllNotificationsRead);
+platformRouter.post(
+  '/notifications/:notificationId/read',
+  validate({ params: platformNotificationParamsSchema }),
+  c.markNotificationRead,
+);
 platformRouter.get('/settings', c.getSettings);
-platformRouter.patch('/settings', validate({ body: updatePlatformSettingsSchema }), c.updateSettings);
-platformRouter.get('/audit-log', validate({ query: listAuditLogSchema }), c.listAuditLog);
+platformRouter.patch(
+  '/settings',
+  canManageSettings,
+  validate({ body: updatePlatformSettingsSchema }),
+  c.updateSettings,
+);
+platformRouter.get(
+  '/audit-log',
+  canViewAudit,
+  validate({ query: listAuditLogSchema }),
+  c.listAuditLog,
+);
 platformRouter.get(
   '/organisations',
   validate({ query: listOrganisationsSchema }),
@@ -75,14 +114,31 @@ platformRouter.get(
 );
 platformRouter.post(
   '/organisations',
+  canManageOrganisations,
   validate({ body: createOrganisationSchema }),
   c.createOrganisation,
 );
 platformRouter.get('/organisations/:organisationId', organisation, c.getOrganisation);
-platformRouter.post(
-  '/organisations/:organisationId/chairman',
+platformRouter.post(`${ORGANISATION}/workspace`, canOperate, organisation, c.openWorkspace);
+const appointHead = [
+  canManageOrganisations,
   validate({ params: organisationParamsSchema, body: appointChairmanSchema }),
   c.appointChairman,
+];
+platformRouter.post(`${ORGANISATION}/head`, ...appointHead);
+// Older path, kept for the web app.
+platformRouter.post(`${ORGANISATION}/chairman`, ...appointHead);
+platformRouter.patch(
+  '/organisations/:organisationId',
+  canManageOrganisations,
+  validate({ params: organisationParamsSchema, body: updateOrganisationSchema }),
+  c.updateOrganisation,
+);
+platformRouter.post(
+  '/organisations/:organisationId/head/replace',
+  canManageOrganisations,
+  validate({ params: organisationParamsSchema, body: replaceHeadSchema }),
+  c.replaceHead,
 );
 platformRouter.get(
   EXECUTIVES,
@@ -90,56 +146,124 @@ platformRouter.get(
   c.listOrganisationExecutives,
 );
 platformRouter.get(`${EXECUTIVES}/:executiveId`, executive, c.getOrganisationExecutive);
-platformRouter.post(`${EXECUTIVES}/:executiveId/suspend`, executive, c.suspendExecutive);
-platformRouter.post(`${EXECUTIVES}/:executiveId/reactivate`, executive, c.reactivateExecutive);
-platformRouter.post(`${ORGANISATION}/suspend`, organisation, c.suspendOrganisation);
-platformRouter.post(`${ORGANISATION}/reactivate`, organisation, c.reactivateOrganisation);
-platformRouter.post(`${ORGANISATION}/logo`, organisation, logoUpload, c.uploadOrganisationLogo);
-platformRouter.delete(`${ORGANISATION}/logo`, organisation, c.removeOrganisationLogo);
+platformRouter.post(
+  `${EXECUTIVES}/:executiveId/suspend`,
+  canManageExecutives,
+  executive,
+  c.suspendExecutive,
+);
+platformRouter.post(
+  `${EXECUTIVES}/:executiveId/reactivate`,
+  canManageExecutives,
+  executive,
+  c.reactivateExecutive,
+);
+platformRouter.post(
+  `${ORGANISATION}/suspend`,
+  canManageOrganisations,
+  organisation,
+  c.suspendOrganisation,
+);
+platformRouter.post(
+  `${ORGANISATION}/reactivate`,
+  canManageOrganisations,
+  organisation,
+  c.reactivateOrganisation,
+);
+platformRouter.post(
+  `${ORGANISATION}/logo`,
+  canManageOrganisations,
+  organisation,
+  logoUpload,
+  c.uploadOrganisationLogo,
+);
+platformRouter.delete(
+  `${ORGANISATION}/logo`,
+  canManageOrganisations,
+  organisation,
+  c.removeOrganisationLogo,
+);
 platformRouter.get(
   `${ORGANISATION}/broadcasts`,
+  canViewBroadcasts,
   validate({ params: organisationParamsSchema, query: listOrganisationBroadcastsSchema }),
   c.listOrganisationBroadcasts,
 );
 platformRouter.get(
   `${ORGANISATION}/purchases`,
+  canViewFinance,
   validate({ params: organisationParamsSchema, query: listPurchasesSchema }),
   c.listOrganisationPurchases,
 );
 platformRouter.get(
   `${ORGANISATION}/credit-transactions`,
+  canViewFinance,
   validate({ params: organisationParamsSchema, query: listOrganisationCreditTransactionsSchema }),
   c.listOrganisationCreditTransactions,
 );
 platformRouter.get(
   '/credit-transactions',
+  canViewFinance,
   validate({ query: listPlatformCreditTransactionsSchema }),
   c.listPlatformCreditTransactions,
 );
 platformRouter.post(
   '/credit-adjustments',
+  canManageCredits,
   validate({ body: createCreditAdjustmentSchema }),
   c.createCreditAdjustment,
 );
-platformRouter.get('/broadcasts', validate({ query: listBroadcastsSchema }), c.listBroadcasts);
-platformRouter.get('/purchases', validate({ query: listPlatformPurchasesSchema }), c.listPurchases);
+platformRouter.get(
+  '/broadcasts',
+  canViewBroadcasts,
+  validate({ query: listBroadcastsSchema }),
+  c.listBroadcasts,
+);
+platformRouter.get(
+  '/purchases',
+  canViewFinance,
+  validate({ query: listPlatformPurchasesSchema }),
+  c.listPurchases,
+);
 platformRouter.get(
   '/purchases/summary',
+  canViewFinance,
   validate({ query: periodQuerySchema }),
   c.getPurchaseSummary,
 );
 platformRouter.get('/admins', validate({ query: listPlatformAdminsSchema }), c.listPlatformAdmins);
 platformRouter.post(
   '/admins',
+  canManageAdmins,
   validate({ body: createPlatformAdminSchema }),
   c.createPlatformAdmin,
 );
-platformRouter.post('/admins/:platformAdminId/suspend', admin, c.suspendPlatformAdmin);
-platformRouter.post('/admins/:platformAdminId/reactivate', admin, c.reactivatePlatformAdmin);
+platformRouter.get('/admins/:platformAdminId', admin, c.getPlatformAdmin);
+platformRouter.post(
+  '/admins/:platformAdminId/suspend',
+  canManageAdmins,
+  admin,
+  c.suspendPlatformAdmin,
+);
+platformRouter.post(
+  '/admins/:platformAdminId/reactivate',
+  canManageAdmins,
+  admin,
+  c.reactivatePlatformAdmin,
+);
+platformRouter.patch(
+  '/admins/:platformAdminId/permissions',
+  canManageAdmins,
+  validate({ params: platformAdminParamsSchema, body: updatePlatformAdminPermissionsSchema }),
+  c.updatePlatformAdminPermissions,
+);
 
 const tags = ['Platform'];
 const security = [{ [bearerAuth.name]: [] }];
-const NOT_ADMIN: [number, string] = [403, 'Signed in, but not a platform admin.'];
+const NOT_ADMIN: [number, string] = [
+  403,
+  'Not a platform admin, or missing the platform permission this route needs.',
+];
 const SELF: [number, string, string] = [
   403,
   'Not a platform admin, or the account is your own.',
@@ -202,7 +326,8 @@ document({
   path: '/audit-log',
   operationId: 'listPlatformAuditLog',
   summary: 'List audit events',
-  description: 'Review immutable administrative activity with actor, action, organisation and period filters.',
+  description:
+    'Review immutable administrative activity with actor, action, organisation and period filters.',
   request: { query: listAuditLogSchema },
   response: successEnvelope(paginatedSchema(auditEventResponseSchema), 'Audit log retrieved.'),
   message: 'A page of audit events.',
@@ -223,10 +348,15 @@ document({
   path: '/settings',
   operationId: 'updatePlatformSettings',
   summary: 'Update platform settings',
-  description: 'Update import limits or notification preferences and record the change in the audit log.',
+  description:
+    'Update import limits or notification preferences and record the change in the audit log.',
   request: {
     body: jsonBody(updatePlatformSettingsSchema, {
-      importLimits: { maxFileSizeMb: 25, maxRowsPerFile: 10000, allowedFileTypes: { csv: true, xlsx: true } },
+      importLimits: {
+        maxFileSizeMb: 25,
+        maxRowsPerFile: 10000,
+        allowedFileTypes: { csv: true, xlsx: true },
+      },
       notificationPreferences: { security: true, payments: true, service: true, digest: false },
     }),
   },
@@ -240,7 +370,7 @@ document({
   operationId: 'listOrganisations',
   summary: 'List organisations',
   description:
-    'Organisations by name, each with its head (or `null`) and counts. Filter by `status` and `hasChairman`.',
+    'Organisations by name, each with its head (or `null`) and counts. Filter by `status` and `hasHead`.',
   request: { query: listOrganisationsSchema },
   response: successEnvelope(
     paginatedSchema(organisationResponseSchema),
@@ -284,8 +414,8 @@ document({
 });
 document({
   method: 'post',
-  path: '/organisations/{organisationId}/chairman',
-  operationId: 'appointChairman',
+  path: '/organisations/{organisationId}/head',
+  operationId: 'appointHead',
   summary: 'Appoint the organisation head',
   description: `
   Promote a member of this organisation to executive and appoint them as its head, in one step.
@@ -397,13 +527,14 @@ document({
   operationId: 'createPlatformAdmin',
   summary: 'Add a platform admin',
   description:
-    'Create another platform admin. They are not party members; they sign in through `/auth` like everyone.',
+    'Create another platform admin with the ticked `permissions` (none if omitted). You can only grant permissions you hold. Needs `platform.admin.manage`.',
   request: {
     body: jsonBody(createPlatformAdminSchema, {
       firstName: 'Yaw',
       lastName: 'Darko',
       email: 'yaw.darko@example.com',
       phone: '0271234567',
+      permissions: ['platform.organisation.manage', 'platform.executive.manage'],
     }),
   },
   status: 201,
@@ -415,6 +546,89 @@ document({
       409,
       'The email is already used by any account.',
       'An account with this email already exists.',
+    ],
+    422,
+  ],
+});
+document({
+  method: 'get',
+  path: '/admins/{platformAdminId}',
+  operationId: 'getPlatformAdmin',
+  summary: 'Get a platform admin',
+  description: 'One platform admin with their status and permissions.',
+  request: { params: platformAdminParamsSchema },
+  response: successEnvelope(platformAdminResponseSchema, 'Platform admin retrieved.'),
+  message: 'The platform admin.',
+  errors: [NOT_ADMIN, NO_ACCOUNT, 422],
+});
+document({
+  method: 'patch',
+  path: '/admins/{platformAdminId}/permissions',
+  operationId: 'updatePlatformAdminPermissions',
+  summary: "Change an admin's permissions",
+  description:
+    "Replace another admin's permissions. Applies on their next request. You can only add or remove permissions you hold; the main admin's permissions and your own cannot be changed.",
+  request: {
+    params: platformAdminParamsSchema,
+    body: jsonBody(updatePlatformAdminPermissionsSchema, {
+      permissions: ['platform.organisation.manage', 'platform.finance.view'],
+    }),
+  },
+  response: successEnvelope(platformAdminResponseSchema, 'Permissions updated.'),
+  message: 'The admin with their new permissions.',
+  errors: [
+    [
+      403,
+      'Missing `platform.admin.manage`, your own account, the main admin, or a permission you do not hold.',
+      'You can only give or remove permissions you hold yourself.',
+    ],
+    NO_ACCOUNT,
+    422,
+  ],
+});
+document({
+  method: 'patch',
+  path: '/organisations/{organisationId}',
+  operationId: 'updateOrganisation',
+  summary: 'Rename an organisation',
+  description:
+    'Change its name and/or what it calls its head (`headTitle`, e.g. Head, Director) and its `description` (200 words at most; `null` clears it). Names stay unique, ignoring case. Needs `platform.organisation.manage`.',
+  request: {
+    params: organisationParamsSchema,
+    body: jsonBody(updateOrganisationSchema, { name: 'Central North', headTitle: 'Director' }),
+  },
+  response: successEnvelope(organisationResponseSchema, 'Organisation updated.'),
+  message: 'The organisation after the change.',
+  errors: [
+    NOT_ADMIN,
+    NO_ORGANISATION,
+    [409, 'Another organisation has this name.', 'An organisation with this name already exists.'],
+    422,
+  ],
+});
+document({
+  method: 'post',
+  path: '/organisations/{organisationId}/head/replace',
+  operationId: 'replaceHead',
+  summary: 'Replace the organisation head',
+  description: `
+Ends the current head's appointment and appoints the new head in one step.
+
+- Body: \`{ executiveId }\` for an executive already in this organisation, or the same fields as appointing a head.
+- The old head keeps their account, other positions and own credits; head access stops on their next request.`,
+  request: {
+    params: organisationParamsSchema,
+    body: jsonBody(replaceHeadSchema, { executiveId: '3f2c1a9e-6b7d-4e8f-9a0b-1c2d3e4f5a6b' }),
+  },
+  response: successEnvelope(organisationResponseSchema, 'Head replaced.'),
+  message: 'The organisation with its new head.',
+  errors: [
+    NOT_ADMIN,
+    NO_ORGANISATION,
+    [
+      409,
+      'No head yet, inactive organisation, the same person, or an inactive executive.',
+      'This executive is already the head.',
     ],
     422,
   ],
@@ -565,7 +779,8 @@ document({
   path: '/credit-adjustments',
   operationId: 'createPlatformCreditAdjustment',
   summary: 'Record a credit adjustment',
-  description: 'Post a signed, reasoned adjustment to an organisation wallet. Requires an Idempotency-Key header.',
+  description:
+    'Post a signed, reasoned adjustment to an organisation wallet. Requires an Idempotency-Key header.',
   request: {
     body: jsonBody(createCreditAdjustmentSchema, {
       organisationId: '11111111-1111-4111-8111-111111111111',
@@ -577,4 +792,78 @@ document({
   response: successEnvelope(creditTransactionResponseSchema, 'Credit adjustment recorded.', 201),
   message: 'The adjustment ledger entry.',
   errors: [NOT_ADMIN, 409, 422],
+});
+document({
+  method: 'get',
+  path: '/notifications',
+  operationId: 'listPlatformNotifications',
+  summary: 'List my notifications',
+  description: `
+What other people did that you may see: purchases and failed payments (\`platform.finance.view\`),
+credit adjustments (\`platform.credit.manage\`), admin changes (\`platform.admin.manage\`), locked
+accounts and reused sign-ins (\`platform.audit.view\`), and new organisations, heads and suspensions
+(everyone). Built from the audit log; never your own actions. Filter by \`status\` and \`search\`.`,
+  request: { query: listPlatformNotificationsSchema },
+  response: successEnvelope(
+    paginatedSchema(platformNotificationResponseSchema),
+    'Notifications retrieved.',
+  ),
+  message: 'A page of notifications, newest first.',
+  errors: [NOT_ADMIN, 422],
+});
+document({
+  method: 'get',
+  path: '/notifications/unread-count',
+  operationId: 'getPlatformUnreadCount',
+  summary: 'Count unread notifications',
+  description: 'For the badge on the home bell.',
+  response: successEnvelope(platformUnreadCountResponseSchema, 'Unread count retrieved.'),
+  message: 'How many are unread.',
+  errors: [NOT_ADMIN],
+});
+document({
+  method: 'post',
+  path: '/notifications/{notificationId}/read',
+  operationId: 'markPlatformNotificationRead',
+  summary: 'Mark one notification as read',
+  description: 'Safe to repeat. Returns the new unread count.',
+  request: { params: platformNotificationParamsSchema },
+  response: successEnvelope(platformUnreadCountResponseSchema, 'Notification marked as read.'),
+  message: 'The new unread count.',
+  errors: [NOT_ADMIN, [404, 'No notification has this id.', 'Notification not found.'], 422],
+});
+document({
+  method: 'post',
+  path: '/notifications/read-all',
+  operationId: 'markAllPlatformNotificationsRead',
+  summary: 'Mark every notification as read',
+  description: 'Everything up to now counts as read.',
+  response: successEnvelope(platformUnreadCountResponseSchema, 'All notifications marked as read.'),
+  message: 'Unread is now 0.',
+  errors: [NOT_ADMIN],
+});
+document({
+  method: 'post',
+  path: '/organisations/{organisationId}/workspace',
+  operationId: 'openOrganisationWorkspace',
+  summary: 'Work inside an organisation',
+  description: `
+Needs \`platform.organisation.operate\`. Returns the profile the app uses while you work inside this
+organisation: role \`head\`, every head permission, the organisation. Then send
+\`X-Organisation-Id: <id>\` on member, broadcast, template, approval, credit, report, notification
+and organisation requests; they run as the head, and the audit log names you.
+\`/auth\` and \`/platform\` requests ignore the header. Opening is recorded in the audit log.`,
+  request: { params: organisationParamsSchema },
+  response: successEnvelope(userResponseSchema, 'Organisation opened.'),
+  message: 'The working profile.',
+  errors: [
+    NOT_ADMIN,
+    NO_ORGANISATION,
+    [
+      409,
+      'Suspended, or no head yet.',
+      'Appoint a head first: the organisation works through its head.',
+    ],
+    422,
+  ],
 });

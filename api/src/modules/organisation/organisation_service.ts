@@ -11,7 +11,7 @@ import type {
 } from './organisation_types';
 
 // Write methods take the caller's transaction manager, so a cross-module action
-// (e.g. platform appointing a chairman) commits or rolls back as one unit.
+// (e.g. platform appointing a head) commits or rolls back as one unit.
 export const organisationService = {
   getActiveAccess(memberId: string, include: AccessIncludes = {}): Promise<ActiveAccess> {
     return organisationRepository.findActiveAccess(memberId, include);
@@ -21,7 +21,10 @@ export const organisationService = {
     return organisationRepository.organisationNameExists(name, manager);
   },
 
-  async createOrganisation(input: { name: string; type: string }, manager: EntityManager) {
+  async createOrganisation(
+    input: { name: string; type: string; description: string | null },
+    manager: EntityManager,
+  ) {
     const organisation = await organisationRepository.insertOrganisation(input, manager);
     return { id: organisation.id };
   },
@@ -38,8 +41,20 @@ export const organisationService = {
     await manager.getRepository(Organisation).update({ id: organisationId }, { status });
   },
 
-  async setOrganisationLogo(organisationId: string, logoPath: string | null, manager: EntityManager) {
+  async setOrganisationLogo(
+    organisationId: string,
+    logoPath: string | null,
+    manager: EntityManager,
+  ) {
     await manager.getRepository(Organisation).update({ id: organisationId }, { logoPath });
+  },
+
+  async updateDetails(
+    organisationId: string,
+    changes: { name?: string; headTitle?: string; description?: string | null },
+    manager: EntityManager,
+  ) {
+    await manager.getRepository(Organisation).update({ id: organisationId }, changes);
   },
 
   async setHeadTitle(organisationId: string, headTitle: string, manager: EntityManager) {

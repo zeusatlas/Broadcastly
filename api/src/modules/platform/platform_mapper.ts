@@ -1,5 +1,5 @@
 import { publicUploadUrl } from '../../common/uploads/image_upload';
-import type { PlatformAdminResponse } from '../auth';
+import { platformPermissionsOf, type PlatformAdminResponse } from '../auth';
 
 import type { ExecutiveRow, OrganisationRow, PlatformAdminRow } from './platform_repository';
 import type {
@@ -45,6 +45,7 @@ export function toOrganisationResponse(row: OrganisationRow): OrganisationRespon
     name: row.name,
     type: row.type,
     headTitle: row.headTitle,
+    description: row.description,
     status: row.status,
     logoUrl: publicUploadUrl(row.logoPath),
     credits: {
@@ -61,5 +62,9 @@ export function toOrganisationResponse(row: OrganisationRow): OrganisationRespon
 }
 
 export function toPlatformAdminSummary(row: PlatformAdminRow): PlatformAdminResponse {
-  return { ...row, fullName: `${row.firstName} ${row.lastName}` };
+  return {
+    ...row,
+    fullName: `${row.firstName} ${row.lastName}`,
+    permissions: platformPermissionsOf(row),
+  };
 }
