@@ -2,7 +2,12 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import { QueryFailedError } from 'typeorm';
 
-import { ForbiddenError, NotFoundError, ValidationError } from '../../common/errors/app_error';
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '../../common/errors/app_error';
 import { toPaginated, type Paginated } from '../../common/http/pagination';
 import { resolvePeriod, type PeriodParams } from '../../common/http/period';
 import { dataSource } from '../../config/database';
@@ -64,18 +69,17 @@ const seesOrganisationWallet = (auth: AccessContext) =>
 export const creditsService = {
   async getBalances(auth: AccessContext): Promise<CreditBalancesResponse> {
     const { organisationId, executiveId } = executiveOf(auth);
-    const [mine, organisation] = await Promise.all([
+    const seesOrganisation = seesOrganisationWallet(auth);
+    const [mine, totals] = await Promise.all([
       creditsRepository.findWalletBalance({ organisationId, executiveId }),
-      seesOrganisationWallet(auth) ? creditsRepository.findWalletBalance({ organisationId }) : null,
+      seesOrganisation ? creditsRepository.findOrganisationTotals(organisationId) : null,
     ]);
-    return {
-      mine: toWalletBalance(mine),
-      organisation: organisation && toWalletBalance(organisation),
-    };
+    const organisation = totals && toWalletBalance(totals);
+    return { mine: toWalletBalance(mine), organisation, organisationTotal: organisation };
   },
 
   async getOrganisationBalance(organisationId: string): Promise<WalletBalanceResponse> {
-    return toWalletBalance(await creditsRepository.findWalletBalance({ organisationId }));
+    return toWalletBalance(await creditsRepository.findOrganisationTotals(organisationId));
   },
 
   // Saved as pending first; the provider is called after commit so no lock waits on the network.
@@ -99,7 +103,8 @@ export const creditsService = {
           if (existing) return { ...existing, isNew: false };
         }
 
-        const wallet = await ledgerService.walletFor({ organisationId }, manager);
+        // Bought credits go straight into the buyer's own wallet (owner, 2026-11-06).
+        const wallet = await ledgerService.walletFor({ organisationId, executiveId }, manager);
         const created = await creditsRepository.insertPurchase(
           {
             organisationId,
@@ -189,29 +194,43 @@ export const creditsService = {
 
   async listTransactions(
     auth: AccessContext,
-    { wallet, type, page, pageSize, ...period }: ListCreditTransactionsRequest,
+    { wallet, type, types, page, pageSize, ...period }: ListCreditTransactionsRequest,
   ): Promise<Paginated<CreditTransactionResponse>> {
     const { organisationId, executiveId } = executiveOf(auth);
     if (wallet === 'organisation' && !seesOrganisationWallet(auth)) {
       throw new ForbiddenError('You do not have permission to see the organisation’s credits.');
     }
-    const owner = wallet === 'organisation' ? { organisationId } : { organisationId, executiveId };
-    return creditsService.listWalletTransactions(owner, period, { page, pageSize }, type);
+    const kinds = types?.length ? types : type ? [type] : undefined;
+    if (wallet === 'organisation') {
+      const { rows, total } = await creditsRepository.listTransactions(
+        { organisationId },
+        resolvePeriod(period),
+        { page, pageSize },
+        kinds,
+      );
+      return toPaginated(rows.map(toTransactionResponse), total, { page, pageSize });
+    }
+    return creditsService.listWalletTransactions(
+      { organisationId, executiveId },
+      period,
+      { page, pageSize },
+      kinds,
+    );
   },
 
   async listWalletTransactions(
     owner: { organisationId: string; executiveId?: string },
     period: PeriodParams,
     page: { page: number; pageSize: number },
-    type?: CreditTransactionType,
+    types?: CreditTransactionType[],
   ): Promise<Paginated<CreditTransactionResponse>> {
     const wallet = await creditsRepository.findWalletBalance(owner);
     if (!wallet.id) return toPaginated([], 0, page);
     const { rows, total } = await creditsRepository.listTransactions(
-      wallet.id,
+      { walletId: wallet.id },
       resolvePeriod(period),
       page,
-      type,
+      types,
     );
     return toPaginated(rows.map(toTransactionResponse), total, page);
   },
@@ -251,8 +270,10 @@ export const creditsService = {
         manager,
       );
       if (!organisation) throw new NotFoundError('Organisation not found.');
+      const headId = await creditsRepository.findHeadExecutiveId(input.organisationId, manager);
+      if (!headId) throw new ConflictError('This organisation has no head to receive the credits.');
       const wallet = await ledgerService.walletFor(
-        { organisationId: input.organisationId },
+        { organisationId: input.organisationId, executiveId: headId },
         manager,
       );
       const existing = await manager.getRepository(CreditTransaction).findOneBy({ idempotencyKey });
@@ -299,6 +320,7 @@ export const creditsService = {
       balanceAfter: transaction.balanceAfter,
       reason: transaction.reason,
       initiatedBy: null,
+      walletOwner: null,
       purchaseId: transaction.purchaseId,
       broadcastId: transaction.broadcastId,
       createdAt: transaction.createdAt,
@@ -324,8 +346,18 @@ export const creditsService = {
     const outKey = `allocation:${base}:out`;
 
     const allocation = await dataSource.transaction(async (manager) => {
-      // Lock order is always organisation wallet, then executive wallet, so allocations never deadlock.
-      const organisationWallet = await ledgerService.walletFor({ organisationId }, manager);
+      // Two executives allocating to each other at once must lock their wallets in the same order.
+      const [first, second] = [callerId, executiveId].sort();
+      const firstWallet = await ledgerService.walletFor(
+        { organisationId, executiveId: first },
+        manager,
+      );
+      const secondWallet = await ledgerService.walletFor(
+        { organisationId, executiveId: second },
+        manager,
+      );
+      const sourceWallet = first === callerId ? firstWallet : secondWallet;
+      const targetWallet = first === callerId ? secondWallet : firstWallet;
 
       if (idempotencyKey) {
         const replay = await creditsRepository.findAllocationByKey(outKey, manager);
@@ -347,12 +379,6 @@ export const creditsService = {
         manager,
       );
       if (!target || !target.inReach) throw new NotFoundError(RECIPIENT_NOT_FOUND);
-      if (target.holdsChairman) {
-        throw new ValidationError(
-          { executiveId: ['The chairman spends from the organisation’s wallet.'] },
-          'The chairman spends from the organisation’s wallet, so cannot receive an allocation.',
-        );
-      }
       if (target.status !== 'active') {
         throw new ValidationError(
           { executiveId: ['This executive is not active.'] },
@@ -360,15 +386,11 @@ export const creditsService = {
         );
       }
 
-      const executiveWallet = await ledgerService.walletFor(
-        { organisationId, executiveId },
-        manager,
-      );
       const entry = { reason: reason ?? null, initiatedByExecutiveId: callerId };
       const out = await ledgerService.post(
         {
           ...entry,
-          walletId: organisationWallet.id,
+          walletId: sourceWallet.id,
           type: 'allocation_out',
           amount: -credits,
           idempotencyKey: outKey,
@@ -378,7 +400,7 @@ export const creditsService = {
       await ledgerService.post(
         {
           ...entry,
-          walletId: executiveWallet.id,
+          walletId: targetWallet.id,
           type: 'allocation_in',
           amount: credits,
           idempotencyKey: `allocation:${base}:in`,
@@ -405,10 +427,8 @@ export const creditsService = {
     { page, pageSize, ...period }: ListAllocationsRequest,
   ): Promise<Paginated<AllocationResponse>> {
     const { organisationId } = executiveOf(auth);
-    const wallet = await creditsRepository.findWalletBalance({ organisationId });
-    if (!wallet.id) return toPaginated([], 0, { page, pageSize });
     const { rows, total } = await creditsRepository.listAllocations(
-      wallet.id,
+      organisationId,
       scopeOf(auth),
       resolvePeriod(period),
       { page, pageSize },

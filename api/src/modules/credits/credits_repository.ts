@@ -47,6 +47,7 @@ export interface TransactionRow {
   purchaseId: string | null;
   broadcastId: string | null;
   createdAt: Date;
+  walletOwner: string | null;
 }
 
 export interface PlatformTransactionRow extends TransactionRow {
@@ -104,7 +105,7 @@ const inReach = (memberColumn: string, scopeParam: string) =>
   `EXISTS (SELECT 1 FROM appointments sa WHERE sa.member_id = ${memberColumn}
             AND sa.status = 'active' AND sa.unit_id = ANY(${scopeParam}::uuid[]))`;
 
-// One allocation = an allocation_out row on the organisation wallet plus its allocation_in twin,
+// One allocation = an allocation_out row on the giver's wallet plus its allocation_in twin,
 // paired through their keys (`<base>:out` / `<base>:in`), so no extra table is needed.
 const ALLOCATION_SELECT = `
   SELECT o.id, w.executive_id AS "executiveId", ${executiveName('w.executive_id')} AS "executiveName",
@@ -158,6 +159,26 @@ export const creditsRepository = {
     return row ?? { id: null, balance: 0, reserved: 0 };
   },
 
+  // Every executive's wallet in the organisation, added up.
+  async findOrganisationTotals(organisationId: string) {
+    const [row] = (await dataSource.query(
+      `SELECT COALESCE(SUM(balance), 0)::int AS balance, COALESCE(SUM(reserved), 0)::int AS reserved
+         FROM wallets WHERE organisation_id = $1`,
+      [organisationId],
+    )) as { balance: number; reserved: number }[];
+    return row ?? { balance: 0, reserved: 0 };
+  },
+
+  async findHeadExecutiveId(organisationId: string, manager: EntityManager) {
+    const [row] = (await manager.query(
+      `SELECT e.id FROM organisation_executives e
+         JOIN appointments a ON a.member_id = e.member_id AND a.status = 'active'
+        WHERE e.organisation_id = $1 AND a.position_id = $2 LIMIT 1`,
+      [organisationId, CHAIRMAN_POSITION_ID],
+    )) as { id: string }[];
+    return row?.id ?? null;
+  },
+
   findPurchaseByKey(organisationId: string, idempotencyKey: string, manager: EntityManager) {
     return manager.getRepository(CreditPurchase).findOneBy({ organisationId, idempotencyKey });
   },
@@ -196,23 +217,26 @@ export const creditsRepository = {
   },
 
   listTransactions(
-    walletId: string,
+    of: { walletId: string } | { organisationId: string },
     range: DateRange,
     page: PageParams,
-    type?: CreditTransactionType,
+    types?: CreditTransactionType[],
   ) {
-    const params: unknown[] = [walletId];
+    const params: unknown[] = ['walletId' in of ? of.walletId : of.organisationId];
     const param = (value: unknown) => `$${params.push(value)}`;
-    const clauses = ['t.wallet_id = $1', ...rangeClauses('t.created_at', range, param)];
-    if (type) clauses.push(`t.type = ${param(type)}`);
+    const clauses = [
+      'walletId' in of ? 't.wallet_id = $1' : 'tw.organisation_id = $1',
+      ...rangeClauses('t.created_at', range, param),
+    ];
+    if (types?.length) clauses.push(`t.type::text = ANY(${param(types)}::text[])`);
     const select = `
       SELECT t.id, t.type, t.amount, t.balance_after AS "balanceAfter", t.reason,
              COALESCE(${executiveName('t.initiated_by_executive_id')},
                       (SELECT a.first_name || ' ' || a.last_name FROM platform_admins a
                         WHERE a.id = t.initiated_by_platform_admin_id)) AS "initiatedBy",
              t.purchase_id AS "purchaseId", t.broadcast_id AS "broadcastId",
-             t.created_at AS "createdAt"
-        FROM credit_transactions t`;
+             t.created_at AS "createdAt", ${executiveName('tw.executive_id')} AS "walletOwner"
+        FROM credit_transactions t JOIN wallets tw ON tw.id = t.wallet_id`;
     return paged<TransactionRow>(`${select} WHERE ${clauses.join(' AND ')}`, params, page);
   },
 
@@ -240,7 +264,7 @@ export const creditsRepository = {
              ) AS "initiatedBy",
              t.purchase_id AS "purchaseId", t.broadcast_id AS "broadcastId",
              t.created_at AS "createdAt", w.organisation_id AS "organisationId",
-             o.name AS "organisationName"
+             o.name AS "organisationName", ${executiveName('w.executive_id')} AS "walletOwner"
         FROM credit_transactions t
         JOIN wallets w ON w.id = t.wallet_id
         JOIN organisations o ON o.id = w.organisation_id`;
@@ -294,11 +318,11 @@ export const creditsRepository = {
     return row ?? null;
   },
 
-  listAllocations(walletId: string, scope: Scope, range: DateRange, page: PageParams) {
-    const params: unknown[] = [walletId];
+  listAllocations(organisationId: string, scope: Scope, range: DateRange, page: PageParams) {
+    const params: unknown[] = [organisationId];
     const param = (value: unknown) => `$${params.push(value)}`;
     const clauses = [
-      'o.wallet_id = $1',
+      'w.organisation_id = $1',
       `o.type = 'allocation_out'`,
       ...rangeClauses('o.created_at', range, param),
     ];
@@ -314,7 +338,7 @@ export const creditsRepository = {
     );
   },
 
-  // Active executives the caller may allocate to: in reach, not themselves, not the chairman.
+  // Active executives the caller may allocate to: in reach and never themselves.
   async listAllocationRecipients(
     organisationId: string,
     callerExecutiveId: string,
@@ -322,15 +346,9 @@ export const creditsRepository = {
     search: string | undefined,
     page: PageParams,
   ) {
-    const params: unknown[] = [organisationId, callerExecutiveId, CHAIRMAN_POSITION_ID];
+    const params: unknown[] = [organisationId, callerExecutiveId];
     const param = (value: unknown) => `$${params.push(value)}`;
-    const clauses = [
-      'e.organisation_id = $1',
-      `e.status = 'active'`,
-      'e.id <> $2',
-      `NOT EXISTS (SELECT 1 FROM appointments ca WHERE ca.member_id = e.member_id
-                    AND ca.status = 'active' AND ca.position_id = $3)`,
-    ];
+    const clauses = ['e.organisation_id = $1', `e.status = 'active'`, 'e.id <> $2'];
     if (scope) clauses.push(inReach('e.member_id', param(scope)));
     if (search) {
       const p = param(likePattern(search));
@@ -351,7 +369,8 @@ export const creditsRepository = {
                            WHERE a.member_id = e.member_id AND a.status = 'active'), '[]') AS positions,
                 COALESCE(w.balance, 0) AS balance, COALESCE(w.reserved, 0) AS reserved
            FROM (SELECT e.id, e.member_id, m.first_name, m.last_name ${from}
-                  ORDER BY m.first_name, m.last_name, e.id LIMIT $${n + 1} OFFSET $${n + 2}) e
+                  ORDER BY m.first_name, m.last_name, e.id
+                  LIMIT $${n + 1} OFFSET $${n + 2}) e
            LEFT JOIN wallets w ON w.executive_id = e.id
           ORDER BY e.first_name, e.last_name, e.id`,
         [...params, take, skip],

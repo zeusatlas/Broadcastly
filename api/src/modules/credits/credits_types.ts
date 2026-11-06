@@ -33,7 +33,10 @@ export interface WalletBalanceResponse {
 }
 
 export interface CreditBalancesResponse {
+  // Every executive's wallet in the organisation added up; `organisationTotal` is the same (kept for
+  // older clients). Null unless you may see the organisation's credits.
   organisation: WalletBalanceResponse | null;
+  organisationTotal: WalletBalanceResponse | null;
   mine: WalletBalanceResponse;
 }
 
@@ -74,6 +77,8 @@ export interface CreditTransactionResponse {
   purchaseId: string | null;
   broadcastId: string | null;
   createdAt: Date;
+  // Whose wallet the row belongs to; shown in the organisation-wide history.
+  walletOwner: string | null;
 }
 
 export interface PlatformCreditTransactionResponse extends CreditTransactionResponse {
@@ -84,6 +89,8 @@ export interface PlatformCreditTransactionResponse extends CreditTransactionResp
 export interface ListCreditTransactionsRequest extends PageParams, PeriodParams {
   wallet: 'mine' | 'organisation';
   type?: CreditTransactionType;
+  // Several kinds at once (e.g. everything that added credits); takes precedence over `type`.
+  types?: CreditTransactionType[];
 }
 
 export interface CreateAllocationRequest {

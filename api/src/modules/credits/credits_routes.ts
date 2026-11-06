@@ -102,7 +102,7 @@ openApiRegistry.registerPath({
   tags,
   summary: 'List who you can allocate to',
   description:
-    'Active executives of your organisation within your reach, each with their positions and wallet. Excludes you and the chairman (who spends the organisation’s wallet). Search by name or party ID.',
+    'Active executives of your organisation within your reach, each with their positions and wallet. Excludes other heads, and excludes you unless you are the head (who funds their own wallet from the organisation’s). Search by name or party ID.',
   security,
   request: { query: listAllocationRecipientsSchema },
   responses: {
@@ -168,7 +168,7 @@ Moves credits from the organisation's wallet to an executive's wallet in one ste
       ],
       [
         422,
-        'Yourself, the chairman, an inactive executive, or a reused Idempotency-Key.',
+        'Yourself (unless you are the head), another head, an inactive executive, or a reused Idempotency-Key.',
         'You cannot allocate credits to yourself.',
       ],
     ),

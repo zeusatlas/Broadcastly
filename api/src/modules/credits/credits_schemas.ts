@@ -67,9 +67,13 @@ export const listCreditTransactionsSchema = pageQuerySchema
   .extend({
     wallet: z.enum(['mine', 'organisation']).default('mine'),
     type: z.enum(CREDIT_TRANSACTION_TYPES).optional(),
+    types: z.preprocess(
+      (value) => (typeof value === 'string' ? value.split(',').filter(Boolean) : value),
+      z.array(z.enum(CREDIT_TRANSACTION_TYPES)).max(CREDIT_TRANSACTION_TYPES.length).optional(),
+    ),
     ...periodQueryShape,
   })
-  .superRefine(checkPeriod) satisfies z.ZodType<ListCreditTransactionsRequest>;
+  .superRefine(checkPeriod) satisfies z.ZodType<ListCreditTransactionsRequest, unknown>;
 
 export const walletBalanceSchema = z
   .object({
@@ -80,7 +84,11 @@ export const walletBalanceSchema = z
   .openapi('WalletBalance');
 
 export const creditBalancesResponseSchema = z
-  .object({ organisation: walletBalanceSchema.nullable(), mine: walletBalanceSchema })
+  .object({
+    organisation: walletBalanceSchema.nullable(),
+    organisationTotal: walletBalanceSchema.nullable(),
+    mine: walletBalanceSchema,
+  })
   .openapi('CreditBalancesResponse');
 
 export const purchaseResponseSchema = z
@@ -114,6 +122,7 @@ export const creditTransactionResponseSchema = z
     purchaseId: z.uuid().nullable(),
     broadcastId: z.uuid().nullable(),
     createdAt: z.iso.datetime(),
+    walletOwner: z.string().nullable().openapi({ example: 'Ama Owusu' }),
   })
   .openapi('CreditTransactionResponse');
 

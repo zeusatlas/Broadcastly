@@ -13,7 +13,6 @@ import {
   type BroadcastDetailResponse,
 } from '../broadcasts';
 import { notificationsService } from '../notifications';
-import { organisationService } from '../organisation';
 
 import { approvalsRepository, decidableSql, type ApproverReach } from './approvals_repository';
 import type {
@@ -135,13 +134,11 @@ export const approvalsService = {
       throw new NotFoundError(NOT_FOUND);
     }
 
+    // The author pays from their own wallet, so that is the balance the approver needs to see.
     const author = await broadcastsRepository.creatorOf(broadcastId, dataSource.manager);
-    const access = author ? await organisationService.getActiveAccess(author.memberId) : null;
     const [wallet] = (await dataSource.query(
-      access?.holdsChairman
-        ? `SELECT balance - reserved AS available FROM wallets WHERE organisation_id = $1 AND owner_type = 'organisation'`
-        : `SELECT balance - reserved AS available FROM wallets WHERE executive_id = $1`,
-      [access?.holdsChairman ? broadcast.organisationId : (author?.executiveId ?? null)],
+      `SELECT balance - reserved AS available FROM wallets WHERE executive_id = $1`,
+      [author?.executiveId ?? null],
     )) as { available: number }[];
 
     return {

@@ -4,6 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { resolvePeriod } from '../src/common/http/period';
 import { detectImageType } from '../src/common/uploads/image_upload';
+import {
+  createPlatformAdminSchema,
+  hasAccess,
+  platformPermissionsOf,
+  PLATFORM_PERMISSIONS,
+  type AccessContext,
+} from '../src/modules/auth';
 import { listPurchasesSchema } from '../src/modules/credits';
 
 // Pure logic and route protection only; the endpoint flows were run end to end against PostgreSQL
@@ -44,12 +51,10 @@ describe('date periods', () => {
   });
 
   it('custom includes the whole end date', () => {
-    expect(resolvePeriod({ period: 'custom', from: '2026-10-01', to: '2026-10-31' }, NOW)).toEqual(
-      {
-        from: new Date('2026-10-01T00:00:00.000Z'),
-        to: new Date('2026-11-01T00:00:00.000Z'),
-      },
-    );
+    expect(resolvePeriod({ period: 'custom', from: '2026-10-01', to: '2026-10-31' }, NOW)).toEqual({
+      from: new Date('2026-10-01T00:00:00.000Z'),
+      to: new Date('2026-11-01T00:00:00.000Z'),
+    });
   });
 
   it('custom needs a date and a sane order', () => {
@@ -96,6 +101,7 @@ describe('route protection', () => {
     ['post', '/api/v1/platform/organisations/3f2c1a9e-6b7d-4e8f-9a0b-1c2d3e4f5a6b/suspend'],
     ['post', '/api/v1/platform/organisations/3f2c1a9e-6b7d-4e8f-9a0b-1c2d3e4f5a6b/logo'],
     ['post', '/api/v1/organisation/logo'],
+    ['patch', '/api/v1/platform/admins/3f2c1a9e-6b7d-4e8f-9a0b-1c2d3e4f5a6b/permissions'],
   ] as const)('%s %s needs a session', async (method, path) => {
     const res = await request(app)[method](path);
     expect(res.status).toBe(401);
@@ -105,5 +111,50 @@ describe('route protection', () => {
     const res = await request(app).post('/api/v1/credits/payments/webhook').send({ amount: 5 });
     expect(res.status).toBe(422);
     expect(res.body.message).toBe('This is not a valid payment notification.');
+  });
+});
+
+describe('platform admin permissions', () => {
+  it('gives the main admin every permission, whatever is stored', () => {
+    expect(platformPermissionsOf({ isSuperAdmin: true, permissions: [] })).toEqual([
+      ...PLATFORM_PERMISSIONS,
+    ]);
+  });
+
+  it('gives other admins only known, ticked permissions', () => {
+    expect(
+      platformPermissionsOf({
+        isSuperAdmin: false,
+        permissions: [
+          'platform.finance.view',
+          'broadcast.send',
+          'made.up',
+          'platform.finance.view',
+        ],
+      }),
+    ).toEqual(['platform.finance.view']);
+  });
+
+  it('checks a route permission against the admin context', () => {
+    const auth = {
+      kind: 'platform_admin',
+      role: 'platform_admin',
+      permissions: new Set(['platform.finance.view']),
+    } as unknown as AccessContext;
+    expect(hasAccess(auth, { permission: 'platform.finance.view' })).toBe(true);
+    expect(hasAccess(auth, { permission: 'platform.admin.manage' })).toBe(false);
+  });
+
+  it('refuses unknown permissions when adding an admin', () => {
+    const base = {
+      firstName: 'Yaw',
+      lastName: 'Darko',
+      email: 'y@example.com',
+      phone: '0271234567',
+    };
+    expect(createPlatformAdminSchema.safeParse(base).success).toBe(true);
+    expect(
+      createPlatformAdminSchema.safeParse({ ...base, permissions: ['broadcast.send'] }).success,
+    ).toBe(false);
   });
 });
